@@ -7,7 +7,7 @@ import (
 	serverv3 "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
 
-	"acnodal.io/egw-ws/internal/model"
+	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 )
 
 var (
@@ -15,8 +15,9 @@ var (
 	l     Logger
 )
 
-func UpdateModel(nodeID string, service model.Service, endpoints []model.Endpoint) error {
-	snapshot := ServiceToSnapshot(service, endpoints)
+// UpdateModel updates Envoy's model with new info about this LB.
+func UpdateModel(nodeID string, service egwv1.LoadBalancer) error {
+	snapshot := ServiceToSnapshot(service)
 	return updateSnapshot(nodeID, snapshot)
 }
 
@@ -36,6 +37,8 @@ func updateSnapshot(nodeID string, snapshot cachev3.Snapshot) error {
 	return nil
 }
 
+// LaunchControlPlane launches an xDS control plane in the
+// foreground. Note that this means that this function doesn't return.
 func LaunchControlPlane(xDSPort uint, nodeID string, debug bool) error {
 	l = Logger{Debug: debug}
 

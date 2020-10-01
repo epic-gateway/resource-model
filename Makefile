@@ -1,26 +1,40 @@
-.DEFAULT_GOAL:=help
-SHELL:=/bin/bash
+PREFIX = egw-xds
+SUFFIX = ${USER}-dev
 
-TAG=registry.gitlab.com/acnodal/egw-web-service/web-service:${USER}-dev
+TAG=${PREFIX}/xds-operator:${SUFFIX}
 DOCKERFILE=build/package/Dockerfile
 
-##@ Development
+ifndef GITLAB_TOKEN
+$(error GITLAB_TOKEN not set. It must contain a gitlab Personal Access Token with repo read access)
+endif
 
-run: ## Run the service using "go run"
-	go run ./cmd/egw-ws --debug
-
-image: ## Build the Docker image
-	docker build --file=${DOCKERFILE} --tag=${TAG} .
-
-runimage: image ## Run the service using "docker run"
-	docker run --rm --env=DATABASE_URL --env=PGPASSWORD --publish=8080:8080 --publish=18000:18000 ${TAG}
-
-push:	image ## Push the image to the repo
-	docker push ${TAG}
-
+##@ Default Goal
 .PHONY: help
 help: ## Display this help
-	@echo -e "Usage:\n  make <target>"
+	@echo "Usage:\n  make <goal> [VAR=value ...]"
+	@echo "\nVariables"
+	@echo "  PREFIX Docker tag prefix (useful to set the docker registry)"
+	@echo "  SUFFIX Docker tag suffix (the part after ':')"
 	@awk 'BEGIN {FS = ":.*##"}; \
 		/^[a-zA-Z0-9_-]+:.*?##/ { printf "  %-15s %s\n", $$1, $$2 } \
 		/^##@/ { printf "\n%s\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+##@ Development Goals
+
+.PHONY: check
+check: ## Run some code quality checks
+	go vet ./...
+	golint -set_exit_status ./...
+	go test -race -short ./...
+
+run: ## Run the service using "go run" (KUBECONFIG needs to be set)
+	go run ./main.go --debug
+
+image:	check ## Build the Docker image
+	@docker build --build-arg=GITLAB_TOKEN --file=${DOCKERFILE} --tag=${TAG} .
+
+runimage: image ## Run the service using "docker run"
+	docker run --rm --publish=18000:18000 ${TAG}
+
+install:	image ## Push the image to the repo
+	docker push ${TAG}

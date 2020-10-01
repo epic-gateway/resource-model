@@ -11,39 +11,40 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
+
 package envoy
 
 import (
 	"log"
 )
 
-// An example of a logger that implements pkg/log/Logger.  Logs to
-// stdout.  If debug == false then Debugf() and Infof() won't output
-// anything.
-type Logger struct{
+// Logger is an example of a logger that implements pkg/log/Logger.
+// It logs to stdout.  If debug == false then Debugf() and Infof()
+// won't output anything.
+type Logger struct {
 	Debug bool
 }
 
-// Log to stdout only if debug == true.
+// Debugf logs to stdout only if debug == true.
 func (logger Logger) Debugf(format string, args ...interface{}) {
 	if logger.Debug {
 		log.Printf(format+"\n", args...)
 	}
 }
 
-// Log to stdout only if debug == true.
+// Infof logs to stdout only if debug == true.
 func (logger Logger) Infof(format string, args ...interface{}) {
 	if logger.Debug {
 		log.Printf(format+"\n", args...)
 	}
 }
 
-// Log to stdout always.
+// Warnf logs to stdout always.
 func (logger Logger) Warnf(format string, args ...interface{}) {
 	log.Printf(format+"\n", args...)
 }
 
-// Log to stdout always.
+// Errorf logs to stdout always.
 func (logger Logger) Errorf(format string, args ...interface{}) {
 	log.Printf(format+"\n", args...)
 }

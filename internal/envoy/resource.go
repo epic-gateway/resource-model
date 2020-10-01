@@ -11,6 +11,7 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
+
 package envoy
 
 import (
@@ -28,23 +29,22 @@ import (
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
-	"acnodal.io/egw-ws/internal/model"
+	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 )
 
 const (
-	RouteName    = "local_route"
-	ListenerName = "listener_0"
-	ListenerPort = 10000
+	routeName    = "local_route"
+	listenerName = "listener_0"
 )
 
 var (
 	version int
 )
 
-func serviceToCluster(service model.Service, endpoints []model.Endpoint) *cluster.Cluster {
+func serviceToCluster(service egwv1.LoadBalancer) *cluster.Cluster {
 	// Translate EGW endpoints into Envoy LbEndpoints
-	lbEndpoints := make([]*endpoint.LbEndpoint, len(endpoints))
-	for i, ep := range endpoints {
+	lbEndpoints := make([]*endpoint.LbEndpoint, len(service.Spec.Endpoints))
+	for i, ep := range service.Spec.Endpoints {
 		lbEndpoints[i] = EndpointToLbEndpoint(ep)
 	}
 
@@ -64,7 +64,10 @@ func serviceToCluster(service model.Service, endpoints []model.Endpoint) *cluste
 	}
 }
 
-func EndpointToLbEndpoint(ep model.Endpoint) *endpoint.LbEndpoint {
+// EndpointToLbEndpoint translates one of our
+// egwv1.LoadBalancerEndpoints into one of Envoy's
+// endpoint.LbEndpoints.
+func EndpointToLbEndpoint(ep egwv1.LoadBalancerEndpoint) *endpoint.LbEndpoint {
 	return &endpoint.LbEndpoint{
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
@@ -84,12 +87,12 @@ func EndpointToLbEndpoint(ep model.Endpoint) *endpoint.LbEndpoint {
 	}
 }
 
-func makeHTTPListener(service model.Service, listenerName string, route string, upstreamHost string) *listener.Listener {
+func makeHTTPListener(service egwv1.LoadBalancer, listenerName string, route string, upstreamHost string, ports []int) *listener.Listener {
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "http",
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: makeRoute(RouteName, service.Name, upstreamHost),
+			RouteConfig: makeRoute(routeName, service.Name, upstreamHost),
 		},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name: wellknown.Router,
@@ -108,7 +111,7 @@ func makeHTTPListener(service model.Service, listenerName string, route string, 
 					Protocol: core.SocketAddress_TCP,
 					Address:  "0.0.0.0",
 					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: ListenerPort,
+						PortValue: uint32(ports[0]),
 					},
 				},
 			},
@@ -151,22 +154,29 @@ func makeRoute(routeName string, clusterName string, upstreamHost string) *route
 	}
 }
 
-func ServiceToSnapshot(service model.Service, endpoints []model.Endpoint) cachev3.Snapshot {
-	version += 1
+// ServiceToSnapshot translates one of our egwv1.LoadBalancers into an
+// xDS cachev3.Snapshot.
+func ServiceToSnapshot(service egwv1.LoadBalancer) cachev3.Snapshot {
+	version++
 	return cachev3.NewSnapshot(
 		string(version),
 		[]types.Resource{}, // endpoints
-		[]types.Resource{serviceToCluster(service, endpoints)},
+		[]types.Resource{serviceToCluster(service)},
 		[]types.Resource{}, // routes
 		// FIXME: we currently need this Address because we're doing HTTP
 		// rewriting which we probably don't want to do
-		[]types.Resource{makeHTTPListener(service, ListenerName, RouteName, endpoints[0].Address)},
+<<<<<<< HEAD
+		[]types.Resource{makeHTTPListener(service, listenerName, routeName, service.Status.Endpoints[0].Address)},
+=======
+		[]types.Resource{makeHTTPListener(service, listenerName, routeName, service.Spec.PublicAddress, service.Spec.PublicPorts)},
+>>>>>>> 35adae5... fixup! Trade rdbms for custom resources (almost)
 		[]types.Resource{}, // runtimes
 	)
 }
 
+// NewSnapshot returns an empty snapshot.
 func NewSnapshot() cachev3.Snapshot {
-	version += 1
+	version++
 	return cachev3.NewSnapshot(
 		string(version),
 		[]types.Resource{}, // endpoints

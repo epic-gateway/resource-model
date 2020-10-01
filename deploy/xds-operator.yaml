@@ -4,7 +4,7 @@ kind: ServiceAccount
 metadata:
   labels:
     app: egw
-  name: egw-web-service
+  name: xds-operator
   namespace: acnodal
 ---
 apiVersion: apps/v1
@@ -12,28 +12,28 @@ kind: Deployment
 metadata:
   labels:
     app: egw
-    component: web-service
-  name: web-service
+    component: xds-operator
+  name: xds-operator
   namespace: acnodal
 spec:
   revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: egw
-      component: web-service
+      component: xds-operator
   template:
     metadata:
       labels:
         app: egw
-        component: web-service
+        component: xds-operator
     spec:
       imagePullSecrets:
       - name: gitlab
       containers:
       - args:
-        image: registry.gitlab.com/acnodal/egw/controller:latest
+        image: registry.gitlab.com/acnodal/xds-operator/xds-operator:latest
         imagePullPolicy: Always
-        name: web-service
+        name: xds-operator
         ports:
         - containerPort: 8080
           name: http
@@ -45,15 +45,13 @@ spec:
         securityContext:
           allowPrivilegeEscalation: true
           readOnlyRootFilesystem: true
-      nodeSelector:
-        beta.kubernetes.io/os: linux
-      serviceAccountName: egw-web-service
+      serviceAccountName: xds-operator
       terminationGracePeriodSeconds: 0
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: web-service
+  name: xds-operator
   namespace: acnodal
 spec:
   type: NodePort
@@ -62,4 +60,4 @@ spec:
       nodePort: 30080
   selector:
     app: egw
-    component: web-service
+    component: xds-operator
