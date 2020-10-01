@@ -11,9 +11,6 @@ import (
 type AccountSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Account. Edit Account_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
 }
 
 // AccountStatus defines the observed state of Account
@@ -25,7 +22,10 @@ type AccountStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// Account is the Schema for the accounts API
+// Account represents a business relationship between Acnodal and a
+// third party. Since we know who we are, Account stores info about
+// the third party and any info about our relationship that influences
+// how the system operates.
 type Account struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

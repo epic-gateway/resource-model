@@ -12,8 +12,9 @@ type ServiceGroupSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ServiceGroup. Edit ServiceGroup_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Account is the UID of the Account that is responsible for this
+	// ServiceGroup.
+	Account string `json:"account"`
 }
 
 // ServiceGroupStatus defines the observed state of ServiceGroup
