@@ -2,6 +2,16 @@ domain: acnodal.io
 layout: go.kubebuilder.io/v2
 projectName: egw-resource-model
 repo: gitlab.com/acnodal/egw-resource-model
+resources:
+- group: egw
+  kind: Account
+  version: v1
+- group: egw
+  kind: ServiceGroup
+  version: v1
+- group: egw
+  kind: LoadBalancer
+  version: v1
 version: 3-alpha
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}

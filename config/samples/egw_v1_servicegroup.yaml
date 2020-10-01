@@ -1,0 +1,7 @@
+apiVersion: egw.acnodal.io/v1
+kind: ServiceGroup
+metadata:
+  name: servicegroup-sample
+spec:
+  # Add fields here
+  foo: bar
