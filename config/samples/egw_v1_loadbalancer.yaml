@@ -1,7 +1,12 @@
 apiVersion: egw.acnodal.io/v1
 kind: LoadBalancer
 metadata:
+  namespace: acnodal
   name: loadbalancer-sample
 spec:
-  # Add fields here
-  foo: bar
+  # NOTE: if you want this LoadBalancer to link to a service group,
+  # replace this UID with one that you get from "kubectl describe -n
+  # acnodal servicegroups.egw.acnodal.io/your-service-group"
+  service-group: d953673b-3beb-4a52-b9f4-b37e367219b6
+  address: 192.168.42.240
+  port: 80

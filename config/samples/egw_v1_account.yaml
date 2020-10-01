@@ -1,7 +1,6 @@
 apiVersion: egw.acnodal.io/v1
 kind: Account
 metadata:
+  namespace: acnodal
   name: account-sample
-spec:
-  # Add fields here
-  foo: bar
+spec: {}

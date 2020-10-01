@@ -1,7 +1,10 @@
 apiVersion: egw.acnodal.io/v1
 kind: ServiceGroup
 metadata:
+  namespace: acnodal
   name: servicegroup-sample
 spec:
-  # Add fields here
-  foo: bar
+  # NOTE: if you want this ServiceGroup to link to an account, replace
+  # this UID with one that you get from "kubectl describe -n acnodal
+  # accounts.egw.acnodal.io/your-account"
+  account: ae719673-9331-4bc0-adcb-d3d12bc64d92
