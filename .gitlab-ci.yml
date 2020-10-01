@@ -21,4 +21,4 @@ gen:
 
 test:
   script:
-    - make test
+    - make vet
