@@ -12,7 +12,7 @@ type LoadBalancerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// ServiceGroup is the UID of the ServiceGroup to which this
+	// ServiceGroup is the name of the ServiceGroup to which this
 	// LoadBalancer belongs.
 	ServiceGroup string `json:"service-group"`
 

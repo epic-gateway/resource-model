@@ -8,18 +8,11 @@ before_script:
   - ln -svf $CI_PROJECT_DIR $GOPATH/src/$REPO_NAME
   - cd $GOPATH/src/$REPO_NAME
 
-stages:
-  - gen
-  - test
-
-gen:
-  script:
-    - make manifests
+make:
+  script: make
   artifacts:
     paths:
-      - config/crd/bases/egw.acnodal.io.yaml
+      - config/crd/egw-namespace.yaml
+      - config/crd/bases/egw.acnodal.io*.yaml
+      - config/samples/namespace.yaml
       - config/samples/egw_v1_*.yaml
-
-test:
-  script:
-    - make vet

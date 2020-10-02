@@ -1,6 +1,6 @@
 apiVersion: egw.acnodal.io/v1
 kind: Account
 metadata:
-  namespace: acnodal
-  name: account-sample
+  namespace: egw
+  name: sample
 spec: {}
