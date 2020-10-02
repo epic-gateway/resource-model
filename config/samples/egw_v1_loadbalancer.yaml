@@ -8,5 +8,5 @@ spec:
   # replace this UID with one that you get from "kubectl describe -n
   # acnodal servicegroups.egw.acnodal.io/your-service-group"
   service-group: d953673b-3beb-4a52-b9f4-b37e367219b6
-  address: 192.168.42.240
-  port: 80
+  public-address: 192.168.42.240
+  ports: [80]
