@@ -165,11 +165,7 @@ func ServiceToSnapshot(service egwv1.LoadBalancer) cachev3.Snapshot {
 		[]types.Resource{}, // routes
 		// FIXME: we currently need this Address because we're doing HTTP
 		// rewriting which we probably don't want to do
-<<<<<<< HEAD
-		[]types.Resource{makeHTTPListener(service, listenerName, routeName, service.Status.Endpoints[0].Address)},
-=======
 		[]types.Resource{makeHTTPListener(service, listenerName, routeName, service.Spec.PublicAddress, service.Spec.PublicPorts)},
->>>>>>> 35adae5... fixup! Trade rdbms for custom resources (almost)
 		[]types.Resource{}, // runtimes
 	)
 }

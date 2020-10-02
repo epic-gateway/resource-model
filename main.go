@@ -12,10 +12,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"acnodal.io/egw-ws/internal/controllers"
 	"acnodal.io/egw-ws/internal/envoy"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
-	"gitlab.com/acnodal/egw-resource-model/controllers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -37,12 +37,12 @@ func init() {
 type callbacks struct {
 }
 
-func (cb *callbacks) ServiceChanged(service egwv1.LoadBalancer) {
+func (cb callbacks) LoadBalancerChanged(service *egwv1.LoadBalancer) error {
 	log.Printf("service changed: %v", service)
-	if err := envoy.UpdateModel(nodeID, service); err != nil {
+	if err := envoy.UpdateModel(nodeID, *service); err != nil {
 		log.Fatal(err)
 	}
-	return
+	return nil
 }
 
 func main() {
@@ -88,9 +88,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.LoadBalancerReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Log:       ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
+		Callbacks: callbacks{},
+		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
 		os.Exit(1)

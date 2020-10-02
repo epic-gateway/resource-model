@@ -1,5 +1,6 @@
 PREFIX = egw-xds
 SUFFIX = ${USER}-dev
+SHELL:=/bin/bash
 
 TAG=${PREFIX}/xds-operator:${SUFFIX}
 DOCKERFILE=build/package/Dockerfile
