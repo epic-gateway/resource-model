@@ -21,6 +21,10 @@ type LoadBalancerSpec struct {
 
 	// PublicPorts is the set of ports on which this LB will listen.
 	PublicPorts []int `json:"public-ports"`
+
+	// Endpoints are the customer-cluster endpoints to which we send
+	// traffic.
+	Endpoints []LoadBalancerEndpoint `json:"endpoints,omitempty"`
 }
 
 // LoadBalancerEndpoint represents one endpoint on a customer cluster.
@@ -36,8 +40,6 @@ type LoadBalancerEndpoint struct {
 type LoadBalancerStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	Endpoints []LoadBalancerEndpoint `json:"endpoints"`
 }
 
 // +kubebuilder:object:root=true
