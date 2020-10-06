@@ -6,4 +6,4 @@ metadata:
 spec:
   service-group: sample
   public-address: 192.168.42.240
-  ports: [80]
+  public-ports: [80]

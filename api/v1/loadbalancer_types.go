@@ -19,8 +19,8 @@ type LoadBalancerSpec struct {
 	// PublicAddress is the publicly-visible IP address for this LB.
 	PublicAddress string `json:"public-address"`
 
-	// Ports is the set of ports on which this LB will listen.
-	Ports []int `json:"ports"`
+	// PublicPorts is the set of ports on which this LB will listen.
+	PublicPorts []int `json:"public-ports"`
 }
 
 // LoadBalancerEndpoint represents one endpoint on a customer cluster.
