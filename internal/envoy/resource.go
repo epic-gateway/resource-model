@@ -51,7 +51,7 @@ func serviceToCluster(service egwv1.LoadBalancer) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 service.Name,
 		ConnectTimeout:       ptypes.DurationProto(5 * time.Second),
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		DnsLookupFamily:      cluster.Cluster_V4_ONLY, // FIXME: using IPV6 I get:
 		// upstream connect error or disconnect/reset before headers. reset reason: connection failure
 		LbPolicy: cluster.Cluster_ROUND_ROBIN,
