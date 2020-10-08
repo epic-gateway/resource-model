@@ -24,12 +24,10 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 	xDSDebug bool
 	xDSPort  uint
-	nodeID   string
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(egwv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -39,6 +37,7 @@ type callbacks struct {
 
 func (cb callbacks) LoadBalancerChanged(service *egwv1.LoadBalancer) error {
 	log.Printf("service changed: %v", service)
+	nodeID := service.ObjectMeta.Namespace + "/" + service.ObjectMeta.Name
 	if err := envoy.UpdateModel(nodeID, *service); err != nil {
 		log.Fatal(err)
 	}
@@ -54,7 +53,6 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&xDSDebug, "debug", false, "Enable xds debug logging")
 	flag.UintVar(&xDSPort, "xds-port", 18000, "xDS management server port")
-	flag.StringVar(&nodeID, "nodeID", "egw-cp", "Envoy node ID")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -100,7 +98,7 @@ func main() {
 
 	// launch the Envoy xDS control plane in the background
 	setupLog.Info("starting xDS control plane")
-	go envoy.LaunchControlPlane(xDSPort, nodeID, xDSDebug)
+	go envoy.LaunchControlPlane(xDSPort, xDSDebug)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

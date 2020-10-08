@@ -39,13 +39,12 @@ func updateSnapshot(nodeID string, snapshot cachev3.Snapshot) error {
 
 // LaunchControlPlane launches an xDS control plane in the
 // foreground. Note that this means that this function doesn't return.
-func LaunchControlPlane(xDSPort uint, nodeID string, debug bool) error {
+func LaunchControlPlane(xDSPort uint, debug bool) error {
 	l = Logger{Debug: debug}
 
 	// create a cache
 	cache = cachev3.NewSnapshotCache(false, cachev3.IDHash{}, l)
 	cbv3 := &testv3.Callbacks{Debug: debug}
-	updateSnapshot(nodeID, NewSnapshot())
 	srv3 := serverv3.NewServer(context.Background(), cache, cbv3)
 
 	// run the xDS server
