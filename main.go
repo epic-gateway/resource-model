@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -13,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"acnodal.io/egw-ws/internal/controllers"
-	"acnodal.io/egw-ws/internal/envoy"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	// +kubebuilder:scaffold:imports
@@ -22,26 +20,12 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	xDSDebug bool
-	xDSPort  uint
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(egwv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
-}
-
-type callbacks struct {
-}
-
-func (cb callbacks) LoadBalancerChanged(service *egwv1.LoadBalancer) error {
-	log.Printf("service changed: %v", service)
-	nodeID := service.ObjectMeta.Namespace + "/" + service.ObjectMeta.Name
-	if err := envoy.UpdateModel(nodeID, *service); err != nil {
-		log.Fatal(err)
-	}
-	return nil
 }
 
 func main() {
@@ -51,8 +35,6 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&xDSDebug, "debug", false, "Enable xds debug logging")
-	flag.UintVar(&xDSPort, "xds-port", 18000, "xDS management server port")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -86,19 +68,14 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.LoadBalancerReconciler{
-		Client:    mgr.GetClient(),
-		Log:       ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
-		Callbacks: callbacks{},
-		Scheme:    mgr.GetScheme(),
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
-
-	// launch the Envoy xDS control plane in the background
-	setupLog.Info("starting xDS control plane")
-	go envoy.LaunchControlPlane(xDSPort, xDSDebug)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

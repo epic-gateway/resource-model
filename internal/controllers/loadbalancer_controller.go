@@ -11,22 +11,17 @@ import (
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 )
 
-// LoadBalancerCallbacks are how this controller notifies the control
-// plane of object changes.
-type LoadBalancerCallbacks interface {
-	LoadBalancerChanged(*egwv1.LoadBalancer) error
-}
-
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
-	Log       logr.Logger
-	Callbacks LoadBalancerCallbacks
-	Scheme    *runtime.Scheme
+	Log    logr.Logger
+	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=egw.acnodal.io,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=egw.acnodal.io,resources=pods,verbs=get;list;
 
 // Reconcile is the core of this controller. It gets requests from the
 // controller-runtime and figures out what to do with them.
@@ -42,11 +37,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return result, err
 	}
 
-	// tell the control plane about the changed object
-	err = r.Callbacks.LoadBalancerChanged(lb)
-	if err != nil {
-		return result, err
-	}
+	// Check if the deployment already exists, if not create a new one
 
 	return result, nil
 }
