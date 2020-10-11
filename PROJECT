@@ -12,6 +12,9 @@ resources:
 - group: egw
   kind: LoadBalancer
   version: v1
+- group: egw
+  kind: ServicePrefix
+  version: v1
 version: 3-alpha
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}

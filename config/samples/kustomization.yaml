@@ -3,4 +3,5 @@ resources:
 - egw_v1_account.yaml
 - egw_v1_servicegroup.yaml
 - egw_v1_loadbalancer.yaml
+- egw_v1_serviceprefix.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
