@@ -1,12 +1,6 @@
 image: golang:latest
 
-variables:
-  REPO_NAME: gitlab.com/acnodal/egw-resource-model
-
 before_script:
-  - mkdir -p $GOPATH/src/$(dirname $REPO_NAME)
-  - ln -svf $CI_PROJECT_DIR $GOPATH/src/$REPO_NAME
-  - cd $GOPATH/src/$REPO_NAME
   - go get golang.org/x/lint/golint
 
 make:
