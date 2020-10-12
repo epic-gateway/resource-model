@@ -21,6 +21,8 @@ type ServicePrefixReconciler struct {
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=serviceprefixes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=serviceprefixes/status,verbs=get;update;patch
 
+// Reconcile takes a Request and makes the system reflect what the
+// Request is asking for.
 func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("serviceprefix", req.NamespacedName)
@@ -30,6 +32,7 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager sets up this controller to work with the mgr.
 func (r *ServicePrefixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&egwv1.ServicePrefix{}).
