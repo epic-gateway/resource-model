@@ -6,5 +6,5 @@ metadata:
   namespace: egw
 spec:
   subnet: 192.168.77.0/24
-  pool: 192.168.77.1-192.168.77.8
+  pool: 192.168.77.2-192.168.77.8
   aggregation: default
