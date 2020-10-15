@@ -1,5 +1,6 @@
 FROM golang:alpine as builder
 
+ENV PROGRAM=/usr/local/bin/operator
 ENV GOOS=linux
 ARG GITLAB_TOKEN
 
@@ -8,24 +9,20 @@ ARG GITLAB_TOKEN
 RUN apk add git
 RUN git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.com/acnodal".insteadOf https://gitlab.com/acnodal
 
-WORKDIR /usr/src/xds-operator
+WORKDIR /usr/src
 COPY . ./
 
-# build the xDS operator (static)
-RUN go build  -tags 'osusergo netgo' -o /usr/local/bin/xds-operator ./main.go
+# build the egw operator (static)
+RUN go build  -tags 'osusergo netgo' -o ${PROGRAM} ./main.go
 
 
 # start fresh
-FROM ubuntu:20.04
-
-# install dependencies
-RUN apt-get update \
-    && apt-get install -y libelf-dev \
-    && rm -rf /var/lib/apt/lists/*
+FROM alpine:3
 
 # copy executables from the builder image
-WORKDIR /usr/local/bin
-COPY --from=builder /usr/local/bin/xds-operator ./
+COPY --from=builder /usr/local/bin/operator /usr/local/bin
 
 EXPOSE 8080
-CMD ["/usr/local/bin/xds-operator", "--debug"]
+
+# FIXME: run ${PROGRAM} instead of this hard-coded string
+CMD ["/usr/local/bin/operator"]
