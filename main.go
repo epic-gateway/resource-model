@@ -67,6 +67,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceGroup")
 		os.Exit(1)
 	}
+	if err = (&controllers.ServicePrefixReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ServicePrefix"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ServicePrefix")
+		os.Exit(1)
+	}
 	if err = (&controllers.LoadBalancerReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
