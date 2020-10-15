@@ -1,7 +1,9 @@
+---
 apiVersion: egw.acnodal.io/v1
 kind: ServicePrefix
 metadata:
   name: default
+  namespace: egw
 spec:
   subnet: 192.168.77.0/24
   pool: 192.168.77.1-192.168.77.8
