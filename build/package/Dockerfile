@@ -1,6 +1,5 @@
 FROM golang:alpine as builder
 
-ENV PROGRAM=/usr/local/bin/operator
 ENV GOOS=linux
 ARG GITLAB_TOKEN
 
@@ -9,22 +8,27 @@ ARG GITLAB_TOKEN
 RUN apk add git
 RUN git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.com/acnodal".insteadOf https://gitlab.com/acnodal
 
-WORKDIR /usr/src
+WORKDIR /opt/acnodal/src
 COPY . ./
 
 # build the egw operator (static)
-RUN go build  -tags 'osusergo netgo' -o ${PROGRAM} ./main.go
+RUN go build  -tags 'osusergo netgo' ./main.go
 
 
 # start fresh
 FROM alpine:3
+ENV DEST=/opt/acnodal/bin
+ENV PROGRAM=${DEST}/operator
 
 RUN apk add ipset
 
 # copy executables from the builder image
-COPY --from=builder /usr/local/bin/operator /usr/local/bin
+COPY --from=builder /opt/acnodal/src/main ${PROGRAM}
+
+# copy the packet forwarding components from the pfc dockerfile
+COPY --from=registry.gitlab.com/acnodal/packet-forwarding-component/pfc:latest /tmp/.acnodal/bin/* ${DEST}/
 
 EXPOSE 8081
 
 # FIXME: run ${PROGRAM} instead of this hard-coded string
-CMD ["/usr/local/bin/operator"]
+CMD ["/opt/acnodal/bin/operator"]
