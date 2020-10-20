@@ -6,17 +6,19 @@ import (
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// Important: Run "make" to regenerate code after modifying this file
 
 // ServiceGroupSpec defines the desired state of ServiceGroup
 type ServiceGroupSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+
+	// ServicePrefix is the name of the service prefix from which
+	// ServiceGroup's addresses are allocated.
+	// +kubebuilder:default=default
+	ServicePrefix string `json:"service-prefix,omitempty"`
 }
 
 // ServiceGroupStatus defines the observed state of ServiceGroup
 type ServiceGroupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
