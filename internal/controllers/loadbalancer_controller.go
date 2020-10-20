@@ -7,6 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
@@ -26,6 +27,7 @@ const (
 	envoyImage    = "registry.gitlab.com/acnodal/envoy-for-egw:latest"
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+	multusInt     = "multus0" // FIXME multus interface name is hardcoded, we should be getting it from netattachdef
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -41,9 +43,10 @@ type LoadBalancerReconciler struct {
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=pods,verbs=get;list;
 
-// Reconcile is the core of this controller. It gets requests from the
-// controller-runtime and figures out what to do with them.
+// Reconcile takes LoadBalancer events and configures the system to
+// support those LBs.
 func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+	var err error
 	result := ctrl.Result{}
 	ctx := context.TODO()
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
@@ -52,7 +55,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 	// read the object that caused the event
 	lb := &egwv1.LoadBalancer{}
-	err := r.Get(ctx, req.NamespacedName, lb)
+	err = r.Get(ctx, req.NamespacedName, lb)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -66,23 +69,40 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return result, err
 	}
 
-	// Setup host routing
+	// read the ServiceGroup that owns this LB
+	sg := &egwv1.ServiceGroup{}
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Spec.ServiceGroup}
+	err = r.Get(ctx, sgname, sg)
+	if err != nil {
+		log.Error(err, "Failed to find owning service group", "name", sgname)
+		return result, err
+	}
 
-	// FIXME multus interface name is hardcoded, we should be getting it from netattachdef
+	// the ServiceGroup points to the ServicePrefix
+	spname, err := splitNSName(sg.Spec.ServicePrefix)
+	if err != nil {
+		log.Error(err, "Failed to look up ServicePrefix", "name", spname)
+		return result, err
+	}
 
-	var multusint = "multus0"
-
+	// read the ServicePrefix that determines the interface that we'll use
 	prefix := &egwv1.ServicePrefix{}
+	err = r.Get(ctx, *spname, prefix)
+	if err != nil {
+		log.Error(err, "Failed to find owning service prefix", "name", spname)
+		return result, err
+	}
 
-	//FIXME - Static defination for Service Prefix CR
-
-	r.Get(ctx, types.NamespacedName{Name: "default", Namespace: "egw"}, prefix)
+	// Setup host routing
 
 	if prefix.Spec.Aggregation != "default" {
 
 		_, publicaddr, _ := net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
 
-		addRt(publicaddr, multusint)
+		err = addRt(publicaddr, multusInt)
+		if err != nil {
+			log.Error(err, "adding route to multus interface")
+		}
 
 		r.lbAddrs[(lb.Namespace + lb.Name)] = publicaddr
 
@@ -90,7 +110,10 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 		_, publicaddr, _ := net.ParseCIDR(prefix.Spec.Subnet)
 
-		addRt(publicaddr, multusint)
+		err = addRt(publicaddr, multusInt)
+		if err != nil {
+			log.Error(err, "adding route to multus interface")
+		}
 
 		r.lbAddrs[(lb.Namespace + lb.Name)] = publicaddr
 
@@ -104,7 +127,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	err = r.Get(ctx, types.NamespacedName{Name: lb.Name, Namespace: lb.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new deployment
-		dep := r.deploymentForLB(lb)
+		dep := r.deploymentForLB(lb, spname)
 
 		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 		err = r.Create(ctx, dep)
@@ -126,14 +149,13 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
-func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer) *appsv1.Deployment {
+func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName) *appsv1.Deployment {
 	labels := labelsForLB(lb.Name)
 	replicas := int32(1)
 
 	multusConfig, err := json.Marshal([]map[string]interface{}{{
-		// FIXME: need to add parameters to tell Multus which netdef to use
-		"name":      "default",
-		"namespace": "egw",
+		"name":      spname.Name,
+		"namespace": spname.Namespace,
 		"ips":       []string{lb.Spec.PublicAddress}},
 	})
 	if err != nil {
@@ -183,6 +205,15 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer) *appsv1
 	return dep
 }
 
+func splitNSName(name string) (*types.NamespacedName, error) {
+	parts := strings.Split(name, string(types.Separator))
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("Malformed NamespaceName: %q", parts)
+	}
+
+	return &types.NamespacedName{Namespace: parts[0], Name: parts[1]}, nil
+}
+
 // labelsForLB returns the labels for selecting the resources
 // belonging to the given CR name.
 func labelsForLB(name string) map[string]string {
@@ -197,11 +228,14 @@ func portsToPorts(rawPorts []int) []corev1.ContainerPort {
 	return ports
 }
 
-func addRt(publicaddr *net.IPNet, multusint string) {
+func addRt(publicaddr *net.IPNet, multusint string) error {
 
 	var rta netlink.Route
 
-	ifa, _ := net.InterfaceByName(multusint)
+	ifa, err := net.InterfaceByName(multusint)
+	if err != nil {
+		return err
+	}
 
 	rta.LinkIndex = ifa.Index
 
@@ -210,6 +244,7 @@ func addRt(publicaddr *net.IPNet, multusint string) {
 	//FIXME error handling, if route add fails should be retried, requeue?
 	netlink.RouteReplace(&rta)
 
+	return nil
 }
 
 func delRt(publicaddr string) {

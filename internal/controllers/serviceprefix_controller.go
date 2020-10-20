@@ -93,7 +93,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *egwv1.ServicePrefix) (*nettype
 		"namespace":  sp.Namespace,
 		"plugins": []map[string]interface{}{{
 			"type":      "bridge",
-			"bridge":    "multus0",
+			"bridge":    multusInt,
 			"isGateway": false,
 			"ipam": map[string]interface{}{
 				"type":   "host-local",
