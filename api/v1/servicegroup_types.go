@@ -13,7 +13,7 @@ type ServiceGroupSpec struct {
 
 	// ServicePrefix is the name of the service prefix from which
 	// ServiceGroup's addresses are allocated.
-	// +kubebuilder:default=default
+	// +kubebuilder:default=egw/default
 	ServicePrefix string `json:"service-prefix,omitempty"`
 }
 
