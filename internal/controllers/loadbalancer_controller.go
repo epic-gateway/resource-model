@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os/exec"
+	"strconv"
 
 	"github.com/go-logr/logr"
+	"github.com/vishvananda/netlink"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,8 +31,9 @@ const (
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log     logr.Logger
+	Scheme  *runtime.Scheme
+	lbAddrs map[string]*net.IPNet //lb.Namespace+lb.Name -> IPNet
 }
 
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
@@ -42,6 +47,8 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	result := ctrl.Result{}
 	ctx := context.TODO()
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
+
+	r.lbAddrs = map[string]*net.IPNet{}
 
 	// read the object that caused the event
 	lb := &egwv1.LoadBalancer{}
@@ -58,6 +65,39 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		log.Error(err, "Failed to get resource, will retry")
 		return result, err
 	}
+
+	// Setup host routing
+
+	// FIXME multus interface name is hardcoded, we should be getting it from netattachdef
+
+	var multusint = "multus0"
+
+	prefix := &egwv1.ServicePrefix{}
+
+	//FIXME - Static defination for Service Prefix CR
+
+	r.Get(ctx, types.NamespacedName{Name: "default", Namespace: "egw"}, prefix)
+
+	if prefix.Spec.Aggregation != "default" {
+
+		_, publicaddr, _ := net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
+
+		addRt(publicaddr, multusint)
+
+		r.lbAddrs[(lb.Namespace + lb.Name)] = publicaddr
+
+	} else {
+
+		_, publicaddr, _ := net.ParseCIDR(prefix.Spec.Subnet)
+
+		addRt(publicaddr, multusint)
+
+		r.lbAddrs[(lb.Namespace + lb.Name)] = publicaddr
+
+	}
+
+	//Open host ports by updating IPSET tables
+	addIpset(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 
 	// Check if the deployment already exists, if not create a new one
 	found := &appsv1.Deployment{}
@@ -137,6 +177,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer) *appsv1
 			},
 		},
 	}
+
 	// Set LB instance as the owner and controller
 	ctrl.SetControllerReference(lb, dep, r.Scheme)
 	return dep
@@ -154,6 +195,61 @@ func portsToPorts(rawPorts []int) []corev1.ContainerPort {
 		ports[i] = corev1.ContainerPort{ContainerPort: int32(port)}
 	}
 	return ports
+}
+
+func addRt(publicaddr *net.IPNet, multusint string) {
+
+	var rta netlink.Route
+
+	ifa, _ := net.InterfaceByName(multusint)
+
+	rta.LinkIndex = ifa.Index
+
+	rta.Dst = publicaddr
+
+	//FIXME error handling, if route add fails should be retried, requeue?
+	netlink.RouteReplace(&rta)
+
+}
+
+func delRt(publicaddr string) {
+
+	var rta netlink.Route
+
+	_, rta.Dst, _ = net.ParseCIDR(publicaddr)
+
+	//FIXME error handling, if route add fails should be retried, requeue?
+
+	netlink.RouteDel(&rta)
+
+}
+
+func addIpset(publicaddr string, rawPorts []int) {
+
+	for _, ports := range rawPorts {
+		port := strconv.Itoa(ports)
+		cmd := exec.Command("ipset", "add", "egw-in", publicaddr+","+port)
+		err := cmd.Run()
+		if err != nil {
+			println(err)
+		}
+
+	}
+
+}
+func delIpset(publicaddr string, rawPorts []int) {
+
+	for _, ports := range rawPorts {
+
+		port := strconv.Itoa(ports)
+		cmd := exec.Command("ipset", "del", "egw-in", publicaddr+":"+port)
+		err := cmd.Run()
+		if err != nil {
+			println(err)
+		}
+
+	}
+
 }
 
 // SetupWithManager sets up this reconciler to be managed.

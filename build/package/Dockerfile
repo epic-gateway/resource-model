@@ -19,6 +19,8 @@ RUN go build  -tags 'osusergo netgo' -o ${PROGRAM} ./main.go
 # start fresh
 FROM alpine:3
 
+RUN apk add ipset
+
 # copy executables from the builder image
 COPY --from=builder /usr/local/bin/operator /usr/local/bin
 

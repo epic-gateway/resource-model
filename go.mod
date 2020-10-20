@@ -12,6 +12,7 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/common v0.4.1
+	github.com/vishvananda/netlink v1.1.0
 	gitlab.com/acnodal/egw-resource-model v0.1.1-pre1
 	go.uber.org/multierr v1.5.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect

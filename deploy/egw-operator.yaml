@@ -45,5 +45,9 @@ spec:
         securityContext:
           allowPrivilegeEscalation: true
           readOnlyRootFilesystem: true
+          capabilities: 
+            add:
+            - NET_ADMIN
+      hostNetwork: true
       serviceAccountName: egw-operator
       terminationGracePeriodSeconds: 0

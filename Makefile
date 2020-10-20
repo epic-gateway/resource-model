@@ -1,8 +1,9 @@
+REPO=registry.gitlab.com/acnodal
 PREFIX = egw-operator
 SUFFIX = ${USER}-dev
 SHELL:=/bin/bash
 
-TAG=${PREFIX}/egw-operator:${SUFFIX}
+TAG=${REPO}/${PREFIX}/egw-operator:${SUFFIX}
 DOCKERFILE=build/package/Dockerfile
 
 ifndef GITLAB_TOKEN
