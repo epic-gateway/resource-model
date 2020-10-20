@@ -26,7 +26,7 @@ RUN apk add ipset
 COPY --from=builder /opt/acnodal/src/main ${PROGRAM}
 
 # copy the packet forwarding components from the pfc dockerfile
-COPY --from=registry.gitlab.com/acnodal/packet-forwarding-component/pfc:latest /tmp/.acnodal/bin/* ${DEST}/
+COPY --from=registry.gitlab.com/acnodal/packet-forwarding-component/pfc:latest /opt/acnodal/bin/* ${DEST}/
 
 EXPOSE 8081
 
