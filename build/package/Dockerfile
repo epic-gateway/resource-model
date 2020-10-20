@@ -24,7 +24,7 @@ RUN apk add ipset
 # copy executables from the builder image
 COPY --from=builder /usr/local/bin/operator /usr/local/bin
 
-EXPOSE 8080
+EXPOSE 8081
 
 # FIXME: run ${PROGRAM} instead of this hard-coded string
 CMD ["/usr/local/bin/operator"]
