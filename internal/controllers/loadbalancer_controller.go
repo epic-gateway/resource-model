@@ -120,7 +120,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	//Open host ports by updating IPSET tables
-	addIpset(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
+	addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 
 	// Check if the deployment already exists, if not create a new one
 	found := &appsv1.Deployment{}
@@ -260,10 +260,10 @@ func delRt(publicaddr string) {
 
 }
 
-func addIpset(publicaddr string, ports []corev1.ServicePort) {
+func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 
 	for _, port := range ports {
-		cmd := exec.Command("ipset", "add", "egw-in", publicaddr+","+strconv.Itoa(int(port.Port)))
+		cmd := exec.Command("ipset", "-exist", "add", "egw-in", publicaddr+","+strconv.Itoa(int(port.Port)))
 		err := cmd.Run()
 		if err != nil {
 			println(err)
@@ -272,12 +272,10 @@ func addIpset(publicaddr string, ports []corev1.ServicePort) {
 	}
 
 }
-func delIpset(publicaddr string, rawPorts []int) {
+func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 
-	for _, ports := range rawPorts {
-
-		port := strconv.Itoa(ports)
-		cmd := exec.Command("ipset", "del", "egw-in", publicaddr+":"+port)
+	for _, port := range ports {
+		cmd := exec.Command("ipset", "-exist", "del", "egw-in", publicaddr+":"+strconv.Itoa(int(port.Port)))
 		err := cmd.Run()
 		if err != nil {
 			println(err)
