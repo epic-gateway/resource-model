@@ -1,6 +1,7 @@
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,7 +21,7 @@ type LoadBalancerSpec struct {
 	PublicAddress string `json:"public-address"`
 
 	// PublicPorts is the set of ports on which this LB will listen.
-	PublicPorts []int `json:"public-ports"`
+	PublicPorts []corev1.ServicePort `json:"public-ports"`
 
 	// Endpoints are the customer-cluster endpoints to which we send
 	// traffic.
@@ -33,7 +34,7 @@ type LoadBalancerEndpoint struct {
 	Address string `json:"address"`
 
 	// Port is the port on which this endpoint listens.
-	Port int `json:"port"`
+	Port corev1.EndpointPort `json:"port"`
 }
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
