@@ -162,6 +162,11 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 		return nil
 	}
 
+	// this should let us see that:
+	//  - it's an envoy
+	//  - it's working for the lb named lb.Name
+	name := "envoy-" + lb.Name
+
 	// format a fragment of Envoy config yaml that will set the dynamic
 	// command-line overrides that differentiate this instance of Envoy
 	// from the others.
@@ -169,7 +174,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      lb.Name,
+			Name:      name,
 			Namespace: lb.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -186,7 +191,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 					Containers: []corev1.Container{
 						{Image: envoyImage,
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            lb.Name,
+							Name:            name,
 							Ports:           portsToPorts(lb.Spec.PublicPorts),
 							Command:         []string{"/docker-entrypoint.sh"},
 							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides},

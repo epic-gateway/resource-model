@@ -3,6 +3,7 @@ module acnodal.io/egw-ws
 go 1.14
 
 require (
+	github.com/containernetworking/plugins v0.8.7
 	github.com/go-logr/logr v0.1.0
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
 	github.com/onsi/ginkgo v1.12.1
