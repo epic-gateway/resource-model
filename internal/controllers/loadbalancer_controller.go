@@ -220,12 +220,13 @@ func labelsForLB(name string) map[string]string {
 	return map[string]string{"app": "egw", "loadbalancer_cr": name}
 }
 
-func portsToPorts(rawPorts []int) []corev1.ContainerPort {
-	ports := make([]corev1.ContainerPort, len(rawPorts))
-	for i, port := range rawPorts {
-		ports[i] = corev1.ContainerPort{ContainerPort: int32(port)}
+// portsToPorts converts from ServicePorts to ContainerPorts.
+func portsToPorts(sPorts []corev1.ServicePort) []corev1.ContainerPort {
+	cPorts := make([]corev1.ContainerPort, len(sPorts))
+	for i, port := range sPorts {
+		cPorts[i] = corev1.ContainerPort{Protocol: port.Protocol, ContainerPort: port.Port}
 	}
-	return ports
+	return cPorts
 }
 
 func addRt(publicaddr *net.IPNet, multusint string) error {
@@ -259,11 +260,10 @@ func delRt(publicaddr string) {
 
 }
 
-func addIpset(publicaddr string, rawPorts []int) {
+func addIpset(publicaddr string, ports []corev1.ServicePort) {
 
-	for _, ports := range rawPorts {
-		port := strconv.Itoa(ports)
-		cmd := exec.Command("ipset", "add", "egw-in", publicaddr+","+port)
+	for _, port := range ports {
+		cmd := exec.Command("ipset", "add", "egw-in", publicaddr+","+strconv.Itoa(int(port.Port)))
 		err := cmd.Run()
 		if err != nil {
 			println(err)

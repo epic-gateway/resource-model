@@ -336,6 +336,8 @@ github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 gitlab.com/acnodal/egw-resource-model v0.1.1-pre7 h1:+7NthKO4YNCP7dp9yet1xzMmPmnjaaXtxnsznA0U5/U=
 gitlab.com/acnodal/egw-resource-model v0.1.1-pre7/go.mod h1:xYCi5jfdRNM8ssXTvXTM9ILZSSGeK4LYtHmRP5UHTJI=
+gitlab.com/acnodal/egw-resource-model v0.1.1-pre8 h1:DewRT9422nMUPGOdl1/uAhD7mvjIZd93AQdHi1oA3dA=
+gitlab.com/acnodal/egw-resource-model v0.1.1-pre8/go.mod h1:pXbq9R1UvAVkpcbbgm+hsF3915AnIjmdB+jjom9Fpzg=
 gitlab.com/acnodal/packet-forwarding-component/src/go v0.0.0-20201020212529-ed4982208c08 h1:ash0kj++W04QTMonOE40qpGVwJSp/x4STnJe8Fr8C0k=
 gitlab.com/acnodal/packet-forwarding-component/src/go v0.0.0-20201020212529-ed4982208c08/go.mod h1:SDPfSIpwi0eaR90u+CSnzctMM/JOjOJFA+QFnljtC7M=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
