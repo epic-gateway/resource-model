@@ -120,7 +120,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	//Open host ports by updating IPSET tables
-	addIpset(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
+	addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 
 	// Check if the deployment already exists, if not create a new one
 	found := &appsv1.Deployment{}
@@ -162,6 +162,11 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 		return nil
 	}
 
+	// this should let us see that:
+	//  - it's an envoy
+	//  - it's working for the lb named lb.Name
+	name := "envoy-" + lb.Name
+
 	// format a fragment of Envoy config yaml that will set the dynamic
 	// command-line overrides that differentiate this instance of Envoy
 	// from the others.
@@ -169,7 +174,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      lb.Name,
+			Name:      name,
 			Namespace: lb.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -186,7 +191,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 					Containers: []corev1.Container{
 						{Image: envoyImage,
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            lb.Name,
+							Name:            name,
 							Ports:           portsToPorts(lb.Spec.PublicPorts),
 							Command:         []string{"/docker-entrypoint.sh"},
 							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides},
@@ -220,12 +225,13 @@ func labelsForLB(name string) map[string]string {
 	return map[string]string{"app": "egw", "loadbalancer_cr": name}
 }
 
-func portsToPorts(rawPorts []int) []corev1.ContainerPort {
-	ports := make([]corev1.ContainerPort, len(rawPorts))
-	for i, port := range rawPorts {
-		ports[i] = corev1.ContainerPort{ContainerPort: int32(port)}
+// portsToPorts converts from ServicePorts to ContainerPorts.
+func portsToPorts(sPorts []corev1.ServicePort) []corev1.ContainerPort {
+	cPorts := make([]corev1.ContainerPort, len(sPorts))
+	for i, port := range sPorts {
+		cPorts[i] = corev1.ContainerPort{Protocol: port.Protocol, ContainerPort: port.Port}
 	}
-	return ports
+	return cPorts
 }
 
 func addRt(publicaddr *net.IPNet, multusint string) error {
@@ -259,11 +265,10 @@ func delRt(publicaddr string) {
 
 }
 
-func addIpset(publicaddr string, rawPorts []int) {
+func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 
-	for _, ports := range rawPorts {
-		port := strconv.Itoa(ports)
-		cmd := exec.Command("ipset", "add", "egw-in", publicaddr+","+port)
+	for _, port := range ports {
+		cmd := exec.Command("ipset", "-exist", "add", "egw-in", publicaddr+","+strconv.Itoa(int(port.Port)))
 		err := cmd.Run()
 		if err != nil {
 			println(err)
@@ -272,12 +277,10 @@ func addIpset(publicaddr string, rawPorts []int) {
 	}
 
 }
-func delIpset(publicaddr string, rawPorts []int) {
+func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 
-	for _, ports := range rawPorts {
-
-		port := strconv.Itoa(ports)
-		cmd := exec.Command("ipset", "del", "egw-in", publicaddr+":"+port)
+	for _, port := range ports {
+		cmd := exec.Command("ipset", "-exist", "del", "egw-in", publicaddr+":"+strconv.Itoa(int(port.Port)))
 		err := cmd.Run()
 		if err != nil {
 			println(err)

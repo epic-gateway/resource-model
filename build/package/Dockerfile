@@ -20,7 +20,7 @@ FROM alpine:3
 ENV DEST=/opt/acnodal/bin
 ENV PROGRAM=${DEST}/operator
 
-RUN apk add ipset
+RUN apk add ipset iptables
 
 # copy executables from the builder image
 COPY --from=builder /opt/acnodal/src/main ${PROGRAM}
