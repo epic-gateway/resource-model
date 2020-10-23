@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/vishvananda/netlink v1.1.0
 	gitlab.com/acnodal/egw-resource-model v0.1.1-pre7
+	gitlab.com/acnodal/packet-forwarding-component/src/go v0.0.0-20201020212529-ed4982208c08
 	go.uber.org/multierr v1.5.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
 	k8s.io/api v0.18.6

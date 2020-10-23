@@ -14,6 +14,7 @@ import (
 	"acnodal.io/egw-ws/internal/controllers"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	pfc "gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -84,6 +85,15 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	// See if the PFC is installed
+	ok, message := pfc.Check()
+	if ok {
+		// print the version
+		setupLog.Info("PFC", "version", message)
+	} else {
+		setupLog.Info("PFC Error", "message", message)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
