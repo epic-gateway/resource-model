@@ -7,7 +7,4 @@ make:
   script: make
   artifacts:
     paths:
-      - config/crd/egw-namespace.yaml
-      - config/crd/bases/egw.acnodal.io*.yaml
-      - config/samples/namespace.yaml
-      - config/samples/egw_v1_*.yaml
+      - config
