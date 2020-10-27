@@ -1,0 +1,30 @@
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-egw-acnodal-io-v1-loadbalancer
+  failurePolicy: Fail
+  name: vloadbalancer.kb.io
+  rules:
+  - apiGroups:
+    - egw.acnodal.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - loadbalancers
+  sideEffects: None
