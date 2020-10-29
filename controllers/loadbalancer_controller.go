@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	envoyImage    = "registry.gitlab.com/acnodal/envoy-for-egw:latest"
+	envoyImage    = "registry.gitlab.com/acnodal/envoy-for-egw:adamd-dev"
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 	multusInt     = "multus0" // FIXME multus interface name is hardcoded, we should be getting it from netattachdef
@@ -195,6 +195,11 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 							Ports:           portsToPorts(lb.Spec.PublicPorts),
 							Command:         []string{"/docker-entrypoint.sh"},
 							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides},
+							SecurityContext: &corev1.SecurityContext{
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{"NET_ADMIN"},
+								},
+							},
 						},
 					},
 					ImagePullSecrets: []corev1.LocalObjectReference{
