@@ -26,6 +26,8 @@ type ServicePrefixReconciler struct {
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=serviceprefixes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=serviceprefixes/status,verbs=get;update;patch
 
+// +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;create
+
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {

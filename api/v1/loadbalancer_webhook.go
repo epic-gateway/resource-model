@@ -42,3 +42,11 @@ func (r *LoadBalancer) ValidateUpdate(old runtime.Object) error {
 	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (r *LoadBalancer) ValidateDelete() error {
+	loadbalancerlog.Info("validate delete", "name", r.Name)
+
+	// TODO(user): fill in your validation logic upon object deletion.
+	return nil
+}
