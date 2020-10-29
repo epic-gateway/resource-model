@@ -49,7 +49,6 @@ deploy: manifests kustomize
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	cat config/crd/bases/egw.acnodal.io_accounts.yaml config/crd/bases/egw.acnodal.io_servicegroups.yaml config/crd/bases/egw.acnodal.io_loadbalancers.yaml config/crd/bases/egw.acnodal.io_serviceprefixes.yaml > config/crd/bases/egw.acnodal.io.yaml
 
 # Run go fmt against code
 fmt:
