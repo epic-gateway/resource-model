@@ -106,8 +106,8 @@ func main() {
 		setupLog.Info("PFC Error", "message", message)
 	}
 
-	ok, message = brCheck(brname)
-	if ok {
+	err = brCheck(brname)
+	if err == nil {
 		setupLog.Info("Multus present")
 	} else {
 		_, err := ensureBridge(brname)
@@ -116,15 +116,15 @@ func main() {
 		}
 	}
 
-	ok, message = ipTablesCheck(brname)
-	if ok {
+	err = ipTablesCheck(brname)
+	if err == nil {
 		setupLog.Info("IPtables setup for multus")
 	} else {
 		setupLog.Error(err, "iptables", "unable to setup", brname)
 	}
 
-	ok, message = ipsetSetCheck()
-	if ok {
+	err = ipsetSetCheck()
+	if err == nil {
 		setupLog.Info("IPset egw-in added")
 	} else {
 		setupLog.Info("IPset egw-in already exists")
@@ -162,42 +162,33 @@ func ensureBridge(brname string) (*netlink.Bridge, error) {
 	return br, nil
 }
 
-func brCheck(brname string) (bool, string) {
-
+func brCheck(brname string) error {
 	_, err := netlink.LinkByName(brname)
-	if err != nil {
-		return false, "Multus " + brname + " not found"
-	}
-
-	return true, ""
+	return err
 }
 
-func ipsetSetCheck() (bool, string) {
+func ipsetSetCheck() error {
 	cmd := exec.Command("ipset", "create", "egw-in", "hash:ip,port")
-	err := cmd.Run()
-	if err != nil {
-		return false, "IPSet failed"
-	}
-
-	return true, ""
+	return cmd.Run()
 }
 
-func ipTablesCheck(brname string) (bool, string) {
-	cmd := exec.Command("iptables", "-C  FORWARD -i", brname, "-m comment --comment \"multus bridge", brname, "\" -j ACCEPT")
+func ipTablesCheck(brname string) error {
+	cmd := exec.Command("iptables", "-C", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
 	err := cmd.Run()
 	if err != nil {
-		cmd := exec.Command("iptables", "-A  FORWARD -i", brname, "-m comment --comment \"multus bridge", brname, "\" -j ACCEPT")
-		err := cmd.Run()
+		cmd := exec.Command("iptables", "-A", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
+		stdoutStderr, err := cmd.CombinedOutput()
 		if err != nil {
-			return false, "unable to update iptables"
+			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
+			return err
 		}
-		cmd = exec.Command("iptables", "-A FORWARD -m set --match-set egw-in dst,dst -j ACCEPT")
-		err = cmd.Run()
+		cmd = exec.Command("iptables", "-A", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+		stdoutStderr, err = cmd.CombinedOutput()
 		if err != nil {
-			return false, "unable to update iptables"
+			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
+			return err
 		}
 	}
 
-	return true, ""
-
+	return nil
 }

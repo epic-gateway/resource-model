@@ -47,9 +47,13 @@ spec:
         volumeMounts:
         - mountPath: /sys/fs/bpf
           name: bpf
+        - mountPath: /run
+          name: run
       terminationGracePeriodSeconds: 10
       hostNetwork: true
       volumes:
       - name: bpf
         hostPath:
           path: /sys/fs/bpf
+      - name: run
+        emptyDir: {}
