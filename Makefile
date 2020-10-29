@@ -1,3 +1,7 @@
+REPO=registry.gitlab.com/acnodal
+PREFIX = egw-resource-model
+SUFFIX = ${USER}-dev
+
 # Current Operator version
 VERSION ?= 0.0.1
 # Default bundle image tag
@@ -12,7 +16,7 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= ${REPO}/${PREFIX}:${SUFFIX}
 # Produce CRDs that have features that work with newer k8s versions only
 CRD_OPTIONS ?= "crd"
 
@@ -36,14 +40,6 @@ manager: generate fmt vet
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go
-
-# Install CRDs into a cluster
-install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-
-# Uninstall CRDs from a cluster
-uninstall: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests kustomize
@@ -70,7 +66,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker build . --build-arg=GITLAB_TOKEN -t ${IMG}
 
 # Push the docker image
 docker-push:
@@ -78,6 +74,7 @@ docker-push:
 
 # find or download controller-gen
 # download controller-gen if necessary
+# FIXME: we need an unreleased version so that it can generate manifests for admissionReviewVersions v1beta1 but when the next release happens we can switch to that.
 controller-gen:
 ifeq (, $(shell which controller-gen))
 	@{ \
@@ -85,7 +82,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@6fa696d ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen

@@ -22,13 +22,14 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      imagePullSecrets:
+      - name: gitlab
       containers:
-      - command:
-        - /manager
+      - name: manager
         args:
         - --enable-leader-election
         image: controller:latest
-        name: manager
+        imagePullPolicy: Always
         resources:
           limits:
             cpu: 100m
@@ -36,4 +37,19 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        securityContext:
+          privileged: true
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: true
+          capabilities:
+            add:
+            - NET_ADMIN
+        volumeMounts:
+        - mountPath: /sys/fs/bpf
+          name: bpf
       terminationGracePeriodSeconds: 10
+      hostNetwork: true
+      volumes:
+      - name: bpf
+        hostPath:
+          path: /sys/fs/bpf

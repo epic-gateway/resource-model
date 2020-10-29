@@ -1,5 +1,10 @@
 # Build the manager binary
 FROM golang:1.13 as builder
+ARG GITLAB_TOKEN
+
+# install and configure git. we need it because some of our modules
+# (e.g., egw-resource-model) are private
+RUN git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.com/acnodal".insteadOf https://gitlab.com/acnodal
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -17,11 +22,17 @@ COPY controllers/ controllers/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
-WORKDIR /
-COPY --from=builder /workspace/manager .
-USER nonroot:nonroot
+FROM alpine:3
+ENV DEST=/opt/acnodal/bin
+ENV PROGRAM=${DEST}/manager
 
-ENTRYPOINT ["/manager"]
+RUN apk add ipset iptables
+
+# copy executables from the builder image
+COPY --from=builder /workspace/manager ${PROGRAM}
+
+# copy the packet forwarding components from the pfc dockerfile
+COPY --from=registry.gitlab.com/acnodal/packet-forwarding-component/pfc:latest /opt/acnodal/bin/* ${DEST}/
+
+# FIXME: run ${PROGRAM} instead of this hard-coded string
+ENTRYPOINT ["/opt/acnodal/bin/manager"]

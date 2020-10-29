@@ -27,7 +27,9 @@ func (r *AccountReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("account", req.NamespacedName)
 
-	// your logic here
+	// See https://gitlab.com/acnodal/egw-operator/-/wikis/The-Things-the-operator-does.
+	// Create account namespace (i.e., "egw-" + account.Spec.Name)
+	// Create gitlab registry secret
 
 	return ctrl.Result{}, nil
 }

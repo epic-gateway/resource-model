@@ -10,16 +10,20 @@ import (
 // log is for logging in this package.
 var loadbalancerlog = logf.Log.WithName("loadbalancer-resource")
 
+// SetupWebhookWithManager sets up this webhook to be managed by mgr.
 func (r *LoadBalancer) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
 }
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none
+// +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
+//
+//  FIXME: we use v1beta1 here because controller-runtime doesn't
+//  support v1 yet. When it does, we should remove
+//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
+//  will switch to v1 (the default)
+//
 
 var _ webhook.Validator = &LoadBalancer{}
 
@@ -36,13 +40,5 @@ func (r *LoadBalancer) ValidateUpdate(old runtime.Object) error {
 	loadbalancerlog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
-	return nil
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *LoadBalancer) ValidateDelete() error {
-	loadbalancerlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
