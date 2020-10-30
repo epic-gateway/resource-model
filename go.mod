@@ -1,6 +1,6 @@
 module gitlab.com/acnodal/egw-resource-model
 
-go 1.13
+go 1.15
 
 require (
 	github.com/containernetworking/plugins v0.8.7
