@@ -22,11 +22,11 @@ COPY controllers/ controllers/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
 
-FROM alpine:3
+FROM ubuntu:20.04
 ENV DEST=/opt/acnodal/bin
 ENV PROGRAM=${DEST}/manager
 
-RUN apk add ipset iptables
+RUN apt-get update && apt-get install -y ipset iptables iproute2
 
 # copy executables from the builder image
 COPY --from=builder /workspace/manager ${PROGRAM}
