@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,17 +31,27 @@ var _ webhook.Validator = &LoadBalancer{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateCreate() error {
-	loadbalancerlog.Info("validate create", "name", r.Name)
+	var err error
+	loadbalancerlog.Info("validate create", "name", r.Name, "contents", r)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	err = r.validateEndpoints()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateUpdate(old runtime.Object) error {
-	loadbalancerlog.Info("validate update", "name", r.Name)
+	var err error
+	loadbalancerlog.Info("validate update", "name", r.Name, "old", old, "new", r)
 
-	// TODO(user): fill in your validation logic upon object update.
+	err = r.validateEndpoints()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -48,5 +60,17 @@ func (r *LoadBalancer) ValidateDelete() error {
 	loadbalancerlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
+	return nil
+}
+
+// validateEndpoints checks that each endpoint is unique.
+func (r *LoadBalancer) validateEndpoints() error {
+	for i1, ep1 := range r.Spec.Endpoints {
+		for i2, ep2 := range r.Spec.Endpoints {
+			if i1 != i2 && ep1 == ep2 {
+				return fmt.Errorf("duplicate endpoints. endpoints at index %d and %d are the same", i1, i2)
+			}
+		}
+	}
 	return nil
 }
