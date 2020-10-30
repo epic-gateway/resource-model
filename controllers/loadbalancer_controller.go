@@ -234,9 +234,14 @@ func labelsForLB(name string) map[string]string {
 func portsToPorts(sPorts []corev1.ServicePort) []corev1.ContainerPort {
 	cPorts := make([]corev1.ContainerPort, len(sPorts))
 	for i, port := range sPorts {
-		cPorts[i] = corev1.ContainerPort{Protocol: port.Protocol, ContainerPort: port.Port}
+		cPorts[i] = corev1.ContainerPort{Protocol: washProtocol(port.Protocol), ContainerPort: port.Port}
 	}
 	return cPorts
+}
+
+// washProtocol "washes" proto, optionally upcasing if necessary.
+func washProtocol(proto corev1.Protocol) corev1.Protocol {
+	return corev1.Protocol(strings.ToUpper(string(proto)))
 }
 
 func addRt(publicaddr *net.IPNet, multusint string) error {
