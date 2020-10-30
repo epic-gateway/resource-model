@@ -124,7 +124,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 	// Check if the deployment already exists, if not create a new one
 	found := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: lb.Name, Namespace: lb.Namespace}, found)
+	err = r.Get(ctx, types.NamespacedName{Name: envoyPodName(lb), Namespace: lb.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new deployment
 		dep := r.deploymentForLB(lb, spname)
@@ -147,6 +147,13 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	return result, nil
 }
 
+func envoyPodName(lb *egwv1.LoadBalancer) string {
+	// this should let us see that:
+	//  - it's an envoy
+	//  - it's working for the lb named lb.Name
+	return "envoy-" + lb.Name
+}
+
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
 func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName) *appsv1.Deployment {
@@ -165,7 +172,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 	// this should let us see that:
 	//  - it's an envoy
 	//  - it's working for the lb named lb.Name
-	name := "envoy-" + lb.Name
+	name := envoyPodName(lb)
 
 	// format a fragment of Envoy config yaml that will set the dynamic
 	// command-line overrides that differentiate this instance of Envoy
