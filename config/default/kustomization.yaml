@@ -16,9 +16,7 @@ namespace: acnodal
 namePrefix: ""
 
 # Labels to add to all resources and selectors.
-commonLabels:
-  app: egw
-  component: egw-operator
+commonLabels: {}
 
 bases:
 - ../rbac
