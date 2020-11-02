@@ -1,3 +1,10 @@
+# "root" kustomization directory for EGW stuff. This is the directory
+# that the Makefile uses. This file includes the other directories
+# needed to install our custom resources and the EGW
+# operator/controller-manager.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 # Adds namespace to all resources.
 namespace: acnodal
 
