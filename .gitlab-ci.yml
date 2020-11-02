@@ -1,6 +1,10 @@
 image: golang:latest
 
 before_script:
+  # this lets the CI runner clone any repo that the pushing user can
+  # clone. We need to clone private repos, e.g.,
+  # packet-forwarding-component since this project depends on them.
+  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/acnodal".insteadOf "https://gitlab.com/acnodal"
   - go get golang.org/x/lint/golint
 
 make:
