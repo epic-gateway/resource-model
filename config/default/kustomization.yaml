@@ -19,6 +19,7 @@ namePrefix: ""
 commonLabels: {}
 
 bases:
+- ../crd
 - ../rbac
 - ../manager
 - ../webhook
