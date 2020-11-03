@@ -40,7 +40,7 @@ spec:
         securityContext:
           privileged: true
           allowPrivilegeEscalation: true
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           capabilities:
             add:
             - NET_ADMIN
