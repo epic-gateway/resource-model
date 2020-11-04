@@ -25,14 +25,17 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager 
 FROM ubuntu:20.04
 ENV DEST=/opt/acnodal/bin
 ENV PROGRAM=${DEST}/manager
+ARG GITLAB_TOKEN
 
-RUN apt-get update && apt-get install -y ipset iptables iproute2
+RUN apt-get update && apt-get install -y curl ipset iptables iproute2
 
 # copy executables from the builder image
 COPY --from=builder /workspace/manager ${PROGRAM}
 
-# copy the packet forwarding components from the pfc dockerfile
-COPY --from=registry.gitlab.com/acnodal/packet-forwarding-component/pfc:latest /opt/acnodal/bin/* ${DEST}/
+# copy the packet forwarding components from the pfc project
+RUN curl -L -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+https://gitlab.com/api/v4/projects/acnodal%2Fpacket-forwarding-component/jobs/830241872/artifacts/pfc.tar.bz2 | \
+tar -C /opt/acnodal -xjf -
 
 # FIXME: run ${PROGRAM} instead of this hard-coded string
-ENTRYPOINT ["/opt/acnodal/bin/manager"]
+CMD ["/opt/acnodal/bin/manager"]
