@@ -7,6 +7,7 @@ import (
 	"os/exec" //added for ipset & iptables
 	"syscall" //added for multus0 setup
 
+	"github.com/prometheus/common/log"
 	"github.com/vishvananda/netlink" //added for multus0 setup
 
 	"github.com/containernetworking/plugins/pkg/utils/sysctl" //added for multus0
@@ -18,7 +19,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	pfc "gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
+	pfcsetup "gitlab.com/acnodal/egw-resource-model/internal/pfc"
+	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	"gitlab.com/acnodal/egw-resource-model/controllers"
@@ -137,6 +139,11 @@ func main() {
 		setupLog.Info("IPset egw-in added")
 	} else {
 		setupLog.Info("IPset egw-in already exists")
+	}
+
+	err = pfcsetup.SetupNIC(brname, "egress", 1, 9)
+	if err != nil {
+		log.Error(err, "Failed to setup NIC "+brname)
 	}
 
 	setupLog.Info("starting manager")

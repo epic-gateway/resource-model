@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"os/exec"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -11,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	"gitlab.com/acnodal/egw-resource-model/internal/pfc"
 )
 
 // NodeConfigReconciler reconciles a NodeConfig object
@@ -50,7 +50,7 @@ func (r *NodeConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	base := nc.Spec.Base
 	for _, nic := range base.IngressNICs {
-		err = setupNIC(nic)
+		err = pfc.SetupNIC(nic, "ingress", 0, 9)
 		if err != nil {
 			log.Error(err, "Failed to setup NIC "+nic)
 		}
@@ -64,50 +64,4 @@ func (r *NodeConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&egwv1.NodeConfig{}).
 		Complete(r)
-}
-
-func setupNIC(nic string) error {
-	var err error
-	log := ctrl.Log.WithName(nic)
-
-	// tc qdisc add dev nic clsact
-	err = addQueueDiscipline(nic)
-	if err == nil {
-		log.Info("qdisc added")
-	} else {
-		log.Error(err, "qdisc add error")
-	}
-
-	// tc filter add dev nic ingress bpf direct-action object-file pfc_ingress_tc.o sec .text
-	err = addIngressFilter(nic)
-	if err == nil {
-		log.Info("ingress filter added")
-	} else {
-		log.Error(err, "ingress filter add error")
-	}
-
-	// ./cli_cfg set nic 0 0 9 "nic rx"
-	err = configurePFC(nic)
-	if err == nil {
-		log.Info("pfc configured")
-	} else {
-		log.Error(err, "pfc configuration error")
-	}
-
-	return nil
-}
-
-func addQueueDiscipline(nic string) error {
-	cmd := exec.Command("tc", "qdisc", "add", "dev", nic, "clsact")
-	return cmd.Run()
-}
-
-func addIngressFilter(nic string) error {
-	cmd := exec.Command("tc", "filter", "add", "dev", nic, "ingress", "bpf", "direct-action", "object-file", "/opt/acnodal/bin/pfc_ingress_tc.o", "sec", ".text")
-	return cmd.Run()
-}
-
-func configurePFC(nic string) error {
-	cmd := exec.Command("/opt/acnodal/bin/cli_cfg", "set", nic, "0", "0", "9", "\""+nic+" rx\"")
-	return cmd.Run()
 }
