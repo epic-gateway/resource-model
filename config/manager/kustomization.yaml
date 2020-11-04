@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: registry.gitlab.com/acnodal/egw-resource-model
-  newTag: latest
+  newTag: tobyc-dev

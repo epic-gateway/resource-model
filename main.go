@@ -18,9 +18,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	pfc "gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
+
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	"gitlab.com/acnodal/egw-resource-model/controllers"
-	pfc "gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -93,6 +94,14 @@ func main() {
 	}
 	if err = (&egwv1.LoadBalancer{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancer")
+		os.Exit(1)
+	}
+	if err = (&controllers.NodeConfigReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("NodeConfig"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "NodeConfig")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

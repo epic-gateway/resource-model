@@ -1,0 +1,8 @@
+apiVersion: egw.acnodal.io/v1
+kind: NodeConfig
+metadata:
+  name: default
+  namespace: egw
+spec:
+  base:
+    ingress-nics: [eth0]
