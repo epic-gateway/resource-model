@@ -8,9 +8,12 @@ import (
 
 // ServicePrefixSpec defines the desired state of ServicePrefix
 type ServicePrefixSpec struct {
-	Subnet      string `json:"subnet"`
-	Pool        string `json:"pool"`
-	Aggregation string `json:"aggregation"`
+	Subnet string `json:"subnet"`
+	Pool   string `json:"pool"`
+	// +kubebuilder:default=default
+	Aggregation string `json:"aggregation,omitempty"`
+	// +kubebuilder:default=multus0
+	MultusBridge string `json:"multus-bridge,omitempty"`
 }
 
 // ServicePrefixStatus defines the observed state of ServicePrefix
