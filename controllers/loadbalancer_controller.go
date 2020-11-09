@@ -157,6 +157,11 @@ func envoyPodName(lb *egwv1.LoadBalancer) string {
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
 func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName) *appsv1.Deployment {
+	var (
+		privileged  bool = true
+		escalatable bool = true
+	)
+
 	labels := labelsForLB(lb.Name)
 	replicas := int32(1)
 
@@ -203,6 +208,8 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 							Command:         []string{"/docker-entrypoint.sh"},
 							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides},
 							SecurityContext: &corev1.SecurityContext{
+								Privileged:               &privileged,
+								AllowPrivilegeEscalation: &escalatable,
 								Capabilities: &corev1.Capabilities{
 									Add: []corev1.Capability{"NET_ADMIN"},
 								},
