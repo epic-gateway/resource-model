@@ -184,21 +184,21 @@ func brCheck(brname string) error {
 }
 
 func ipsetSetCheck() error {
-	cmd := exec.Command("ipset", "create", "egw-in", "hash:ip,port")
+	cmd := exec.Command("/usr/sbin/ipset", "create", "egw-in", "hash:ip,port")
 	return cmd.Run()
 }
 
 func ipTablesCheck(brname string) error {
-	cmd := exec.Command("iptables", "-C", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-	err := cmd.Run()
+	var (
+		cmd          *exec.Cmd
+		err          error
+		stdoutStderr []byte
+	)
+
+	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
+	err = cmd.Run()
 	if err != nil {
-		cmd := exec.Command("iptables", "-A", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-		stdoutStderr, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
-			return err
-		}
-		cmd = exec.Command("iptables", "-A", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
 		stdoutStderr, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
@@ -206,5 +206,16 @@ func ipTablesCheck(brname string) error {
 		}
 	}
 
-	return nil
+	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+	err = cmd.Run()
+	if err != nil {
+		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+		stdoutStderr, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
+			return err
+		}
+	}
+
+	return err
 }
