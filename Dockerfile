@@ -39,4 +39,4 @@ https://gitlab.com/api/v4/projects/acnodal%2Fpacket-forwarding-component/jobs/83
 tar -C /opt/acnodal -xjf -
 
 # FIXME: run ${PROGRAM} instead of this hard-coded string
-CMD ["/opt/acnodal/bin/manager"]
+ENTRYPOINT ["/opt/acnodal/bin/manager"]
