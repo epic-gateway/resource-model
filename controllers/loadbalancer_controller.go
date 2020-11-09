@@ -27,7 +27,6 @@ const (
 	envoyImage    = "registry.gitlab.com/acnodal/envoy-for-egw:adamd-dev"
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
-	multusInt     = "multus0" // FIXME multus interface name is hardcoded, we should be getting it from netattachdef
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -99,7 +98,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 		_, publicaddr, _ := net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
 
-		err = addRt(publicaddr, multusInt)
+		err = addRt(publicaddr, prefix.Spec.MultusBridge)
 		if err != nil {
 			log.Error(err, "adding route to multus interface")
 		}
@@ -110,7 +109,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 		_, publicaddr, _ := net.ParseCIDR(prefix.Spec.Subnet)
 
-		err = addRt(publicaddr, multusInt)
+		err = addRt(publicaddr, prefix.Spec.MultusBridge)
 		if err != nil {
 			log.Error(err, "adding route to multus interface")
 		}

@@ -2,15 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt" //added for multus0 setup
 	"os"
-	"os/exec" //added for ipset & iptables
-	"syscall" //added for multus0 setup
-
-	"github.com/prometheus/common/log"
-	"github.com/vishvananda/netlink" //added for multus0 setup
-
-	"github.com/containernetworking/plugins/pkg/utils/sysctl" //added for multus0
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -19,7 +11,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	pfcsetup "gitlab.com/acnodal/egw-resource-model/internal/pfc"
 	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
@@ -30,7 +21,6 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	brname   = "multus0" //should come from netattach defs
 )
 
 func init() {
@@ -117,105 +107,9 @@ func main() {
 		setupLog.Info("PFC Error", "message", message)
 	}
 
-	err = brCheck(brname)
-	if err == nil {
-		setupLog.Info("Multus present")
-	} else {
-		_, err := ensureBridge(brname)
-		if err != nil {
-			setupLog.Error(err, "Multus", "unable to setup", brname)
-		}
-	}
-
-	err = ipTablesCheck(brname)
-	if err == nil {
-		setupLog.Info("IPtables setup for multus")
-	} else {
-		setupLog.Error(err, "iptables", "unable to setup", brname)
-	}
-
-	err = ipsetSetCheck()
-	if err == nil {
-		setupLog.Info("IPset egw-in added")
-	} else {
-		setupLog.Info("IPset egw-in already exists")
-	}
-
-	err = pfcsetup.SetupNIC(brname, "egress", 1, 9)
-	if err != nil {
-		log.Error(err, "Failed to setup NIC "+brname)
-	}
-
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-func ensureBridge(brname string) (*netlink.Bridge, error) {
-
-	br := &netlink.Bridge{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:   brname,
-			TxQLen: -1,
-		},
-	}
-
-	err := netlink.LinkAdd(br)
-	if err != nil && err != syscall.EEXIST {
-		setupLog.Info("Multus Bridge could not add %q: %v", brname, err)
-	}
-
-	// This interface will not have an address so we need proxy arp enabled
-
-	_, _ = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", brname), "1")
-
-	if err := netlink.LinkSetUp(br); err != nil {
-		return nil, err
-	}
-
-	return br, nil
-}
-
-func brCheck(brname string) error {
-	_, err := netlink.LinkByName(brname)
-	return err
-}
-
-func ipsetSetCheck() error {
-	cmd := exec.Command("/usr/sbin/ipset", "create", "egw-in", "hash:ip,port")
-	return cmd.Run()
-}
-
-func ipTablesCheck(brname string) error {
-	var (
-		cmd          *exec.Cmd
-		err          error
-		stdoutStderr []byte
-	)
-
-	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-	err = cmd.Run()
-	if err != nil {
-		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-		stdoutStderr, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
-			return err
-		}
-	}
-
-	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
-	err = cmd.Run()
-	if err != nil {
-		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
-		stdoutStderr, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
-			return err
-		}
-	}
-
-	return err
 }

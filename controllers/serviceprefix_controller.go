@@ -3,8 +3,14 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os/exec"
+	"syscall"
 
+	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/common/log"
+	"github.com/vishvananda/netlink"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -13,6 +19,7 @@ import (
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	pfcsetup "gitlab.com/acnodal/egw-resource-model/internal/pfc"
 )
 
 // ServicePrefixReconciler reconciles a ServicePrefix object
@@ -52,10 +59,16 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 				// load the netdef into k8s
 				_, err = r.addNetAttachDef(ctx, netdef)
 				if err == nil {
-					return result, nil
 
+					// configure the Multus bridge interface
+					err = r.configureBridge(sp.Spec.MultusBridge)
+					if err == nil {
+						return result, nil
+					}
+					r.Log.Error(err, "configuring interface")
+				} else {
+					r.Log.Error(err, "adding netdef")
 				}
-				r.Log.Error(err, "adding netdef")
 			} else {
 				r.Log.Error(err, "creating netdef")
 			}
@@ -95,7 +108,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *egwv1.ServicePrefix) (*nettype
 		"namespace":  sp.Namespace,
 		"plugins": []map[string]interface{}{{
 			"type":      "bridge",
-			"bridge":    multusInt,
+			"bridge":    sp.Spec.MultusBridge,
 			"isGateway": false,
 			"ipam": map[string]interface{}{
 				"type":   "host-local",
@@ -138,4 +151,114 @@ func (r *ServicePrefixReconciler) fetchNetAttachDef(ctx context.Context, namespa
 	}
 
 	return netdef
+}
+
+// configureBridge configures the bridge interface used to get packets
+// from the Envoy pods to the customer endpoints. It's called
+// "multus0" by default but that can be overridden in the
+// ServicePrefix CR.
+func (r *ServicePrefixReconciler) configureBridge(brname string) error {
+	var err error
+
+	err = brCheck(brname)
+	if err == nil {
+		r.Log.Info("Multus present")
+	} else {
+		_, err := r.ensureBridge(brname)
+		if err != nil {
+			r.Log.Error(err, "Multus", "unable to setup", brname)
+		}
+	}
+
+	err = ipsetSetCheck()
+	if err == nil {
+		r.Log.Info("IPset egw-in added")
+	} else {
+		r.Log.Info("IPset egw-in already exists")
+	}
+
+	err = ipTablesCheck(brname)
+	if err == nil {
+		r.Log.Info("IPtables setup for multus")
+	} else {
+		r.Log.Error(err, "iptables", "unable to setup", brname)
+	}
+
+	err = pfcsetup.SetupNIC(brname, "egress", 1, 9)
+	if err != nil {
+		log.Error(err, "Failed to setup NIC "+brname)
+	}
+
+	return err
+}
+
+// ensureBridge creates the bridge if it's not there.
+func (r *ServicePrefixReconciler) ensureBridge(brname string) (*netlink.Bridge, error) {
+
+	br := &netlink.Bridge{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:   brname,
+			TxQLen: -1,
+		},
+	}
+
+	err := netlink.LinkAdd(br)
+	if err != nil && err != syscall.EEXIST {
+		r.Log.Info("Multus Bridge could not add %q: %v", brname, err)
+	}
+
+	// This interface will not have an address so we need proxy arp enabled
+
+	_, _ = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", brname), "1")
+
+	if err := netlink.LinkSetUp(br); err != nil {
+		return nil, err
+	}
+
+	return br, nil
+}
+
+// brCheck returns nil if brname exists and non-nil if it doesn.t
+func brCheck(brname string) error {
+	_, err := netlink.LinkByName(brname)
+	return err
+}
+
+// ipsetSetCheck runs ipset to create the egw-in table.
+func ipsetSetCheck() error {
+	cmd := exec.Command("/usr/sbin/ipset", "create", "egw-in", "hash:ip,port")
+	return cmd.Run()
+}
+
+// ipTablesCheck sets up the iptables rules.
+func ipTablesCheck(brname string) error {
+	var (
+		cmd          *exec.Cmd
+		err          error
+		stdoutStderr []byte
+	)
+
+	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
+	err = cmd.Run()
+	if err != nil {
+		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
+		stdoutStderr, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
+			return err
+		}
+	}
+
+	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+	err = cmd.Run()
+	if err != nil {
+		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+		stdoutStderr, err = cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
+			return err
+		}
+	}
+
+	return err
 }
