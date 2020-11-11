@@ -5,12 +5,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// ServiceGroup is the name of the ServiceGroup to which this
@@ -32,6 +30,11 @@ type LoadBalancerSpec struct {
 type LoadBalancerEndpoint struct {
 	// Address is the IP address for this endpoint.
 	Address string `json:"address"`
+
+	// NodeAddress is the IP address of the node on which this endpoint
+	// is running. We use it to set up a GUE tunnel from the EGW to the
+	// node.
+	NodeAddress string `json:"node-address"`
 
 	// Port is the port on which this endpoint listens.
 	Port corev1.EndpointPort `json:"port"`
