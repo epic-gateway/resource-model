@@ -240,7 +240,7 @@ func splitNSName(name string) (*types.NamespacedName, error) {
 // labelsForLB returns the labels for selecting the resources
 // belonging to the given CR name.
 func labelsForLB(name string) map[string]string {
-	return map[string]string{"app": "egw", "loadbalancer_cr": name}
+	return map[string]string{"app": "egw", "role": "proxy", "loadbalancer_cr": name}
 }
 
 // portsToPorts converts from ServicePorts to ContainerPorts.
