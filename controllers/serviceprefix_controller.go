@@ -43,43 +43,45 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	ctx := context.Background()
 	l := r.Log.WithValues("serviceprefix", req.NamespacedName)
 
-	l.Info("fetching")
+	// read the object that caused the event
+	sp := &egwv1.ServicePrefix{}
+	err = r.Get(ctx, req.NamespacedName, sp)
+	if err != nil {
+		r.Log.Error(err, "reading ServicePrefix")
+		return result, err
+	}
+
+	// check if we've got a netattachdef for this SP
 	netdef := r.fetchNetAttachDef(ctx, req.NamespacedName.Namespace, req.NamespacedName.Name)
 	if netdef == nil {
 		l.Info("need to create")
-		// read the object that caused the event
-		sp := &egwv1.ServicePrefix{}
-		err = r.Get(ctx, req.NamespacedName, sp)
+		// create a netdef to work with the ServicePrefix
+		netdef, err = r.netdefForSP(sp)
 		if err == nil {
-
-			// create a netdef to work with the ServicePrefix
-			netdef, err = r.netdefForSP(sp)
-			if err == nil {
-
-				// load the netdef into k8s
-				_, err = r.addNetAttachDef(ctx, netdef)
-				if err == nil {
-
-					// configure the Multus bridge interface
-					err = r.configureBridge(sp.Spec.MultusBridge)
-					if err == nil {
-						return result, nil
-					}
-					r.Log.Error(err, "configuring interface")
-				} else {
-					r.Log.Error(err, "adding netdef")
-				}
-			} else {
-				r.Log.Error(err, "creating netdef")
+			// load the netdef into k8s
+			netdef, err = r.addNetAttachDef(ctx, netdef)
+			if err != nil {
+				r.Log.Error(err, "adding netdef")
+				return result, err
 			}
 		} else {
-			r.Log.Error(err, "reading ServicePrefix")
+			r.Log.Error(err, "creating netdef")
+			return result, err
 		}
 	} else {
 		l.Info("netdef already exists")
 	}
 
-	return result, nil
+	// now that we've got a netattachdef (either because it was there or
+	// because we just created it) we need to configure the underlying
+	// linux os. the netattachdef is more durable than the linux config,
+	// e.g., if we reboot a node the netattachdef will be there but the
+	// linux config won't so even if the netattachdef is there we still
+	// need to configure linux
+
+	// configure the Multus bridge interface
+	err = r.configureBridge(sp.Spec.MultusBridge)
+	return result, err
 }
 
 // SetupWithManager sets up this controller to work with the mgr.
