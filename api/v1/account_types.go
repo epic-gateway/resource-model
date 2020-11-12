@@ -4,19 +4,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// Important: Run "make" to regenerate code after modifying this file
 
 // AccountSpec defines the desired state of Account
 type AccountSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// GUEKey is used with a service's GUEKey to set up GUE tunnels
+	// between the EGW and the client cluster for that service. It
+	// should not be set in the YAML manifest - the controller manager
+	// will fill in the value when the object is created.
+	GUEKey uint16 `json:"gue-key,omitempty"`
 }
 
 // AccountStatus defines the observed state of Account
 type AccountStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// CurrentAccountGUEKey stores the most-recently-allocated value of
+	// GUE key for services in this account. See the comments on
+	// CurrentAccountGUEKey in the EGW CR for notes on how to use this
+	// field.
+	CurrentServiceGUEKey uint16 `json:"current-gue-key"`
 }
 
 // +kubebuilder:object:root=true

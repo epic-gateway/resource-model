@@ -6,11 +6,10 @@ import (
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// Important: Run "make" to regenerate code after modifying this file
 
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// ServiceGroup is the name of the ServiceGroup to which this
 	// LoadBalancer belongs.
 	ServiceGroup string `json:"service-group"`
@@ -24,6 +23,15 @@ type LoadBalancerSpec struct {
 	// Endpoints are the customer-cluster endpoints to which we send
 	// traffic.
 	Endpoints []LoadBalancerEndpoint `json:"endpoints,omitempty"`
+
+	// GUEKey is used with the account-level GUEKey to set up this
+	// service's GUE tunnels between the EGW and the client cluster. The
+	// account-level GUEKey is 16 bits but this GUEKey is 32 bits
+	// because it contains *both* the account key (in the upper 16 bits)
+	// and the service key (in the lower 16 bits). It should not be set
+	// in the YAML manifest - the controller manager will fill in the
+	// value when the object is created.
+	GUEKey uint32 `json:"gue-key,omitempty"`
 }
 
 // LoadBalancerEndpoint represents one endpoint on a customer cluster.
@@ -42,8 +50,6 @@ type LoadBalancerEndpoint struct {
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true

@@ -3,4 +3,5 @@ kind: ServiceGroup
 metadata:
   namespace: egw-sample
   name: sample
-spec: {}
+spec:
+  auth-creds: Road Runner

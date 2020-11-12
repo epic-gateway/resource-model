@@ -4,7 +4,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 
@@ -15,6 +14,10 @@ type ServiceGroupSpec struct {
 	// ServiceGroup's addresses are allocated.
 	// +kubebuilder:default=egw/default
 	ServicePrefix string `json:"service-prefix,omitempty"`
+
+	// AuthCreds validate that the client who's setting up a GUE tunnel
+	// is who they say they are.
+	AuthCreds string `json:"auth-creds"`
 }
 
 // ServiceGroupStatus defines the observed state of ServiceGroup
