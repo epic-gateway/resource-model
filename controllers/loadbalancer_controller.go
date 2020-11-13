@@ -340,14 +340,9 @@ func (r *LoadBalancerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *LoadBalancerReconciler) configureBridge(brname string) error {
 	var err error
 
-	err = brCheck(brname)
-	if err == nil {
-		r.Log.Info("Multus present")
-	} else {
-		_, err := r.ensureBridge(brname)
-		if err != nil {
-			r.Log.Error(err, "Multus", "unable to setup", brname)
-		}
+	_, err = r.ensureBridge(brname)
+	if err != nil {
+		r.Log.Error(err, "Multus", "unable to setup", brname)
 	}
 
 	err = ipsetSetCheck()
@@ -382,26 +377,29 @@ func (r *LoadBalancerReconciler) ensureBridge(brname string) (*netlink.Bridge, e
 		},
 	}
 
-	err := netlink.LinkAdd(br)
-	if err != nil && err != syscall.EEXIST {
-		r.Log.Info("Multus Bridge could not add %q: %v", brname, err)
+	// create the bridge if it doesn't already exist
+	_, err := netlink.LinkByName(brname)
+	if err != nil {
+		err = netlink.LinkAdd(br)
+		if err != nil && err != syscall.EEXIST {
+			r.Log.Info("Multus Bridge could not add %q: %v", brname, err)
+		}
+	} else {
+		r.Log.Info(brname + " already exists")
 	}
 
 	// This interface will not have an address so we need proxy arp enabled
 
-	_, _ = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", brname), "1")
+	_, err = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", brname), "1")
+	if err != nil {
+		return nil, err
+	}
 
 	if err := netlink.LinkSetUp(br); err != nil {
 		return nil, err
 	}
 
 	return br, nil
-}
-
-// brCheck returns nil if brname exists and non-nil if it doesn.t
-func brCheck(brname string) error {
-	_, err := netlink.LinkByName(brname)
-	return err
 }
 
 // ipsetSetCheck runs ipset to create the egw-in table.
