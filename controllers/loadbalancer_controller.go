@@ -54,7 +54,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	ctx := context.TODO()
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
 
-	log.Info("reconciling", "request", req)
+	log.Info("reconciling")
 
 	r.lbAddrs = map[string]*net.IPNet{}
 

@@ -19,6 +19,25 @@ func (r *LoadBalancer) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
+// +kubebuilder:webhook:verbs=create,path=/mutate-egw-acnodal-io-v1-loadbalancer,mutating=true,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
+//
+//  FIXME: we use v1beta1 here because controller-runtime doesn't
+//  support v1 yet. When it does, we should remove
+//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
+//  will switch to v1 (the default)
+//
+
+var _ webhook.Defaulter = &LoadBalancer{}
+
+// Default implements webhook.Defaulter so a webhook will be registered for the type
+func (r *LoadBalancer) Default() {
+	loadbalancerlog.Info("default", "name", r.Name)
+
+	// add a GUE key to this service. we're pretending that the account
+	// key is 42 and the service key is 42
+	r.Spec.GUEKey = (42 * 0x10000) + 42
+}
+
 // +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
 //
 //  FIXME: we use v1beta1 here because controller-runtime doesn't
