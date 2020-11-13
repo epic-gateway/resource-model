@@ -1,0 +1,6 @@
+apiVersion: egw.acnodal.io/v1
+kind: EGW
+metadata:
+  namespace: egw
+  name: egw
+spec: {}
