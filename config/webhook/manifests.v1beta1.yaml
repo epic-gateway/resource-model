@@ -12,6 +12,25 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-egw-acnodal-io-v1-account
+  failurePolicy: Fail
+  name: maccount.kb.io
+  rules:
+  - apiGroups:
+    - egw.acnodal.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - accounts
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-egw-acnodal-io-v1-loadbalancer
   failurePolicy: Fail
   name: vloadbalancer.kb.io
