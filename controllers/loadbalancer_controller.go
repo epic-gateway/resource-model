@@ -99,7 +99,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// configure the Multus bridge interface
-	err = r.configureBridge(prefix.Spec.MultusBridge)
+	err = r.configureBridge(prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr())
 	if err != nil {
 		log.Error(err, "Failed to configure multus bridge", "name", spname)
 		return result, err
@@ -337,10 +337,10 @@ func (r *LoadBalancerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // from the Envoy pods to the customer endpoints. It's called
 // "multus0" by default but that can be overridden in the
 // ServicePrefix CR.
-func (r *LoadBalancerReconciler) configureBridge(brname string) error {
+func (r *LoadBalancerReconciler) configureBridge(brname string, gateway *netlink.Addr) error {
 	var err error
 
-	_, err = r.ensureBridge(brname)
+	_, err = r.ensureBridge(brname, gateway)
 	if err != nil {
 		r.Log.Error(err, "Multus", "unable to setup", brname)
 	}
@@ -367,8 +367,8 @@ func (r *LoadBalancerReconciler) configureBridge(brname string) error {
 	return err
 }
 
-// ensureBridge creates the bridge if it's not there.
-func (r *LoadBalancerReconciler) ensureBridge(brname string) (*netlink.Bridge, error) {
+// ensureBridge creates the bridge if it's not there and configures it in either case.
+func (r *LoadBalancerReconciler) ensureBridge(brname string, gateway *netlink.Addr) (*netlink.Bridge, error) {
 
 	br := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
@@ -388,15 +388,21 @@ func (r *LoadBalancerReconciler) ensureBridge(brname string) (*netlink.Bridge, e
 		r.Log.Info(brname + " already exists")
 	}
 
-	// This interface will not have an address so we need proxy arp enabled
+	// bring the interface up
+	if err := netlink.LinkSetUp(br); err != nil {
+		return nil, err
+	}
 
+	// Proxy ARP is required when we use a device route for the default gateway
 	_, err = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", brname), "1")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := netlink.LinkSetUp(br); err != nil {
-		return nil, err
+	// add the gateway address to the bridge interface
+	err = netlink.AddrReplace(br, gateway)
+	if err != nil {
+		return nil, fmt.Errorf("could not add %v: to %v %w", gateway, br, err)
 	}
 
 	return br, nil

@@ -7,4 +7,5 @@ metadata:
 spec:
   subnet: 192.168.77.0/24
   pool: 192.168.77.2-192.168.77.8
+  gateway: 192.168.77.1
   aggregation: default
