@@ -29,8 +29,8 @@ type LoadBalancerSpec struct {
 	// account-level GUEKey is 16 bits but this GUEKey is 32 bits
 	// because it contains *both* the account key (in the upper 16 bits)
 	// and the service key (in the lower 16 bits). It should not be set
-	// in the YAML manifest - the controller manager will fill in the
-	// value when the object is created.
+	// in the YAML manifest - a webhook will fill it in when the CR is
+	// created.
 	GUEKey uint32 `json:"gue-key,omitempty"`
 }
 
@@ -50,6 +50,9 @@ type LoadBalancerEndpoint struct {
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
+	// GUEAddress is the EGW's GUE tunnel endpoint address for this load
+	// balancer.
+	GUEAddress string `json:"gue-address"`
 }
 
 // +kubebuilder:object:root=true

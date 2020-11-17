@@ -6,3 +6,4 @@ metadata:
 spec:
   base:
     ingress-nics: [eth0]
+    gue-ingress-address: 192.168.1.40

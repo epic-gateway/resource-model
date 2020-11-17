@@ -148,6 +148,16 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			return result, err
 		}
 
+		// FIXME: wait until the Envoy pod starts so we can see what node
+		// it's running on
+
+		// Add GUE ingress address to the loadbalancer
+		r.setGUEIngressAddress(ctx, lb)
+		if err != nil {
+			log.Error(err, "Patching LB status")
+			return result, err
+		}
+
 		// Deployment created successfully - return and requeue
 		return ctrl.Result{Requeue: true}, nil
 
@@ -443,6 +453,37 @@ func ipTablesCheck(brname string) error {
 			return err
 		}
 	}
+
+	return err
+}
+
+// setGUEIngressAddress sets the GUEAddress field of the LoadBalancer
+// status. This is used by PureLB to open a GUE tunnel back to the
+// EGW.
+func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1.LoadBalancer) error {
+	var err error
+
+	// fetch the NodeConfig; it tells us the GUEIngressAddress
+	nc := &egwv1.NodeConfig{}
+	err = r.Get(ctx, types.NamespacedName{Name: "default", Namespace: "egw"}, nc)
+	if err != nil {
+		return err
+	}
+
+	// prepare a patch to set the address in the LB status
+	// patchBytes, err := json.Marshal(map[string]map[string]string{"status": {"gue-address": nc.Spec.Base.GUEIngressAddress}})
+	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUEAddress: nc.Spec.Base.GUEIngressAddress}})
+	if err != nil {
+		return err
+	}
+	log.Info(string(patchBytes))
+
+	// apply the patch
+	err = r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes))
+	if err != nil {
+		return err
+	}
+	log.Info("LB status patched", "lb", lb)
 
 	return err
 }

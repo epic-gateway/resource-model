@@ -35,7 +35,7 @@ COPY --from=builder /workspace/manager ${PROGRAM}
 
 # copy the packet forwarding components from the pfc project
 RUN curl -L -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-https://gitlab.com/api/v4/projects/acnodal%2Fpacket-forwarding-component/jobs/841864770/artifacts/pfc.tar.bz2 | \
+https://gitlab.com/api/v4/projects/acnodal%2Fpacket-forwarding-component/jobs/861358553/artifacts/pfc.tar.bz2 | \
 tar -C ${DEST} --strip-components=1 -xjf -
 
 # FIXME: run ${PROGRAM} instead of this hard-coded string
