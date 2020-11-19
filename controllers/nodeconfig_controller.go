@@ -54,6 +54,10 @@ func (r *NodeConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		if err != nil {
 			log.Error(err, "Failed to setup NIC "+nic)
 		}
+		err = pfc.SetupNIC(nic, "egress", 1, 9)
+		if err != nil {
+			log.Error(err, "Failed to setup NIC "+nic)
+		}
 	}
 
 	return ctrl.Result{}, nil

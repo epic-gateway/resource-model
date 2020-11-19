@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
-	pfcsetup "gitlab.com/acnodal/egw-resource-model/internal/pfc"
 )
 
 const (
@@ -367,11 +366,6 @@ func (r *LoadBalancerReconciler) configureBridge(brname string, gateway *netlink
 		r.Log.Info("IPtables setup for multus")
 	} else {
 		r.Log.Error(err, "iptables", "unable to setup", brname)
-	}
-
-	err = pfcsetup.SetupNIC(brname, "egress", 1, 9)
-	if err != nil {
-		log.Error(err, "Failed to setup NIC "+brname)
 	}
 
 	return err
