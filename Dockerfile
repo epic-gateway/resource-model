@@ -24,19 +24,8 @@ COPY internal/ internal/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
 
 FROM ubuntu:20.04
-ENV DEST=/opt/acnodal/bin
-ENV PROGRAM=${DEST}/manager
-ARG GITLAB_TOKEN
 
 RUN apt-get update && apt-get install -y curl ipset iptables iproute2
 
-# copy executables from the builder image
-COPY --from=builder /workspace/manager ${PROGRAM}
-
-# copy the packet forwarding components from the pfc project
-RUN curl -L -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-https://gitlab.com/api/v4/projects/acnodal%2Fpacket-forwarding-component/jobs/861358553/artifacts/pfc.tar.bz2 | \
-tar -C ${DEST} --strip-components=1 -xjf -
-
-# FIXME: run ${PROGRAM} instead of this hard-coded string
-ENTRYPOINT ["/opt/acnodal/bin/manager"]
+COPY --from=builder /workspace/manager /usr/local/bin/manager
+CMD [ "/usr/local/bin/manager", "--enable-leader-election" ]

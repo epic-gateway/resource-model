@@ -45,6 +45,8 @@ spec:
             add:
             - NET_ADMIN
         volumeMounts:
+        - mountPath: /opt/acnodal/bin
+          name: pfctools
         - mountPath: /sys/fs/bpf
           name: bpf
         - mountPath: /run
@@ -52,6 +54,9 @@ spec:
       terminationGracePeriodSeconds: 10
       hostNetwork: true
       volumes:
+      - name: pfctools
+        hostPath:
+          path: /opt/acnodal/bin
       - name: bpf
         hostPath:
           path: /sys/fs/bpf
