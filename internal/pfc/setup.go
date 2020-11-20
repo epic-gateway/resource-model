@@ -47,7 +47,7 @@ func addQueueDiscipline(nic string) error {
 
 func addFilter(nic string, direction string) error {
 	// add the pfc ingress filter to the nic if it's not already there
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("tc filter show dev %[1]s ingress | grep pfc_%[2]s_tc || tc filter add dev %[1]s ingress bpf direct-action object-file /opt/acnodal/bin/pfc_%[2]s_tc.o sec .text", nic, direction))
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("tc filter show dev %[1]s %[2]s | grep pfc_%[2]s_tc || tc filter add dev %[1]s %[2]s bpf direct-action object-file /opt/acnodal/bin/pfc_%[2]s_tc.o sec .text", nic, direction))
 	return cmd.Run()
 }
 
