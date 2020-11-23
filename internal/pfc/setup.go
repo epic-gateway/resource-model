@@ -29,7 +29,7 @@ func SetupNIC(nic string, direction string, qid int, flags int) error {
 	}
 
 	// ./cli_cfg set nic 0 0 9 "nic rx"
-	err = configurePFC(nic, qid, flags)
+	err = configurePFC(nic, qid, flags, direction)
 	if err == nil {
 		log.Info("pfc configured", "qid", qid, "flags", flags)
 	} else {
@@ -51,8 +51,13 @@ func addFilter(nic string, direction string) error {
 	return cmd.Run()
 }
 
-func configurePFC(nic string, qid int, flags int) error {
+func configurePFC(nic string, qid int, flags int, direction string) error {
+	rxtx := map[string]string{"ingress": "rx", "egress": "tx"}[direction]
+	directionID := map[string]int{"ingress": 0, "egress": 1}[direction]
+
 	// configure the PFC only if it hasn't been already
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("/opt/acnodal/bin/cli_cfg get %[1]s | grep GUE-DECAP || /opt/acnodal/bin/cli_cfg set %[1]s %[2]d 0 %[3]d \"%[1]s rx\"", nic, qid, flags))
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_cfg get %[1]s | grep -i \"%[4]s *%[1]s\" || /opt/acnodal/bin/cli_cfg set %[1]s %[5]d %[2]d %[3]d \"%[1]s %[6]s\"", nic, qid, flags, direction, directionID, rxtx)
+	ctrl.Log.Info("pfc configuration", "script", script)
+	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
 }
