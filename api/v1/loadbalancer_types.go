@@ -53,6 +53,12 @@ type LoadBalancerStatus struct {
 	// GUEAddress is the EGW's GUE tunnel endpoint address for this load
 	// balancer.
 	GUEAddress string `json:"gue-address"`
+
+	// ProxyIfindex is the ifindex of the veth interface on the docker
+	// side of this service's proxy pod. In other words, it's the end of
+	// the veth that's inside the container (i.e., on the other side
+	// from the end that's attached to the multus bridge).
+	ProxyIfindex int `json:"proxy-ifindex"`
 }
 
 // +kubebuilder:object:root=true
