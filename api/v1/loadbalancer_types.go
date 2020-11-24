@@ -54,11 +54,17 @@ type LoadBalancerStatus struct {
 	// balancer.
 	GUEAddress string `json:"gue-address,omitempty"`
 
-	// ProxyIfindex is the ifindex of the veth interface on the docker
-	// side of this service's proxy pod. In other words, it's the end of
-	// the veth that's inside the container (i.e., on the other side
-	// from the end that's attached to the multus bridge).
+	// ProxyIfindex is the ifindex of the Envoy proxy pod's veth
+	// interface on the docker side of this service's proxy pod. In
+	// other words, it's the end of the veth that's inside the container
+	// (i.e., on the other side from the end that's attached to the
+	// multus bridge). It's filled in by the python setup-network daemon
+	// and used by the loadbalancer controller.
 	ProxyIfindex int `json:"proxy-ifindex,omitempty"`
+
+	// ProxyIfname is the name of the interface whose index is
+	// ProxyIfindex.
+	ProxyIfname string `json:"proxy-ifname,omitempty"`
 }
 
 // +kubebuilder:object:root=true
