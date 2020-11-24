@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
@@ -24,12 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	"gitlab.com/acnodal/egw-resource-model/internal/pfc"
 )
 
 const (
 	envoyImage    = "registry.gitlab.com/acnodal/envoy-for-egw:adamd-dev"
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+	tunnelPort    = 4242
+	tunnelAuth    = "fredfredfredfred" // FIXME: this should be in one of our CRs
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -49,7 +53,8 @@ type LoadBalancerReconciler struct {
 // Request is asking for.
 func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	var err error
-	result := ctrl.Result{}
+	done := ctrl.Result{Requeue: false}
+	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
 	ctx := context.TODO()
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
 
@@ -66,11 +71,11 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			log.Info("resource not found. Ignoring since object must be deleted")
-			return result, nil
+			return done, nil
 		}
 		// Error reading the object - requeue the request.
 		log.Error(err, "Failed to get resource, will retry")
-		return result, err
+		return tryAgain, err
 	}
 
 	// read the ServiceGroup that owns this LB
@@ -79,14 +84,14 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	err = r.Get(ctx, sgname, sg)
 	if err != nil {
 		log.Error(err, "Failed to find owning service group", "name", sgname)
-		return result, err
+		return done, err
 	}
 
 	// the ServiceGroup points to the ServicePrefix
 	spname, err := splitNSName(sg.Spec.ServicePrefix)
 	if err != nil {
 		log.Error(err, "Failed to look up ServicePrefix", "name", spname)
-		return result, err
+		return done, err
 	}
 
 	// read the ServicePrefix that determines the interface that we'll use
@@ -94,14 +99,70 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	err = r.Get(ctx, *spname, prefix)
 	if err != nil {
 		log.Error(err, "Failed to find owning service prefix", "name", spname)
-		return result, err
+		return done, err
+	}
+
+	// Check if the deployment already exists, if not create a new one
+	found := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: envoyPodName(lb), Namespace: lb.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new deployment
+		dep := r.deploymentForLB(lb, spname)
+
+		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		err = r.Create(ctx, dep)
+		if err != nil {
+			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			return done, err
+		}
+
+		// Add GUE ingress address to the loadbalancer
+		r.setGUEIngressAddress(ctx, lb)
+		if err != nil {
+			log.Error(err, "Patching LB status")
+			return done, err
+		}
+	} else if err != nil {
+		log.Error(err, "Failed to get Deployment")
+		return done, err
+	}
+
+	// We need this LB's veth info so if the python daemon hasn't filled
+	// it in yet then we'll back off and give it more time
+	if lb.Status.ProxyIfindex == 0 || lb.Status.ProxyIfname == "" {
+		log.Info("status has no ifindex")
+		return tryAgain, nil
+	}
+	log.Info("LB status veth info", "ifindex", lb.Status.ProxyIfindex, "ifname", lb.Status.ProxyIfname)
+
+	// add the packet tagger to the Envoy pod veth
+	err = r.configureTagging(log, lb.Status.ProxyIfname)
+	if err != nil {
+		log.Error(err, "adding packet tagger", "if", lb.Status.ProxyIfname)
+		return done, err
 	}
 
 	// configure the Multus bridge interface
 	err = r.configureBridge(prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr())
 	if err != nil {
 		log.Error(err, "Failed to configure multus bridge", "name", spname)
-		return result, err
+		return done, err
+	}
+
+	// configure the GUE tunnel
+	err = r.configureTunnel(log, lb.Status.GUEAddress, lb.Spec.GUEKey)
+	if err != nil {
+		log.Error(err, "configuring GUE tunnel")
+		return done, err
+	}
+
+	// configure the GUE service
+	for _, ep := range lb.Spec.Endpoints {
+		err = r.configureService(log, ep, lb.Status.ProxyIfindex, lb.Spec.GUEKey)
+		if err != nil {
+			log.Error(err, "configuring GUE service")
+			return done, err
+		}
 	}
 
 	// Setup host routing
@@ -133,39 +194,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	//Open host ports by updating IPSET tables
 	addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 
-	// Check if the deployment already exists, if not create a new one
-	found := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: envoyPodName(lb), Namespace: lb.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new deployment
-		dep := r.deploymentForLB(lb, spname)
-
-		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-		err = r.Create(ctx, dep)
-		if err != nil {
-			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-			return result, err
-		}
-
-		// FIXME: wait until the Envoy pod starts so we can see what node
-		// it's running on
-
-		// Add GUE ingress address to the loadbalancer
-		r.setGUEIngressAddress(ctx, lb)
-		if err != nil {
-			log.Error(err, "Patching LB status")
-			return result, err
-		}
-
-		// Deployment created successfully - return and requeue
-		return ctrl.Result{Requeue: true}, nil
-
-	} else if err != nil {
-		log.Error(err, "Failed to get Deployment")
-		return result, err
-	}
-
-	return result, nil
+	return done, nil
 }
 
 func envoyPodName(lb *egwv1.LoadBalancer) string {
@@ -465,7 +494,6 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 	}
 
 	// prepare a patch to set the address in the LB status
-	// patchBytes, err := json.Marshal(map[string]map[string]string{"status": {"gue-address": nc.Spec.Base.GUEIngressAddress}})
 	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUEAddress: nc.Spec.Base.GUEIngressAddress}})
 	if err != nil {
 		return err
@@ -480,4 +508,41 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 	log.Info("LB status patched", "lb", lb)
 
 	return err
+}
+
+func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ingressIP string, tunnelKey uint32) error {
+	// We can use the tunnelKey as our locally-unique tunnelID. It's
+	// overkill but it will be unique for this instance (and also all
+	// other instances on all client clusters).
+	tunnelID := tunnelKey
+
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, ingressIP, tunnelPort)
+	l.Info(script)
+	cmd := exec.Command("/bin/sh", "-c", script)
+	return cmd.Run()
+}
+
+func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBalancerEndpoint, ifindex int, tunnelKey uint32) error {
+	// We can use the tunnelKey as our locally-unique tunnelID. It's
+	// overkill but it will be unique for this instance (and also all
+	// other instances on all client clusters).
+	tunnelID := tunnelKey
+
+	// split the tunnelKey into its parts: groupId in the upper 16 bits
+	// and serviceId in the lower 16
+	var groupID uint16 = uint16(tunnelKey & 0xffff)
+	var serviceID uint16 = uint16(tunnelKey >> 16)
+
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service get %[1]d %[2]d | grep %[3]s || /opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
+	l.Info(script)
+	cmd := exec.Command("/bin/sh", "-c", script)
+	return cmd.Run()
+}
+
+func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) error {
+	err := pfc.AddQueueDiscipline(ifname)
+	if err != nil {
+		return err
+	}
+	return pfc.AddFilter(ifname, "ingress", "tag_rx")
 }
