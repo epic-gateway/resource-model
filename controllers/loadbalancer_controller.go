@@ -533,7 +533,7 @@ func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBa
 	var groupID uint16 = uint16(tunnelKey & 0xffff)
 	var serviceID uint16 = uint16(tunnelKey >> 16)
 
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service get %[1]d %[2]d | grep %[3]s || /opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service get all | grep 'ENCAP.*tcp %[5]s:%[6]d' || /opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
