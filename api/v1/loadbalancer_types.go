@@ -63,7 +63,7 @@ func (r *LoadBalancerSpec) AddEndpoint(ep LoadBalancerEndpoint) error {
 	return nil
 }
 
-// LoadBalancerEndpoint represents one endpoint on a customer cluster.
+// LoadBalancerEndpoint is an Endpoint on the client cluster.
 type LoadBalancerEndpoint struct {
 	// Address is the IP address for this endpoint.
 	Address string `json:"address"`
@@ -77,15 +77,24 @@ type LoadBalancerEndpoint struct {
 	Port corev1.EndpointPort `json:"port"`
 }
 
+// GUETunnelEndpoint is an Endpoint on the EGW.
+type GUETunnelEndpoint struct {
+	// Address is the IP address on the EGW for this endpoint.
+	Address string `json:"egw-address"`
+
+	// Port is the port on which this endpoint listens.
+	Port corev1.EndpointPort `json:"egw-port"`
+}
+
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
-	// GUEAddress is the EGW's GUE tunnel endpoint address for this load
-	// balancer.
-	GUEAddress string `json:"gue-address,omitempty"`
-
-	// GUEPort is the EGW's GUE tunnel endpoint port on the GUEAddress
-	// address.
-	GUEPort corev1.ServicePort `json:"gue-port,omitempty"`
+	// GUETunnelEndpoints is a map from client node addresses to public
+	// GUE tunnel endpoints on the EGW. The map key is a client node
+	// address and must be one of the node addresses in the Spec
+	// Endpoints slice. The value is a GUETunnelEndpoint that describes
+	// the public IP and port to which the client can send tunnel ping
+	// packets.
+	GUETunnelEndpoints map[string]GUETunnelEndpoint `json:"gue-tunnel-endpoints,omitempty"`
 
 	// ProxyIfindex is the ifindex of the Envoy proxy pod's veth
 	// interface on the docker side of this service's proxy pod. In

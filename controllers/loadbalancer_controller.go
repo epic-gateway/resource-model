@@ -115,13 +115,6 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			return done, err
 		}
-
-		// Add GUE ingress address to the loadbalancer
-		r.setGUEIngressAddress(ctx, lb)
-		if err != nil {
-			log.Error(err, "Patching LB status")
-			return done, err
-		}
 	} else if err != nil {
 		log.Error(err, "Failed to get Deployment")
 		return done, err
@@ -149,15 +142,22 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return done, err
 	}
 
-	// configure the GUE tunnel
-	err = r.configureTunnel(log, lb.Status.GUEAddress, lb.Status.GUEPort, lb.Spec.GUEKey)
-	if err != nil {
-		log.Error(err, "configuring GUE tunnel")
-		return done, err
-	}
-
 	// configure the GUE service
 	for _, ep := range lb.Spec.Endpoints {
+		// Add GUE ingress address/port to the endpoint
+		gueEp, err := r.setGUEIngressAddress(ctx, lb, &ep)
+		if err != nil {
+			log.Error(err, "Patching LB status")
+			return done, err
+		}
+
+		// configure the GUE tunnel
+		err = r.configureTunnel(log, gueEp, lb.Spec.GUEKey)
+		if err != nil {
+			log.Error(err, "configuring GUE tunnel")
+			return done, err
+		}
+
 		err = r.configureService(log, ep, lb.Status.ProxyIfindex, lb.Spec.GUEKey)
 		if err != nil {
 			log.Error(err, "configuring GUE service")
@@ -482,41 +482,64 @@ func ipTablesCheck(brname string) error {
 
 // setGUEIngressAddress sets the GUEAddress/Port fields of the
 // LoadBalancer status. This is used by PureLB to open a GUE tunnel
-// back to the EGW.
-func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1.LoadBalancer) error {
-	var err error
+// back to the EGW. It returns a GUETunnelEndpoint, either the newly
+// created one or the existing one. If error is non-nil then the
+// GUETunnelEndpoint is invalid.
+func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1.LoadBalancer, ep *egwv1.LoadBalancerEndpoint) (egwv1.GUETunnelEndpoint, error) {
+	var (
+		err         error
+		gueEndpoint egwv1.GUETunnelEndpoint
+	)
+
+	// We set up a tunnel to each client node that has an endpoint that
+	// belongs to this service. If we already have a tunnel to this
+	// endpoint's node (i.e., two endpoints in the same service on the
+	// same node) then we don't need to do anything
+	if gueEndpoint, exists := lb.Status.GUETunnelEndpoints[ep.NodeAddress]; exists {
+		log.Info("EP node already has a tunnel", "endpoint", ep)
+		return gueEndpoint, nil
+	}
 
 	// fetch the NodeConfig; it tells us the GUEIngressAddress
 	nc := &egwv1.NodeConfig{}
 	err = r.Get(ctx, types.NamespacedName{Name: "default", Namespace: "egw"}, nc)
 	if err != nil {
-		return err
+		return gueEndpoint, err
 	}
 
-	// prepare a patch to set the address in the LB status
-	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUEAddress: nc.Spec.Base.GUEIngressAddress, GUEPort: corev1.ServicePort{Port: tunnelPort}}})
+	gueEndpoint = egwv1.GUETunnelEndpoint{
+		Address: nc.Spec.Base.GUEIngressAddress,
+		Port: corev1.EndpointPort{
+			Port:     tunnelPort,
+			Protocol: "TCP",
+		},
+	}
+
+	// prepare a patch to set this node's tunnel endpoint in the LB status
+	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUETunnelEndpoints: map[string]egwv1.GUETunnelEndpoint{ep.NodeAddress: gueEndpoint}}})
 	if err != nil {
-		return err
+		return gueEndpoint, err
 	}
 	log.Info(string(patchBytes))
 
 	// apply the patch
 	err = r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes))
 	if err != nil {
-		return err
+		log.Error("patching LB status", "lb", lb, "error", err)
+		return gueEndpoint, err
 	}
-	log.Info("LB status patched", "lb", lb)
 
-	return err
+	log.Info("LB status patched", "lb", lb)
+	return gueEndpoint, err
 }
 
-func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ingressIP string, ingressPort corev1.ServicePort, tunnelKey uint32) error {
+func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, endpoint egwv1.GUETunnelEndpoint, tunnelKey uint32) error {
 	// We can use the tunnelKey as our locally-unique tunnelID. It's
 	// overkill but it will be unique for this instance (and also all
 	// other instances on all client clusters).
 	tunnelID := tunnelKey
 
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, ingressIP, ingressPort.Port)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, endpoint.Address, endpoint.Port.Port)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
