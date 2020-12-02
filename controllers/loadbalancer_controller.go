@@ -150,7 +150,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// configure the GUE tunnel
-	err = r.configureTunnel(log, lb.Status.GUEAddress, lb.Spec.GUEKey)
+	err = r.configureTunnel(log, lb.Status.GUEAddress, lb.Status.GUEPort, lb.Spec.GUEKey)
 	if err != nil {
 		log.Error(err, "configuring GUE tunnel")
 		return done, err
@@ -480,9 +480,9 @@ func ipTablesCheck(brname string) error {
 	return err
 }
 
-// setGUEIngressAddress sets the GUEAddress field of the LoadBalancer
-// status. This is used by PureLB to open a GUE tunnel back to the
-// EGW.
+// setGUEIngressAddress sets the GUEAddress/Port fields of the
+// LoadBalancer status. This is used by PureLB to open a GUE tunnel
+// back to the EGW.
 func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1.LoadBalancer) error {
 	var err error
 
@@ -494,7 +494,7 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 	}
 
 	// prepare a patch to set the address in the LB status
-	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUEAddress: nc.Spec.Base.GUEIngressAddress}})
+	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUEAddress: nc.Spec.Base.GUEIngressAddress, GUEPort: corev1.ServicePort{Port: tunnelPort}}})
 	if err != nil {
 		return err
 	}
@@ -510,13 +510,13 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 	return err
 }
 
-func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ingressIP string, tunnelKey uint32) error {
+func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ingressIP string, ingressPort corev1.ServicePort, tunnelKey uint32) error {
 	// We can use the tunnelKey as our locally-unique tunnelID. It's
 	// overkill but it will be unique for this instance (and also all
 	// other instances on all client clusters).
 	tunnelID := tunnelKey
 
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, ingressIP, tunnelPort)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, ingressIP, ingressPort.Port)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()

@@ -83,6 +83,10 @@ type LoadBalancerStatus struct {
 	// balancer.
 	GUEAddress string `json:"gue-address,omitempty"`
 
+	// GUEPort is the EGW's GUE tunnel endpoint port on the GUEAddress
+	// address.
+	GUEPort corev1.ServicePort `json:"gue-port,omitempty"`
+
 	// ProxyIfindex is the ifindex of the Envoy proxy pod's veth
 	// interface on the docker side of this service's proxy pod. In
 	// other words, it's the end of the veth that's inside the container
