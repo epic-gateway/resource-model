@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	tunnelPort int32 = 4242 // FIXME: this needs to be managed more robustly than just a variable
+	tunnelID uint32 = 42 // FIXME: this needs to be managed more robustly than just a variable
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -161,7 +161,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			return done, err
 		}
 
-		err = r.configureService(log, ep, lb.Status.ProxyIfindex, lb.Spec.GUEKey)
+		err = r.configureService(log, ep, lb.Status.ProxyIfindex, gueEp.TunnelID, lb.Spec.GUEKey)
 		if err != nil {
 			log.Error(err, "configuring GUE service")
 			return done, err
@@ -503,23 +503,17 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 		return gueEndpoint, nil
 	}
 
-	// fetch the NodeConfig; it tells us the GUEIngressAddress
+	// fetch the NodeConfig; it tells us the GUEEndpoint for this node
 	nc := &egwv1.NodeConfig{}
 	err = r.Get(ctx, types.NamespacedName{Name: "default", Namespace: "egw"}, nc)
 	if err != nil {
 		return gueEndpoint, err
 	}
+	nc.Spec.Base.GUEEndpoint.DeepCopyInto(&gueEndpoint)
+	gueEndpoint.TunnelID = tunnelID
 
-	gueEndpoint = egwv1.GUETunnelEndpoint{
-		Address: nc.Spec.Base.GUEIngressAddress,
-		Port: corev1.EndpointPort{
-			Port:     tunnelPort,
-			Protocol: "TCP",
-		},
-	}
-
-	// FIXME: this isn't port allocation, just a lame approximation
-	tunnelPort++
+	// FIXME: allocate this instead of just incrementing
+	tunnelID++
 
 	// prepare a patch to set this node's tunnel endpoint in the LB status
 	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUETunnelEndpoints: map[string]egwv1.GUETunnelEndpoint{ep.NodeAddress: gueEndpoint}}})
@@ -540,23 +534,13 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 }
 
 func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
-	// We can use the port as our locally-unique tunnelID. It's a kludge
-	// but it will be unique across the cluster since we have only one
-	// controller instance and it allocates ports.
-	tunnelID := ep.Port.Port
-
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, ep.Address, ep.Port.Port)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", ep.TunnelID, ep.Address, ep.Port.Port)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
 }
 
-func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBalancerEndpoint, ifindex int, tunnelKey uint32) error {
-	// We can use the port as our locally-unique tunnelID. It's a kludge
-	// but it will be unique across the cluster since we have only one
-	// controller instance and it allocates ports.
-	tunnelID := ep.Port.Port
-
+func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBalancerEndpoint, ifindex int, tunnelID uint32, tunnelKey uint32) error {
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
 	var groupID uint16 = uint16(tunnelKey & 0xffff)

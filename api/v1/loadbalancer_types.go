@@ -80,10 +80,14 @@ type LoadBalancerEndpoint struct {
 // GUETunnelEndpoint is an Endpoint on the EGW.
 type GUETunnelEndpoint struct {
 	// Address is the IP address on the EGW for this endpoint.
-	Address string `json:"egw-address"`
+	Address string `json:"egw-address,omitempty"`
 
 	// Port is the port on which this endpoint listens.
-	Port corev1.EndpointPort `json:"egw-port"`
+	// +kubebuilder:default={"port":4242,"appProtocol":"acnodal.io/gue-tunnel"}
+	Port corev1.EndpointPort `json:"egw-port,omitempty"`
+
+	// TunnelID is used to route traffic to the correct tunnel.
+	TunnelID uint32 `json:"tunnel-id,omitempty"`
 }
 
 // LoadBalancerStatus defines the observed state of LoadBalancer

@@ -5,5 +5,6 @@ metadata:
   namespace: egw
 spec:
   base:
-    ingress-nics: [eth0]
-    gue-ingress-address: 192.168.1.40
+    gue-ingress-nics: [eth0]
+    gue-endpoint:
+      egw-address: 192.168.1.40

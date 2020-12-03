@@ -6,12 +6,10 @@ import (
 
 // Node is the config for one node.
 type Node struct {
-	IngressNICs []string `json:"ingress-nics"`
+	IngressNICs []string `json:"gue-ingress-nics"`
 
-	// PublicIngressAddress is the IP address that PureLB clients use to
-	// establish GUE tunnels to this node. It must be publicly visible
-	// so clients can send packets to it from anywhere on the internet.
-	GUEIngressAddress string `json:"gue-ingress-address"`
+	// +kubebuilder:default={"egw-port":{"port":4242}}
+	GUEEndpoint GUETunnelEndpoint `json:"gue-endpoint,omitempty"`
 }
 
 // NodeConfigSpec defines the desired state of NodeConfig
