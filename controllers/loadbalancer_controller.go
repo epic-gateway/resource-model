@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	tunnelPort int32 = 4242
+	tunnelPort int32 = 4242 // FIXME: this needs to be managed more robustly than just a variable
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -155,7 +155,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		}
 
 		// configure the GUE tunnel
-		err = r.configureTunnel(log, gueEp, lb.Spec.GUEKey)
+		err = r.configureTunnel(log, gueEp)
 		if err != nil {
 			log.Error(err, "configuring GUE tunnel")
 			return done, err
@@ -539,23 +539,23 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 	return gueEndpoint, err
 }
 
-func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, endpoint egwv1.GUETunnelEndpoint, tunnelKey uint32) error {
-	// We can use the tunnelKey as our locally-unique tunnelID. It's
-	// overkill but it will be unique for this instance (and also all
-	// other instances on all client clusters).
-	tunnelID := tunnelKey
+func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
+	// We can use the port as our locally-unique tunnelID. It's a kludge
+	// but it will be unique across the cluster since we have only one
+	// controller instance and it allocates ports.
+	tunnelID := ep.Port.Port
 
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, endpoint.Address, endpoint.Port.Port)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", tunnelID, ep.Address, ep.Port.Port)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
 }
 
 func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBalancerEndpoint, ifindex int, tunnelKey uint32) error {
-	// We can use the tunnelKey as our locally-unique tunnelID. It's
-	// overkill but it will be unique for this instance (and also all
-	// other instances on all client clusters).
-	tunnelID := tunnelKey
+	// We can use the port as our locally-unique tunnelID. It's a kludge
+	// but it will be unique across the cluster since we have only one
+	// controller instance and it allocates ports.
+	tunnelID := ep.Port.Port
 
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
