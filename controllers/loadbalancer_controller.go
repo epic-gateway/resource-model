@@ -32,8 +32,11 @@ const (
 	envoyImage    = "registry.gitlab.com/acnodal/envoy-for-egw:adamd-dev"
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
-	tunnelPort    = 4242
 	tunnelAuth    = "fredfredfredfred" // FIXME: this should be in one of our CRs
+)
+
+var (
+	tunnelPort int32 = 4242
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -514,6 +517,9 @@ func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *e
 			Protocol: "TCP",
 		},
 	}
+
+	// FIXME: this isn't port allocation, just a lame approximation
+	tunnelPort++
 
 	// prepare a patch to set this node's tunnel endpoint in the LB status
 	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUETunnelEndpoints: map[string]egwv1.GUETunnelEndpoint{ep.NodeAddress: gueEndpoint}}})
