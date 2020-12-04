@@ -42,9 +42,8 @@ var (
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
-	Log     logr.Logger
-	Scheme  *runtime.Scheme
-	lbAddrs map[string]*net.IPNet //lb.Namespace+lb.Name -> IPNet
+	Log    logr.Logger
+	Scheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
@@ -63,22 +62,14 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 	log.Info("reconciling")
 
-	r.lbAddrs = map[string]*net.IPNet{}
-
 	// read the object that caused the event
 	lb := &egwv1.LoadBalancer{}
-	err = r.Get(ctx, req.NamespacedName, lb)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			log.Info("resource not found. Ignoring since object must be deleted")
-			return done, nil
-		}
-		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get resource, will retry")
-		return tryAgain, err
+	if err := r.Get(ctx, req.NamespacedName, lb); err != nil {
+		log.Info("can't get resource, probably deleted")
+		// ignore not-found errors, since they can't be fixed by an
+		// immediate requeue (we'll need to wait for a new notification),
+		// and we can get them on deleted requests.
+		return done, client.IgnoreNotFound(err)
 	}
 
 	// read the ServiceGroup that owns this LB
@@ -103,6 +94,38 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if err != nil {
 		log.Error(err, "Failed to find owning service prefix", "name", spname)
 		return done, err
+	}
+
+	// Check if k8s wants to delete this object
+	if lb.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our
+		// finalizer, then add the finalizer and update the object. This
+		// is equivalent to registering our finalizer.
+		if !containsString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName) {
+			log.Info("hooking our finalizer to object")
+			lb.ObjectMeta.Finalizers = append(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName)
+			if err := r.Update(ctx, lb); err != nil {
+				return done, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if containsString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName) {
+			log.Info("object to be deleted")
+
+			if err := r.cleanupPFC(log, lb, prefix); err != nil {
+				log.Error(err, "Failed to cleanup PFC")
+			}
+
+			// remove our finalizer from the list and update the lb
+			lb.ObjectMeta.Finalizers = removeString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName)
+			if err := r.Update(ctx, lb); err != nil {
+				return done, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return done, nil
 	}
 
 	// Check if the deployment already exists, if not create a new one
@@ -169,29 +192,14 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// Setup host routing
-
+	_, publicaddr, _ := net.ParseCIDR(prefix.Spec.Subnet)
 	if prefix.Spec.Aggregation != "default" {
+		_, publicaddr, _ = net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
+	}
 
-		_, publicaddr, _ := net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
-
-		err = addRt(publicaddr, prefix.Spec.MultusBridge)
-		if err != nil {
-			log.Error(err, "adding route to multus interface")
-		}
-
-		r.lbAddrs[(lb.Namespace + lb.Name)] = publicaddr
-
-	} else {
-
-		_, publicaddr, _ := net.ParseCIDR(prefix.Spec.Subnet)
-
-		err = addRt(publicaddr, prefix.Spec.MultusBridge)
-		if err != nil {
-			log.Error(err, "adding route to multus interface")
-		}
-
-		r.lbAddrs[(lb.Namespace + lb.Name)] = publicaddr
-
+	err = addRt(publicaddr, prefix.Spec.MultusBridge)
+	if err != nil {
+		log.Error(err, "adding route to multus interface")
 	}
 
 	//Open host ports by updating IPSET tables
@@ -350,7 +358,6 @@ func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 		if err != nil {
 			println(err)
 		}
-
 	}
 
 }
@@ -362,7 +369,6 @@ func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 		if err != nil {
 			println(err)
 		}
-
 	}
 
 }
@@ -540,6 +546,13 @@ func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunn
 	return cmd.Run()
 }
 
+func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
+	l.Info(script)
+	cmd := exec.Command("/bin/sh", "-c", script)
+	return cmd.Run()
+}
+
 func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBalancerEndpoint, ifindex int, tunnelID uint32, tunnelKey uint32) error {
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
@@ -552,10 +565,67 @@ func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBa
 	return cmd.Run()
 }
 
+func (r *LoadBalancerReconciler) deleteService(l logr.Logger, tunnelKey uint32) error {
+	// split the tunnelKey into its parts: groupId in the upper 16 bits
+	// and serviceId in the lower 16
+	var groupID uint16 = uint16(tunnelKey & 0xffff)
+	var serviceID uint16 = uint16(tunnelKey >> 16)
+
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
+	l.Info(script)
+	cmd := exec.Command("/bin/sh", "-c", script)
+	return cmd.Run()
+}
+
 func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) error {
 	err := pfc.AddQueueDiscipline(ifname)
 	if err != nil {
 		return err
 	}
 	return pfc.AddFilter(ifname, "ingress", "tag_rx")
+}
+
+// cleanupPFC undoes the PFC setup that we did for this lb.
+func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *egwv1.LoadBalancer, prefix *egwv1.ServicePrefix) error {
+	// remove IPSet entry
+	delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
+
+	// remove route
+	publicaddr := prefix.Spec.Subnet
+	if prefix.Spec.Aggregation == "default" {
+		publicaddr = lb.Spec.PublicAddress + prefix.Spec.Aggregation
+	}
+	delRt(publicaddr)
+
+	// remove the endpoint PFC "services"
+	r.deleteService(l, lb.Spec.GUEKey)
+
+	// remove the PFC tunnels
+	for _, tunnel := range lb.Status.GUETunnelEndpoints {
+		r.deleteTunnel(l, tunnel)
+	}
+
+	return nil
+}
+
+// Helper functions to check and remove string from a slice of
+// strings.  From
+// https://book.kubebuilder.io/reference/using-finalizers.html
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func removeString(slice []string, s string) (result []string) {
+	for _, item := range slice {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return
 }

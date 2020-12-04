@@ -7,6 +7,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// LoadbalancerFinalizerName is the name of the finalizer that
+	// cleans up when a LoadBalancer CR is deleted.
+	LoadbalancerFinalizerName string = "egw.acnodal.io/loadBalancerFinalizer"
+)
+
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 
