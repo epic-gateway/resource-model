@@ -23,15 +23,16 @@ type LoadBalancerSpec struct {
 	PublicPorts []corev1.ServicePort `json:"public-ports"`
 
 	// Endpoints are the customer-cluster endpoints to which we send
-	// traffic.
-	Endpoints []LoadBalancerEndpoint `json:"endpoints,omitempty"`
+	// traffic. This field is defaulted to "[]" in the admission webhook
+	// so we can use and "add" JSONPatch to insert endpoints.
+	Endpoints []LoadBalancerEndpoint `json:"endpoints"`
 
 	// GUEKey is used with the account-level GUEKey to set up this
 	// service's GUE tunnels between the EGW and the client cluster. The
 	// account-level GUEKey is 16 bits but this GUEKey is 32 bits
 	// because it contains *both* the account key (in the upper 16 bits)
 	// and the service key (in the lower 16 bits). It should not be set
-	// in the YAML manifest - a webhook will fill it in when the CR is
+	// in the YAML manifest - a webhook fills it in when the CR is
 	// created.
 	GUEKey uint32 `json:"gue-key,omitempty"`
 }

@@ -34,6 +34,10 @@ func (r *LoadBalancer) Default() {
 	// add a GUE key to this service. we're pretending that the account
 	// key is 42 and the service key is 42
 	r.Spec.GUEKey = (42 * 0x10000) + 42
+
+	// add an empty slice of endpoints - it will make adding endpoints
+	// by patching easier
+	r.Spec.Endpoints = []LoadBalancerEndpoint{}
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
