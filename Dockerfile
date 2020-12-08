@@ -25,7 +25,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager 
 
 FROM ubuntu:20.04
 
-RUN apt-get update && apt-get install -y curl ipset iptables iproute2
+RUN apt-get update && apt-get install -y curl ipset iptables iproute2 linux-tools-generic
 
 COPY --from=builder /workspace/manager /usr/local/bin/manager
 CMD [ "/usr/local/bin/manager", "--enable-leader-election" ]
