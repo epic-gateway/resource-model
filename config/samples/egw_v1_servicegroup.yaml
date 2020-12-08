@@ -1,7 +1,16 @@
+---
 apiVersion: egw.acnodal.io/v1
 kind: ServiceGroup
 metadata:
   namespace: egw-sample
   name: sample
 spec:
-  auth-creds: Road Runner
+  auth-creds: fredfredfredfred
+---
+apiVersion: egw.acnodal.io/v1
+kind: ServiceGroup
+metadata:
+  namespace: egw-sample
+  name: sample2
+spec:
+  auth-creds: wilmawilmawilma!
