@@ -8,7 +8,7 @@ import (
 type Node struct {
 	IngressNICs []string `json:"gue-ingress-nics"`
 
-	// +kubebuilder:default={"egw-port":{"port":4242}}
+	// +kubebuilder:default={"egw-port":{"port":6080,"protocol":"UDP","appProtocol":"gue"}}
 	GUEEndpoint GUETunnelEndpoint `json:"gue-endpoint,omitempty"`
 }
 

@@ -42,7 +42,7 @@ type GUETunnelEndpoint struct {
 	Address string `json:"egw-address,omitempty"`
 
 	// Port is the port on which this endpoint listens.
-	// +kubebuilder:default={"port":4242,"appProtocol":"acnodal.io/gue-tunnel"}
+	// +kubebuilder:default={"port":6080,"protocol":"UDP","appProtocol":"gue"}
 	Port corev1.EndpointPort `json:"egw-port,omitempty"`
 
 	// TunnelID is used to route traffic to the correct tunnel.
