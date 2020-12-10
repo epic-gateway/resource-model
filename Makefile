@@ -1,4 +1,4 @@
-REPO=registry.gitlab.com/acnodal
+REPO ?= registry.gitlab.com/acnodal
 PREFIX = egw-resource-model
 SUFFIX = ${USER}-dev
 
