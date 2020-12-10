@@ -35,8 +35,20 @@ type EndpointSpec struct {
 
 // EndpointStatus defines the observed state of Endpoint
 type EndpointStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// The ProxyIfindex in the LoadBalancer Status is canonical but we
+	// cache it here so we can cleanup the PFC service without having to
+	// lookup the LB since it might have been deleted.
+	ProxyIfindex int `json:"proxy-ifindex,omitempty"`
+
+	// The GUEKey in the LoadBalancer Spec is canonical but we cache it
+	// here so we can cleanup the PFC service without having to lookup
+	// the LB since it might have been deleted.
+	GUEKey uint32 `json:"gue-key,omitempty"`
+
+	// The TunnelID in the LoadBalancer Status is canonical but we cache
+	// it here so we can cleanup the PFC service without having to
+	// lookup the LB since it might have been deleted.
+	TunnelID uint32 `json:"tunnel-id,omitempty"`
 }
 
 // +kubebuilder:object:root=true

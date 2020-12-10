@@ -50,7 +50,7 @@ func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if containsString(ep.ObjectMeta.Finalizers, egwv1.EndpointFinalizerName) {
 			log.Info("object to be deleted")
 
-			if err := r.cleanupPFC(log, ep); err != nil {
+			if err := r.cleanupService(log, ep.Spec, ep.Status.ProxyIfindex, ep.Status.TunnelID, ep.Status.GUEKey); err != nil {
 				log.Error(err, "Failed to cleanup PFC")
 			}
 
@@ -91,6 +91,20 @@ func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = r.configureService(log, ep.Spec, lb.Status.ProxyIfindex, gueEp.TunnelID, lb.Spec.GUEKey)
 	if err != nil {
 		log.Error(err, "configuring GUE service")
+		return done, err
+	}
+
+	// Cache some values that we might need later if we need to delete
+	// the endpoint
+	patchBytes, err := json.Marshal(egwv1.Endpoint{Status: egwv1.EndpointStatus{GUEKey: lb.Spec.GUEKey, ProxyIfindex: lb.Status.ProxyIfindex, TunnelID: gueEp.TunnelID}})
+	if err != nil {
+		log.Error(err, "marshaling EP patch", "ep", ep)
+		return done, err
+	}
+	log.Info(string(patchBytes))
+	err = r.Status().Patch(ctx, ep, client.RawPatch(types.MergePatchType, patchBytes))
+	if err != nil {
+		log.Error(err, "patching EP status", "ep", ep)
 		return done, err
 	}
 
@@ -180,19 +194,15 @@ func (r *EndpointReconciler) configureService(l logr.Logger, ep egwv1.EndpointSp
 	return cmd.Run()
 }
 
-func (r *EndpointReconciler) deleteService(l logr.Logger, tunnelKey uint32) error {
+// cleanupService undoes the PFC setup that we did for this Endpoint.
+func (r *EndpointReconciler) cleanupService(l logr.Logger, ep egwv1.EndpointSpec, ifindex int, tunnelID uint32, tunnelKey uint32) error {
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
 	var groupID uint16 = uint16(tunnelKey & 0xffff)
 	var serviceID uint16 = uint16(tunnelKey >> 16)
 
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
-}
-
-// cleanupPFC undoes the PFC setup that we did for this Endpoint.
-func (r *EndpointReconciler) cleanupPFC(l logr.Logger, ep *egwv1.Endpoint) error {
-	return nil
 }
