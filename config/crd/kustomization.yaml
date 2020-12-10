@@ -8,6 +8,7 @@ resources:
 - bases/egw.acnodal.io_serviceprefixes.yaml
 - bases/egw.acnodal.io_nodeconfigs.yaml
 - bases/egw.acnodal.io_egws.yaml
+- bases/egw.acnodal.io_endpoints.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -19,6 +20,7 @@ patchesStrategicMerge:
 #- patches/webhook_in_serviceprefixes.yaml
 #- patches/webhook_in_nodeconfigs.yaml
 #- patches/webhook_in_egws.yaml
+#- patches/webhook_in_endpoints.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
@@ -29,6 +31,7 @@ patchesStrategicMerge:
 #- patches/cainjection_in_serviceprefixes.yaml
 #- patches/cainjection_in_nodeconfigs.yaml
 #- patches/cainjection_in_egws.yaml
+#- patches/cainjection_in_endpoints.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.

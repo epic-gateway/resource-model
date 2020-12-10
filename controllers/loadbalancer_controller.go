@@ -13,11 +13,9 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	"github.com/vishvananda/netlink"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -97,18 +95,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// Check if k8s wants to delete this object
-	if lb.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our
-		// finalizer, then add the finalizer and update the object. This
-		// is equivalent to registering our finalizer.
-		if !containsString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName) {
-			log.Info("hooking our finalizer to object")
-			lb.ObjectMeta.Finalizers = append(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName)
-			if err := r.Update(ctx, lb); err != nil {
-				return done, err
-			}
-		}
-	} else {
+	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
 		if containsString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName) {
 			log.Info("object to be deleted")
@@ -128,22 +115,17 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return done, nil
 	}
 
-	// Check if the deployment already exists, if not create a new one
-	found := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: envoyPodName(lb), Namespace: lb.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new deployment
-		dep := r.deploymentForLB(lb, spname)
-
-		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-		err = r.Create(ctx, dep)
-		if err != nil {
-			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+	// Launch the Envoy deployment that will proxy this LB
+	dep := r.deploymentForLB(lb, spname)
+	err = r.Create(ctx, dep)
+	if err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			log.Error(err, "Failed to create new Deployment", "namespace", dep.Namespace, "name", dep.Name)
 			return done, err
 		}
-	} else if err != nil {
-		log.Error(err, "Failed to get Deployment")
-		return done, err
+		log.Info("deployment created previously", "namespace", dep.Namespace, "name", dep.Name)
+	} else {
+		log.Info("deployment created", "namespace", dep.Namespace, "name", dep.Name)
 	}
 
 	// We need this LB's veth info so if the python daemon hasn't filled
@@ -168,29 +150,6 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return done, err
 	}
 
-	// configure the GUE service
-	for _, ep := range lb.Spec.Endpoints {
-		// Add GUE ingress address/port to the endpoint
-		gueEp, err := r.setGUEIngressAddress(ctx, lb, &ep)
-		if err != nil {
-			log.Error(err, "Patching LB status")
-			return done, err
-		}
-
-		// configure the GUE tunnel
-		err = r.configureTunnel(log, gueEp)
-		if err != nil {
-			log.Error(err, "configuring GUE tunnel")
-			return done, err
-		}
-
-		err = r.configureService(log, ep, lb.Status.ProxyIfindex, gueEp.TunnelID, lb.Spec.GUEKey)
-		if err != nil {
-			log.Error(err, "configuring GUE service")
-			return done, err
-		}
-	}
-
 	// Setup host routing
 	_, publicaddr, _ := net.ParseCIDR(prefix.Spec.Subnet)
 	if prefix.Spec.Aggregation != "default" {
@@ -206,6 +165,13 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 
 	return done, nil
+}
+
+// SetupWithManager sets up this controller to work with the mgr.
+func (r *LoadBalancerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&egwv1.LoadBalancer{}).
+		Complete(r)
 }
 
 func envoyPodName(lb *egwv1.LoadBalancer) string {
@@ -373,13 +339,6 @@ func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 
 }
 
-// SetupWithManager sets up this controller to work with the mgr.
-func (r *LoadBalancerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&egwv1.LoadBalancer{}).
-		Complete(r)
-}
-
 // configureBridge configures the bridge interface used to get packets
 // from the Envoy pods to the customer endpoints. It's called
 // "multus0" by default but that can be overridden in the
@@ -489,77 +448,8 @@ func ipTablesCheck(brname string) error {
 	return err
 }
 
-// setGUEIngressAddress sets the GUEAddress/Port fields of the
-// LoadBalancer status. This is used by PureLB to open a GUE tunnel
-// back to the EGW. It returns a GUETunnelEndpoint, either the newly
-// created one or the existing one. If error is non-nil then the
-// GUETunnelEndpoint is invalid.
-func (r *LoadBalancerReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1.LoadBalancer, ep *egwv1.LoadBalancerEndpoint) (egwv1.GUETunnelEndpoint, error) {
-	var (
-		err         error
-		gueEndpoint egwv1.GUETunnelEndpoint
-	)
-
-	// We set up a tunnel to each client node that has an endpoint that
-	// belongs to this service. If we already have a tunnel to this
-	// endpoint's node (i.e., two endpoints in the same service on the
-	// same node) then we don't need to do anything
-	if gueEndpoint, exists := lb.Status.GUETunnelEndpoints[ep.NodeAddress]; exists {
-		log.Info("EP node already has a tunnel", "endpoint", ep)
-		return gueEndpoint, nil
-	}
-
-	// fetch the NodeConfig; it tells us the GUEEndpoint for this node
-	nc := &egwv1.NodeConfig{}
-	err = r.Get(ctx, types.NamespacedName{Name: "default", Namespace: "egw"}, nc)
-	if err != nil {
-		return gueEndpoint, err
-	}
-	nc.Spec.Base.GUEEndpoint.DeepCopyInto(&gueEndpoint)
-	gueEndpoint.TunnelID = tunnelID
-
-	// FIXME: allocate this instead of just incrementing
-	tunnelID++
-
-	// prepare a patch to set this node's tunnel endpoint in the LB status
-	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUETunnelEndpoints: map[string]egwv1.GUETunnelEndpoint{ep.NodeAddress: gueEndpoint}}})
-	if err != nil {
-		return gueEndpoint, err
-	}
-	log.Info(string(patchBytes))
-
-	// apply the patch
-	err = r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes))
-	if err != nil {
-		log.Error("patching LB status", "lb", lb, "error", err)
-		return gueEndpoint, err
-	}
-
-	log.Info("LB status patched", "lb", lb)
-	return gueEndpoint, err
-}
-
-func (r *LoadBalancerReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d | grep TUN *%[2]s || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", ep.TunnelID, ep.Address, ep.Port.Port)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
-}
-
 func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
-}
-
-func (r *LoadBalancerReconciler) configureService(l logr.Logger, ep egwv1.LoadBalancerEndpoint, ifindex int, tunnelID uint32, tunnelKey uint32) error {
-	// split the tunnelKey into its parts: groupId in the upper 16 bits
-	// and serviceId in the lower 16
-	var groupID uint16 = uint16(tunnelKey & 0xffff)
-	var serviceID uint16 = uint16(tunnelKey >> 16)
-
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service get all | grep 'ENCAP.*tcp %[5]s:%[6]d' || /opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()

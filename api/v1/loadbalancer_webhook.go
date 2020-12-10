@@ -31,13 +31,13 @@ var _ webhook.Defaulter = &LoadBalancer{}
 func (r *LoadBalancer) Default() {
 	loadbalancerlog.Info("default", "name", r.Name)
 
+	// Add the controller as a finalizer so we can clean up when this
+	// LoadBalancer is deleted.
+	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, LoadbalancerFinalizerName)
+
 	// add a GUE key to this service. we're pretending that the account
 	// key is 42 and the service key is 42
 	r.Spec.GUEKey = (42 * 0x10000) + 42
-
-	// add an empty slice of endpoints - it will make adding endpoints
-	// by patching easier
-	r.Spec.Endpoints = []LoadBalancerEndpoint{}
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
@@ -52,27 +52,13 @@ var _ webhook.Validator = &LoadBalancer{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateCreate() error {
-	var err error
 	loadbalancerlog.Info("validate create", "name", r.Name, "contents", r)
-
-	err = r.Spec.ValidateEndpoints()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateUpdate(old runtime.Object) error {
-	var err error
 	loadbalancerlog.Info("validate update", "name", r.Name, "old", old, "new", r)
-
-	err = r.Spec.ValidateEndpoints()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

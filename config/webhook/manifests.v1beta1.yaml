@@ -31,6 +31,24 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-egw-acnodal-io-v1-endpoint
+  failurePolicy: Fail
+  name: mendpoint.kb.io
+  rules:
+  - apiGroups:
+    - egw.acnodal.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - endpoints
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-egw-acnodal-io-v1-loadbalancer
   failurePolicy: Fail
   name: vloadbalancer.kb.io
@@ -51,6 +69,26 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-egw-acnodal-io-v1-endpoint
+  failurePolicy: Fail
+  name: vendpoint.kb.io
+  rules:
+  - apiGroups:
+    - egw.acnodal.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - endpoints
+  sideEffects: None
 - admissionReviewVersions:
   - v1beta1
   clientConfig:

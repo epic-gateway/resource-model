@@ -1,0 +1,52 @@
+---
+apiVersion: egw.acnodal.io/v1
+kind: Endpoint
+metadata:
+  namespace: egw-sample
+  name: sample-1
+spec:
+  load-balancer: sample
+  address: 10.0.42.27
+  node-address: 42.42.42.42
+  port:
+    port: 8888
+    protocol: tcp
+---
+apiVersion: egw.acnodal.io/v1
+kind: Endpoint
+metadata:
+  namespace: egw-sample
+  name: sample-2
+spec:
+  load-balancer: sample
+  address: 10.0.42.28
+  node-address: 42.42.42.42
+  port:
+    port: 8888
+    protocol: tcp
+---
+apiVersion: egw.acnodal.io/v1
+kind: Endpoint
+metadata:
+  namespace: egw-sample
+  name: sample-3
+spec:
+  load-balancer: sample
+  address: 10.0.42.29
+  node-address: 42.42.42.43
+  port:
+    port: 8888
+    protocol: tcp
+---
+apiVersion: egw.acnodal.io/v1
+kind: Endpoint
+metadata:
+  namespace: egw-sample
+  name: sample-4
+spec:
+  load-balancer: sample
+  address: 10.0.42.29
+  node-address: 42.42.42.43
+  port:
+    port: 9999
+    protocol: tcp

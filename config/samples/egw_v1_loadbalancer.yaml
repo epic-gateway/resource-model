@@ -9,19 +9,3 @@ spec:
   public-ports:
   - port: 8080
     protocol: tcp
-  endpoints:
-  - address: 10.0.42.27
-    node-address: 42.42.42.42
-    port:
-      port: 8888
-      protocol: tcp
-  - address: 10.0.42.28
-    node-address: 42.42.42.42
-    port:
-      port: 8888
-      protocol: tcp
-  - address: 10.0.42.28
-    node-address: 42.42.42.43
-    port:
-      port: 8888
-      protocol: tcp
