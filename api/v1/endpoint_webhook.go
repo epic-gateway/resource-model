@@ -2,6 +2,9 @@ package v1
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -78,12 +81,32 @@ var _ webhook.Validator = &Endpoint{}
 func (r *Endpoint) ValidateCreate() error {
 	endpointlog.Info("validate create", "name", r.Name)
 
+	// Parameter validation
+	if net.ParseIP(r.Spec.Address) == nil {
+		return fmt.Errorf("input error: can't parse address \"%s\"", r.Spec.Address)
+	}
+	if net.ParseIP(r.Spec.NodeAddress) == nil {
+		return fmt.Errorf("input error: can't parse node-address \"%s\"", r.Spec.NodeAddress)
+	}
+
 	// Block create if there's no owning LB
 	lb := &LoadBalancer{}
 	lbname := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Spec.LoadBalancer}
 	if err := crtclient.Get(context.TODO(), lbname, lb); err != nil {
-		endpointlog.Error(err, "No owning load balancer", "name", lbname)
+		endpointlog.Error(err, "input error: no owning load balancer", "name", lbname)
 		return err
+	}
+
+	// Block create if there's a duplicate endpoint in this namespace
+	list := EndpointList{}
+	if err := crtclient.List(context.TODO(), &list, client.InNamespace(r.ObjectMeta.Namespace)); err != nil {
+		endpointlog.Error(err, "Listing endpoints", "name", lbname)
+		return err
+	}
+	for _, ep := range list.Items {
+		if reflect.DeepEqual(r.Spec, ep.Spec) {
+			return fmt.Errorf("duplicate endpoint: %s", ep.Name)
+		}
 	}
 
 	return nil
