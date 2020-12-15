@@ -98,6 +98,7 @@ func (r *Endpoint) ValidateCreate() error {
 	}
 
 	// Block create if there's a duplicate endpoint in this namespace
+	// FIXME: need to query endpoint children of the LB, not using namespace, that's for the account
 	list := EndpointList{}
 	if err := crtclient.List(context.TODO(), &list, client.InNamespace(r.ObjectMeta.Namespace)); err != nil {
 		endpointlog.Error(err, "Listing endpoints", "name", lbname)
