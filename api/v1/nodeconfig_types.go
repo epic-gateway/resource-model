@@ -6,7 +6,8 @@ import (
 
 // Node is the config for one node.
 type Node struct {
-	IngressNICs []string `json:"gue-ingress-nics"`
+	// +kubebuilder:default={"eth0"}
+	IngressNICs []string `json:"gue-ingress-nics,omitempty"`
 
 	// +kubebuilder:default={"egw-port":{"port":6080,"protocol":"UDP","appProtocol":"gue"}}
 	GUEEndpoint GUETunnelEndpoint `json:"gue-endpoint,omitempty"`
