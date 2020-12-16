@@ -53,16 +53,21 @@ func (r *Endpoint) Default() {
 	// Endpoint is deleted.
 	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, EndpointFinalizerName)
 
+	lbname := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Spec.LoadBalancer}
+	// add a label with the owning LB's name to make it easier to query
+	if r.Labels == nil {
+		r.Labels = map[string]string{}
+	}
+	r.Labels[OwningLoadBalancerLabel] = lbname.Name
+
 	// Set this EP's owning LB so it will get deleted if the LB does
 	if len(r.ObjectMeta.OwnerReferences) == 0 {
 		lb := &LoadBalancer{}
-		lbname := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Spec.LoadBalancer}
-		if err := crtclient.Get(context.TODO(), lbname, lb); err != nil {
-			endpointlog.Error(err, "Failed to find owning load balancer", "name", lbname)
-			return
+		if err := crtclient.Get(context.TODO(), lbname, lb); err == nil {
+			ctrl.SetControllerReference(lb, r, epscheme)
+		} else {
+			endpointlog.Info("can't find owning load balancer", "name", lbname)
 		}
-
-		ctrl.SetControllerReference(lb, r, epscheme)
 	}
 }
 
@@ -83,17 +88,17 @@ func (r *Endpoint) ValidateCreate() error {
 
 	// Parameter validation
 	if net.ParseIP(r.Spec.Address) == nil {
-		return fmt.Errorf("input error: can't parse address \"%s\"", r.Spec.Address)
+		return fmt.Errorf("bad input: can't parse address \"%s\"", r.Spec.Address)
 	}
 	if net.ParseIP(r.Spec.NodeAddress) == nil {
-		return fmt.Errorf("input error: can't parse node-address \"%s\"", r.Spec.NodeAddress)
+		return fmt.Errorf("bad input: can't parse node-address \"%s\"", r.Spec.NodeAddress)
 	}
 
 	// Block create if there's no owning LB
 	lb := &LoadBalancer{}
 	lbname := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Spec.LoadBalancer}
 	if err := crtclient.Get(context.TODO(), lbname, lb); err != nil {
-		endpointlog.Error(err, "input error: no owning load balancer", "name", lbname)
+		endpointlog.Info("bad input: no owning load balancer", "name", lbname)
 		return err
 	}
 

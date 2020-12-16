@@ -9,6 +9,11 @@ const (
 	// EndpointFinalizerName is the name of the finalizer that cleans up
 	// when an Endpoint CR is deleted.
 	EndpointFinalizerName string = "egw.acnodal.io/endpointFinalizer"
+
+	// OwningLoadBalancerLabel is the name of the label that we apply to
+	// endpoints to indicate in a query-friendly way to which
+	// LoadBalancer they belong.
+	OwningLoadBalancerLabel string = "owningLB"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
