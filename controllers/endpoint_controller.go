@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/common/log"
@@ -31,6 +32,7 @@ type EndpointReconciler struct {
 func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	done := ctrl.Result{Requeue: false}
+	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
 	ctx := context.TODO()
 	log := r.Log.WithValues("endpoint", req.NamespacedName)
 
@@ -73,6 +75,13 @@ func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return done, err
 	}
 
+	// If the LB doesn't have its ifindex set then we can't configure so
+	// try again in a few seconds
+	if lb.Status.ProxyIfindex == 0 {
+		log.Info("LB ifindex not set yet")
+		return tryAgain, nil
+	}
+
 	// Add GUE ingress address/port to the endpoint
 	gueEp, err := r.setGUEIngressAddress(ctx, lb, &ep.Spec)
 	if err != nil {
@@ -101,7 +110,6 @@ func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		log.Error(err, "marshaling EP patch", "ep", ep)
 		return done, err
 	}
-	log.Info(string(patchBytes))
 	err = r.Status().Patch(ctx, ep, client.RawPatch(types.MergePatchType, patchBytes))
 	if err != nil {
 		log.Error(err, "patching EP status", "ep", ep)
