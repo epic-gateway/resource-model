@@ -46,6 +46,7 @@ type LoadBalancerReconciler struct {
 
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=egw.acnodal.io,resources=endpoints,verbs=get;list;delete;deletecollection
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
@@ -98,10 +99,19 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
 		if containsString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName) {
-			log.Info("object to be deleted")
+			log.Info("to be deleted")
 
 			if err := r.cleanupPFC(log, lb, prefix); err != nil {
 				log.Error(err, "Failed to cleanup PFC")
+			}
+
+			// Delete the endpoints that belong to this LB
+			opts := []client.DeleteAllOfOption{
+				client.InNamespace(req.NamespacedName.Namespace),
+				client.MatchingLabels{egwv1.OwningLoadBalancerLabel: req.NamespacedName.Name},
+			}
+			if err := r.DeleteAllOf(ctx, &egwv1.Endpoint{}, opts...); err != nil {
+				return done, err
 			}
 
 			// remove our finalizer from the list and update the lb
@@ -120,7 +130,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	err = r.Create(ctx, dep)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
-			log.Error(err, "Failed to create new Deployment", "namespace", dep.Namespace, "name", dep.Name)
+			log.Info("Failed to create new Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
 			return done, err
 		}
 		log.Info("deployment created previously", "namespace", dep.Namespace, "name", dep.Name)

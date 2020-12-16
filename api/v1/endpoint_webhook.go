@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,16 +60,6 @@ func (r *Endpoint) Default() {
 		r.Labels = map[string]string{}
 	}
 	r.Labels[OwningLoadBalancerLabel] = lbname.Name
-
-	// Set this EP's owning LB so it will get deleted if the LB does
-	if len(r.ObjectMeta.OwnerReferences) == 0 {
-		lb := &LoadBalancer{}
-		if err := crtclient.Get(context.TODO(), lbname, lb); err == nil {
-			ctrl.SetControllerReference(lb, r, epscheme)
-		} else {
-			endpointlog.Info("can't find owning load balancer", "name", lbname)
-		}
-	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -102,10 +93,11 @@ func (r *Endpoint) ValidateCreate() error {
 		return err
 	}
 
-	// Block create if there's a duplicate endpoint in this namespace
-	// FIXME: need to query endpoint children of the LB, not using namespace, that's for the account
+	// Block create if this loadbalancer has a duplicate endpoint
+	labelSelector := labels.SelectorFromSet(map[string]string{OwningLoadBalancerLabel: r.Spec.LoadBalancer})
+	listOps := client.ListOptions{Namespace: r.ObjectMeta.Namespace, LabelSelector: labelSelector}
 	list := EndpointList{}
-	if err := crtclient.List(context.TODO(), &list, client.InNamespace(r.ObjectMeta.Namespace)); err != nil {
+	if err := crtclient.List(context.TODO(), &list, &listOps); err != nil {
 		endpointlog.Error(err, "Listing endpoints", "name", lbname)
 		return err
 	}
