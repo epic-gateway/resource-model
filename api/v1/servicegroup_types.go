@@ -22,6 +22,12 @@ type ServiceGroupSpec struct {
 
 // ServiceGroupStatus defines the observed state of ServiceGroup
 type ServiceGroupStatus struct {
+	// ProxySnapshotVersions is a map of current Envoy proxy
+	// configuration snapshot versions for the LBs that belong to this
+	// ServiceGroup. Each increments every time the snapshot changes. We
+	// store them here because they need to survive pod restarts.
+	// +kubebuilder:default={}
+	ProxySnapshotVersions map[string]int `json:"proxy-snapshot-versions"`
 }
 
 // +kubebuilder:object:root=true
