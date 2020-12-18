@@ -1,6 +1,8 @@
 image: golang:latest
 
 before_script:
+  - apt-get update
+  - apt-get install -y gettext-base
   # this lets the CI runner clone any repo that the pushing user can
   # clone. We need to clone private repos, e.g.,
   # packet-forwarding-component since this project depends on them.
@@ -8,7 +10,8 @@ before_script:
   - go get golang.org/x/lint/golint
 
 make:
-  script: make
+  script: make SUFFIX=latest
   artifacts:
     paths:
       - config
+      - deploy/*.yaml

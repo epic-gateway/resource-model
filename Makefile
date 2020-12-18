@@ -42,12 +42,14 @@ run: generate fmt vet manifests
 	go run ./main.go
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
-	$(KUSTOMIZE) build config/default | IMG=$(IMG) envsubst | kubectl apply -f -
+deploy: manifests
+	kubectl apply -f deploy/egw-resource-model.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+.PHONY: manifests
+manifests: kustomize controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(KUSTOMIZE) build config/default | IMG=$(IMG) envsubst > deploy/egw-resource-model.yaml
 
 # Run go fmt against code
 fmt:
