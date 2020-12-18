@@ -10,7 +10,11 @@ before_script:
   - go get golang.org/x/lint/golint
 
 make:
-  script: make SUFFIX=latest
+  script:
+  - make SUFFIX=latest
+  - ls -l deploy
+  - 'curl --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file deploy/egw-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest/0.0.1/egw-resource-model.yaml"'
+
   artifacts:
     paths:
       - config
