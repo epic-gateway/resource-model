@@ -127,7 +127,7 @@ func (r *EndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *EndpointReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", ep.TunnelID, ep.Address, ep.Port.Port)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", ep.TunnelID, ep.Address, ep.Port.Port)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
