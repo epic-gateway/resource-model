@@ -6,10 +6,6 @@ metadata:
   name: sample
 spec:
   auth-creds: fredfredfredfred
-  # FIXME: at some point we'll want to use "latest" instead of
-  # "adamd-dev". At that point we can remove this field and the one
-  # below since the CRD default is "latest"
-  envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:adamd-dev
 ---
 apiVersion: egw.acnodal.io/v1
 kind: ServiceGroup
@@ -18,4 +14,3 @@ metadata:
   name: sample2
 spec:
   auth-creds: wilmawilmawilma!
-  envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:adamd-dev
