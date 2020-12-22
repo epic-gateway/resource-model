@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	envoyImage    = "registry.gitlab.com/acnodal/envoy-for-egw:adamd-dev"
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 	tunnelAuth    = "fredfredfredfred" // FIXME: this should be in one of our CRs
@@ -126,7 +125,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// Launch the Envoy deployment that will proxy this LB
-	dep := r.deploymentForLB(lb, spname)
+	dep := r.deploymentForLB(lb, spname, sg.Spec.EnvoyImage)
 	err = r.Create(ctx, dep)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
@@ -193,7 +192,7 @@ func envoyPodName(lb *egwv1.LoadBalancer) string {
 
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
-func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName) *appsv1.Deployment {
+func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName, envoyImage string) *appsv1.Deployment {
 	var (
 		privileged  bool = true
 		escalatable bool = true
