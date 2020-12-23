@@ -53,7 +53,7 @@ func (r *EGW) ValidateCreate() error {
 	if r.Name != "egw" {
 		return fmt.Errorf("the EGW object's name must be \"egw\"")
 	}
-	if r.Namespace != "egw" {
+	if r.Namespace != ConfigNamespace {
 		return fmt.Errorf("the EGW object must be in the \"egw\" namespace")
 	}
 

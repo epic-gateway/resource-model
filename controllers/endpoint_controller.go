@@ -155,7 +155,7 @@ func (r *EndpointReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1
 
 	// fetch the NodeConfig; it tells us the GUEEndpoint for this node
 	nc := &egwv1.NodeConfig{}
-	err = r.Get(ctx, types.NamespacedName{Name: "default", Namespace: "egw"}, nc)
+	err = r.Get(ctx, types.NamespacedName{Name: "default", Namespace: egwv1.ConfigNamespace}, nc)
 	if err != nil {
 		return gueEndpoint, err
 	}

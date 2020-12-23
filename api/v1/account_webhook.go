@@ -71,7 +71,7 @@ func nextAccountKey(ctx context.Context, cl client.Client) (key uint16, err erro
 
 	// get the EGW singleton
 	egw := EGW{}
-	if err := cl.Get(ctx, types.NamespacedName{Namespace: EGWNamespace, Name: "egw"}, &egw); err != nil {
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: ConfigNamespace, Name: "egw"}, &egw); err != nil {
 		accountlog.Info("EGW get failed", "error", err)
 		return 0, err
 	}
