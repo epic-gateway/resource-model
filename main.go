@@ -112,6 +112,10 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Endpoint")
 		os.Exit(1)
 	}
+	if err = (&egwv1.EGW{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EGW")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	// See if the PFC is installed

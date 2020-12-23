@@ -31,6 +31,25 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-egw-acnodal-io-v1-egw
+  failurePolicy: Fail
+  name: megw.kb.io
+  rules:
+  - apiGroups:
+    - egw.acnodal.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - egws
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-egw-acnodal-io-v1-endpoint
   failurePolicy: Fail
   name: mendpoint.kb.io
@@ -69,6 +88,26 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-egw-acnodal-io-v1-egw
+  failurePolicy: Fail
+  name: vegw.kb.io
+  rules:
+  - apiGroups:
+    - egw.acnodal.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - egws
+  sideEffects: None
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
