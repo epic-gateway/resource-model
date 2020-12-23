@@ -22,7 +22,7 @@ type AccountStatus struct {
 	// GUE key for services in this account. See the comments on
 	// CurrentAccountGUEKey in the EGW CR for notes on how to use this
 	// field.
-	CurrentServiceGUEKey uint16 `json:"current-gue-key"`
+	CurrentServiceGUEKey uint16 `json:"current-service-gue-key"`
 }
 
 // +kubebuilder:object:root=true

@@ -11,4 +11,10 @@ const (
 	// configuration objects like the EGW singleton and the node
 	// configs.
 	ConfigNamespace string = "egw"
+
+	// AccountNamespacePrefix is the string prepended to all account
+	// names to form the namespace in which that account's resources are
+	// stored. If an account were called "caboteria" then its namespace
+	// would be "egw-caboteria".
+	AccountNamespacePrefix string = "egw-"
 )
