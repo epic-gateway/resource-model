@@ -15,10 +15,9 @@ type EGWSpec struct {
 type EGWStatus struct {
 	// CurrentAccountGUEKey stores the most-recently-allocated value of
 	// the account-level GUE key. Clients should read the CR, calculate
-	// the next value and then write the next value back. If the write
-	// succeeds then they can use the current value. If not then they
-	// need to try again.
-	CurrentAccountGUEKey uint16 `json:"next-gue-key"`
+	// the next value and then write that back. If the write succeeds
+	// then they own that value. If not then they need to try again.
+	CurrentAccountGUEKey uint16 `json:"current-account-gue-key"`
 }
 
 // +kubebuilder:object:root=true

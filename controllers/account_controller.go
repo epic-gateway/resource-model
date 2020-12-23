@@ -49,18 +49,12 @@ func (r *AccountReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// initialize the service GUE key source
-	account.Spec.GUEKey = 42
-	err = r.Update(ctx, account)
-	if err != nil {
-		log.Error(err, "adding GUE key to account spec")
-		return result, err
-	}
 	account.Status = egwv1.AccountStatus{
 		CurrentServiceGUEKey: 42,
 	}
 	err = r.Status().Update(ctx, account)
 	if err != nil {
-		log.Error(err, "adding GUE key to account status")
+		log.Info("adding service GUE key to account status", "error", err)
 		return result, err
 	}
 
