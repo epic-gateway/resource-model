@@ -2,6 +2,16 @@ The EGW operator manages Envoy pods based on our custom resources. The
 data model and operator code are scaffolded by
 https://operatorframework.io/.
 
+To generate a new custom resource definition:
+```
+$ operator-sdk create api --group egw --version v1 --kind EGW
+```
+
+To generate a webhook:
+```
+$ operator-sdk create webhook --group egw --version v1 --kind EGW --defaulting --programmatic-validation
+```
+
 ## Namespaces
 
 Each account gets their own k8s namespace, so their configuration data is separate from all other customers' data.
