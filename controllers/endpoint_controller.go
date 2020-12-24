@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -83,7 +82,7 @@ func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// Add GUE ingress address/port to the endpoint
-	gueEp, err := r.setGUEIngressAddress(ctx, lb, &ep.Spec)
+	gueEp, err := r.setGUEIngressAddress(ctx, log, lb, &ep.Spec)
 	if err != nil {
 		log.Error(err, "Patching LB status")
 		return done, err
@@ -138,7 +137,7 @@ func (r *EndpointReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunnelEn
 // back to the EGW. It returns a GUETunnelEndpoint, either the newly
 // created one or the existing one. If error is non-nil then the
 // GUETunnelEndpoint is invalid.
-func (r *EndpointReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1.LoadBalancer, ep *egwv1.EndpointSpec) (egwv1.GUETunnelEndpoint, error) {
+func (r *EndpointReconciler) setGUEIngressAddress(ctx context.Context, l logr.Logger, lb *egwv1.LoadBalancer, ep *egwv1.EndpointSpec) (egwv1.GUETunnelEndpoint, error) {
 	var (
 		err         error
 		gueEndpoint egwv1.GUETunnelEndpoint
@@ -149,7 +148,7 @@ func (r *EndpointReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1
 	// endpoint's node (i.e., two endpoints in the same service on the
 	// same node) then we don't need to do anything
 	if gueEndpoint, exists := lb.Status.GUETunnelEndpoints[ep.NodeAddress]; exists {
-		log.Info("EP node already has a tunnel", "endpoint", ep)
+		l.Info("EP node already has a tunnel", "endpoint", ep)
 		return gueEndpoint, nil
 	}
 
@@ -160,26 +159,26 @@ func (r *EndpointReconciler) setGUEIngressAddress(ctx context.Context, lb *egwv1
 		return gueEndpoint, err
 	}
 	nc.Spec.Base.GUEEndpoint.DeepCopyInto(&gueEndpoint)
-	gueEndpoint.TunnelID = tunnelID
-
-	// FIXME: allocate this instead of just incrementing
-	tunnelID++
+	gueEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client)
+	if err != nil {
+		return gueEndpoint, err
+	}
 
 	// prepare a patch to set this node's tunnel endpoint in the LB status
 	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUETunnelEndpoints: map[string]egwv1.GUETunnelEndpoint{ep.NodeAddress: gueEndpoint}}})
 	if err != nil {
 		return gueEndpoint, err
 	}
-	log.Info(string(patchBytes))
+	l.Info(string(patchBytes))
 
 	// apply the patch
 	err = r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes))
 	if err != nil {
-		log.Error("patching LB status", "lb", lb, "error", err)
+		l.Info("patching LB status", "lb", lb, "error", err)
 		return gueEndpoint, err
 	}
 
-	log.Info("LB status patched", "lb", lb)
+	l.Info("LB status patched", "lb", lb)
 	return gueEndpoint, err
 }
 
@@ -213,4 +212,43 @@ func (r *EndpointReconciler) cleanupService(l logr.Logger, ep egwv1.EndpointSpec
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
+}
+
+// allocateTunnelID allocates a GUE key from the EGW singleton. If
+// this call succeeds (i.e., error is nil) then the returned "key"
+// value will be unique.
+func allocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (key uint32, err error) {
+	tries := 3
+	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
+		key, err = nextTunnelID(ctx, l, cl)
+		if err != nil {
+			l.Info("problem allocating account GUE key", "error", err)
+		}
+	}
+	return key, err
+}
+
+// nextTunnelID gets the next account GUE key by doing a
+// read-modify-write cycle. It might be inefficient in terms of not
+// using all of the values that it allocates but it's safe because the
+// Update() will only succeed if the EGW hasn't been modified since
+// the Get().
+//
+// This function doesn't retry so if there's a collision with some
+// other process the caller needs to retry.
+func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (key uint32, err error) {
+
+	// get the EGW singleton
+	egw := egwv1.EGW{}
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: egwv1.ConfigNamespace, Name: "egw"}, &egw); err != nil {
+		l.Info("EGW get failed", "error", err)
+		return 0, err
+	}
+
+	// increment the EGW's tunnelID counter
+	egw.Status.CurrentTunnelID++
+
+	l.Info("allocating tunnelID", "egw", egw, "tunnelID", egw.Status.CurrentTunnelID)
+
+	return egw.Status.CurrentTunnelID, cl.Status().Update(ctx, &egw)
 }

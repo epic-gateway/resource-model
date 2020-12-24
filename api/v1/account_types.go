@@ -18,7 +18,7 @@ type AccountSpec struct {
 
 // AccountStatus defines the observed state of Account
 type AccountStatus struct {
-	// CurrentAccountGUEKey stores the most-recently-allocated value of
+	// CurrentServiceGUEKey stores the most-recently-allocated value of
 	// GUE key for services in this account. See the comments on
 	// CurrentAccountGUEKey in the EGW CR for notes on how to use this
 	// field.

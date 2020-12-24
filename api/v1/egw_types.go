@@ -18,6 +18,11 @@ type EGWStatus struct {
 	// the next value and then write that back. If the write succeeds
 	// then they own that value. If not then they need to try again.
 	CurrentAccountGUEKey uint16 `json:"current-account-gue-key"`
+
+	// CurrentTunnelID stores the most-recently-allocated tunnel ID. See
+	// the comments on CurrentAccountGUEKey for notes on how to use this
+	// field.
+	CurrentTunnelID uint32 `json:"current-tunnel-id"`
 }
 
 // +kubebuilder:object:root=true

@@ -32,10 +32,6 @@ const (
 	tunnelAuth    = "fredfredfredfred" // FIXME: this should be in one of our CRs
 )
 
-var (
-	tunnelID uint32 = 42 // FIXME: this needs to be managed more robustly than just a variable
-)
-
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
