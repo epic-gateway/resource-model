@@ -7,6 +7,7 @@ before_script:
   # clone. We need to clone private repos, e.g.,
   # packet-forwarding-component since this project depends on them.
   - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/acnodal".insteadOf "https://gitlab.com/acnodal"
+  - go get sigs.k8s.io/controller-tools/cmd/controller-gen
   - go get golang.org/x/lint/golint
 
 make:

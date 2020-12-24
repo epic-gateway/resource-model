@@ -47,8 +47,8 @@ deploy: manifests
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: kustomize controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: kustomize
+	controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	$(KUSTOMIZE) build config/default | IMG=$(IMG) envsubst > deploy/egw-resource-model.yaml
 
 # Run go fmt against code
@@ -61,8 +61,9 @@ vet:
 	golint -set_exit_status ./...
 
 # Generate code
-generate: controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+.PHONY: generate
+generate:
+	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
 docker-build: test
@@ -71,24 +72,6 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
-
-# find or download controller-gen
-# download controller-gen if necessary
-# FIXME: we need an unreleased version so that it can generate manifests for admissionReviewVersions v1beta1 but when the next release happens we can switch to that.
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@6fa696d ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
 
 kustomize:
 ifeq (, $(shell which kustomize))
