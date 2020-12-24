@@ -29,7 +29,6 @@ import (
 const (
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
-	tunnelAuth    = "fredfredfredfred" // FIXME: this should be in one of our CRs
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object

@@ -74,6 +74,14 @@ func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return done, err
 	}
 
+	// Get the ServiceGroup that owns this Endpoint
+	sg := &egwv1.ServiceGroup{}
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Spec.ServiceGroup}
+	if err := r.Get(ctx, sgname, sg); err != nil {
+		log.Error(err, "Failed to find owning service group", "name", sgname)
+		return done, err
+	}
+
 	// If the LB doesn't have its ifindex set then we can't configure so
 	// try again in a few seconds
 	if lb.Status.ProxyIfindex == 0 {
@@ -96,7 +104,7 @@ func (r *EndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// configure the GUE "service"
-	err = r.configureService(log, ep.Spec, lb.Status.ProxyIfindex, gueEp.TunnelID, lb.Spec.GUEKey)
+	err = r.configureService(log, ep.Spec, lb.Status.ProxyIfindex, gueEp.TunnelID, lb.Spec.GUEKey, sg.Spec.AuthCreds)
 	if err != nil {
 		log.Error(err, "configuring GUE service")
 		return done, err
@@ -189,7 +197,7 @@ func (r *EndpointReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelEndpo
 	return cmd.Run()
 }
 
-func (r *EndpointReconciler) configureService(l logr.Logger, ep egwv1.EndpointSpec, ifindex int, tunnelID uint32, tunnelKey uint32) error {
+func (r *EndpointReconciler) configureService(l logr.Logger, ep egwv1.EndpointSpec, ifindex int, tunnelID uint32, tunnelKey uint32, tunnelAuth string) error {
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
 	var groupID uint16 = uint16(tunnelKey & 0xffff)
@@ -208,7 +216,7 @@ func (r *EndpointReconciler) cleanupService(l logr.Logger, ep egwv1.EndpointSpec
 	var groupID uint16 = uint16(tunnelKey & 0xffff)
 	var serviceID uint16 = uint16(tunnelKey >> 16)
 
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, "unused", tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
