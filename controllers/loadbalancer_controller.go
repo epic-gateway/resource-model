@@ -462,8 +462,8 @@ func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelE
 func (r *LoadBalancerReconciler) deleteService(l logr.Logger, tunnelKey uint32) error {
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
-	var groupID uint16 = uint16(tunnelKey & 0xffff)
-	var serviceID uint16 = uint16(tunnelKey >> 16)
+	var groupID uint16 = uint16(tunnelKey >> 16)
+	var serviceID uint16 = uint16(tunnelKey & 0xffff)
 
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
 	l.Info(script)

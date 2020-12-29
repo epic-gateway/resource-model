@@ -200,8 +200,8 @@ func (r *EndpointReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelEndpo
 func (r *EndpointReconciler) configureService(l logr.Logger, ep egwv1.EndpointSpec, ifindex int, tunnelID uint32, tunnelKey uint32, tunnelAuth string) error {
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
-	var groupID uint16 = uint16(tunnelKey & 0xffff)
-	var serviceID uint16 = uint16(tunnelKey >> 16)
+	var groupID uint16 = uint16(tunnelKey >> 16)
+	var serviceID uint16 = uint16(tunnelKey & 0xffff)
 
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
@@ -213,8 +213,8 @@ func (r *EndpointReconciler) configureService(l logr.Logger, ep egwv1.EndpointSp
 func (r *EndpointReconciler) cleanupService(l logr.Logger, ep egwv1.EndpointSpec, ifindex int, tunnelID uint32, tunnelKey uint32) error {
 	// split the tunnelKey into its parts: groupId in the upper 16 bits
 	// and serviceId in the lower 16
-	var groupID uint16 = uint16(tunnelKey & 0xffff)
-	var serviceID uint16 = uint16(tunnelKey >> 16)
+	var groupID uint16 = uint16(tunnelKey >> 16)
+	var serviceID uint16 = uint16(tunnelKey & 0xffff)
 
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, "unused", tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
