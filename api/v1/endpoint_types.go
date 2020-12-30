@@ -8,6 +8,7 @@ import (
 const (
 	// EndpointFinalizerName is the name of the finalizer that cleans up
 	// when an Endpoint CR is deleted.
+	// FIXME: I don't think that this is a valid finalizer name. See the xds controller for a better one.
 	EndpointFinalizerName string = "egw.acnodal.io/endpointFinalizer"
 
 	// OwningLoadBalancerLabel is the name of the label that we apply to
@@ -24,6 +25,7 @@ const (
 type EndpointSpec struct {
 	// LoadBalancer is the name of the LoadBalancer to which this
 	// endpoint belongs.
+	// FIXME: remove this since it's redundant with OwningLoadBalancerLabel.
 	LoadBalancer string `json:"load-balancer"`
 
 	// Address is the IP address for this endpoint.

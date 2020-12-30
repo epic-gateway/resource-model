@@ -53,13 +53,6 @@ func (r *Endpoint) Default() {
 	// Add the controller as a finalizer so we can clean up when this
 	// Endpoint is deleted.
 	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, EndpointFinalizerName)
-
-	lbname := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Spec.LoadBalancer}
-	// add a label with the owning LB's name to make it easier to query
-	if r.Labels == nil {
-		r.Labels = map[string]string{}
-	}
-	r.Labels[OwningLoadBalancerLabel] = lbname.Name
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -86,19 +79,19 @@ func (r *Endpoint) ValidateCreate() error {
 	}
 
 	// Block create if there's no owning LB
-	lb := &LoadBalancer{}
-	lbname := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Spec.LoadBalancer}
-	if err := crtclient.Get(context.TODO(), lbname, lb); err != nil {
-		endpointlog.Info("bad input: no owning load balancer", "name", lbname)
+	ownerName := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Labels[OwningLoadBalancerLabel]}
+	owner := &LoadBalancer{}
+	if err := crtclient.Get(context.TODO(), ownerName, owner); err != nil {
+		endpointlog.Info("bad input: no owning load balancer", "name", ownerName)
 		return err
 	}
 
 	// Block create if this loadbalancer has a duplicate endpoint
-	labelSelector := labels.SelectorFromSet(map[string]string{OwningLoadBalancerLabel: r.Spec.LoadBalancer})
+	labelSelector := labels.SelectorFromSet(map[string]string{OwningLoadBalancerLabel: ownerName.Name})
 	listOps := client.ListOptions{Namespace: r.ObjectMeta.Namespace, LabelSelector: labelSelector}
 	list := EndpointList{}
 	if err := crtclient.List(context.TODO(), &list, &listOps); err != nil {
-		endpointlog.Error(err, "Listing endpoints", "name", lbname)
+		endpointlog.Error(err, "Listing endpoints", "name", ownerName)
 		return err
 	}
 	for _, ep := range list.Items {
