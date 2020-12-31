@@ -26,6 +26,7 @@ type NodeConfigStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=nc;ncs
 // +kubebuilder:subresource:status
 
 // NodeConfig is the Schema for the nodeconfigs API

@@ -73,6 +73,7 @@ type LoadBalancerStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=lb;lbs
 // +kubebuilder:subresource:status
 
 // LoadBalancer is the Schema for the loadbalancers API

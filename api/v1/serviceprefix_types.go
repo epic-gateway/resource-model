@@ -46,6 +46,7 @@ type ServicePrefixStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=sp;sps
 // +kubebuilder:subresource:status
 
 // ServicePrefix represents a pool of IP addresses. The EGW web

@@ -35,6 +35,7 @@ type ServiceGroupStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=sg;sgs
 // +kubebuilder:subresource:status
 
 // ServiceGroup is the Schema for the servicegroups API
