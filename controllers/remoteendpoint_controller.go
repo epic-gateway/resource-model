@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -51,7 +52,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		if containsString(rep.ObjectMeta.Finalizers, egwv1.RemoteEndpointFinalizerName) {
 			log.Info("object to be deleted")
 
-			if err := r.cleanupService(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GUEKey); err != nil {
+			if err := r.cleanupService(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GroupID, rep.Status.ServiceID); err != nil {
 				log.Error(err, "Failed to cleanup PFC")
 			}
 
@@ -68,7 +69,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 
 	// Get the LoadBalancer that owns this RemoteEndpoint
 	lb := &egwv1.LoadBalancer{}
-	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Spec.LoadBalancer}
+	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Labels[egwv1.OwningLoadBalancerLabel]}
 	if err := r.Get(ctx, lbname, lb); err != nil {
 		log.Error(err, "Failed to find owning load balancer", "name", lbname)
 		return done, err
@@ -79,6 +80,16 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Spec.ServiceGroup}
 	if err := r.Get(ctx, sgname, sg); err != nil {
 		log.Error(err, "Failed to find owning service group", "name", sgname)
+		return done, err
+	}
+
+	// determine the owning account's name
+
+	// get the Account that owns this LB
+	accountName := strings.TrimPrefix(req.NamespacedName.Namespace, egwv1.AccountNamespacePrefix)
+	accountNSName := types.NamespacedName{Namespace: egwv1.AccountNamespace, Name: accountName}
+	account := &egwv1.Account{}
+	if err := r.Get(ctx, accountNSName, account); err != nil {
 		return done, err
 	}
 
@@ -104,7 +115,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 
 	// configure the GUE "service"
-	err = r.configureService(log, rep.Spec, lb.Status.ProxyIfindex, gueEp.TunnelID, lb.Spec.GUEKey, sg.Spec.AuthCreds)
+	err = r.configureService(log, rep.Spec, lb.Status.ProxyIfindex, account.Spec.GroupID, lb.Spec.ServiceID, gueEp.TunnelID, sg.Spec.AuthCreds)
 	if err != nil {
 		log.Error(err, "configuring GUE service")
 		return done, err
@@ -112,7 +123,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 
 	// Cache some values that we might need later if we need to delete
 	// the endpoint
-	patchBytes, err := json.Marshal(egwv1.RemoteEndpoint{Status: egwv1.RemoteEndpointStatus{GUEKey: lb.Spec.GUEKey, ProxyIfindex: lb.Status.ProxyIfindex, TunnelID: gueEp.TunnelID}})
+	patchBytes, err := json.Marshal(egwv1.RemoteEndpoint{Status: egwv1.RemoteEndpointStatus{GroupID: account.Spec.GroupID, ServiceID: lb.Spec.ServiceID, ProxyIfindex: lb.Status.ProxyIfindex, TunnelID: gueEp.TunnelID}})
 	if err != nil {
 		log.Error(err, "marshaling EP patch", "ep", rep)
 		return done, err
@@ -197,12 +208,7 @@ func (r *RemoteEndpointReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunne
 	return cmd.Run()
 }
 
-func (r *RemoteEndpointReconciler) configureService(l logr.Logger, ep egwv1.RemoteEndpointSpec, ifindex int, tunnelID uint32, tunnelKey uint32, tunnelAuth string) error {
-	// split the tunnelKey into its parts: groupId in the upper 16 bits
-	// and serviceId in the lower 16
-	var groupID uint16 = uint16(tunnelKey >> 16)
-	var serviceID uint16 = uint16(tunnelKey & 0xffff)
-
+func (r *RemoteEndpointReconciler) configureService(l logr.Logger, ep egwv1.RemoteEndpointSpec, ifindex int, groupID uint16, serviceID uint16, tunnelID uint32, tunnelAuth string) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
@@ -210,33 +216,28 @@ func (r *RemoteEndpointReconciler) configureService(l logr.Logger, ep egwv1.Remo
 }
 
 // cleanupService undoes the PFC setup that we did for this RemoteEndpoint.
-func (r *RemoteEndpointReconciler) cleanupService(l logr.Logger, ep egwv1.RemoteEndpointSpec, ifindex int, tunnelID uint32, tunnelKey uint32) error {
-	// split the tunnelKey into its parts: groupId in the upper 16 bits
-	// and serviceId in the lower 16
-	var groupID uint16 = uint16(tunnelKey >> 16)
-	var serviceID uint16 = uint16(tunnelKey & 0xffff)
-
+func (r *RemoteEndpointReconciler) cleanupService(l logr.Logger, ep egwv1.RemoteEndpointSpec, ifindex int, tunnelID uint32, groupID uint16, serviceID uint16) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, "unused", tunnelID, ep.Address, ep.Port.Port, ifindex)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	return cmd.Run()
 }
 
-// allocateTunnelID allocates a GUE key from the EGW singleton. If
-// this call succeeds (i.e., error is nil) then the returned "key"
-// value will be unique.
-func allocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (key uint32, err error) {
+// allocateTunnelID allocates a tunnel ID from the EGW singleton. If
+// this call succeeds (i.e., error is nil) then the returned ID will
+// be unique.
+func allocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelID uint32, err error) {
 	tries := 3
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
-		key, err = nextTunnelID(ctx, l, cl)
+		tunnelID, err = nextTunnelID(ctx, l, cl)
 		if err != nil {
-			l.Info("problem allocating account GUE key", "error", err)
+			l.Info("problem allocating tunnel ID", "error", err)
 		}
 	}
-	return key, err
+	return tunnelID, err
 }
 
-// nextTunnelID gets the next account GUE key by doing a
+// nextTunnelID gets the next tunnel ID from the Account CR by doing a
 // read-modify-write cycle. It might be inefficient in terms of not
 // using all of the values that it allocates but it's safe because the
 // Update() will only succeed if the EGW hasn't been modified since
@@ -244,7 +245,7 @@ func allocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (key
 //
 // This function doesn't retry so if there's a collision with some
 // other process the caller needs to retry.
-func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (key uint32, err error) {
+func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelID uint32, err error) {
 
 	// get the EGW singleton
 	egw := egwv1.EGW{}

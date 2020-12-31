@@ -22,11 +22,6 @@ const (
 // RemoteEndpointSpec defines the desired state of RemoteEndpoint. It represents
 // one pod endpoint on a customer cluster.
 type RemoteEndpointSpec struct {
-	// LoadBalancer is the name of the LoadBalancer to which this
-	// endpoint belongs.
-	// FIXME: remove this since it's redundant with OwningLoadBalancerLabel.
-	LoadBalancer string `json:"load-balancer"`
-
 	// Address is the IP address for this endpoint.
 	Address string `json:"address"`
 
@@ -46,10 +41,17 @@ type RemoteEndpointStatus struct {
 	// lookup the LB since it might have been deleted.
 	ProxyIfindex int `json:"proxy-ifindex,omitempty"`
 
-	// The GUEKey in the LoadBalancer Spec is canonical but we cache it
-	// here so we can cleanup the PFC service without having to lookup
-	// the LB since it might have been deleted.
-	GUEKey uint32 `json:"gue-key,omitempty"`
+	// GroupID is a cache of the owning Account's GroupID. The ID in the
+	// Account Spec is canonical but we cache it here so we can cleanup
+	// the PFC service without having to lookup the LB since it might
+	// have been deleted.
+	GroupID uint16 `json:"group-id,omitempty"`
+
+	// ServiceID is a cache of the owning LoadBalancer's ServiceID. The
+	// ID in the LoadBalancer Spec is canonical but we cache it here so
+	// we can cleanup the PFC service without having to lookup the LB
+	// since it might have been deleted.
+	ServiceID uint16 `json:"service-id,omitempty"`
 
 	// The TunnelID in the LoadBalancer Status is canonical but we cache
 	// it here so we can cleanup the PFC service without having to

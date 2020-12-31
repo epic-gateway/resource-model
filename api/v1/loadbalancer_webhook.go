@@ -48,12 +48,12 @@ func (r *LoadBalancer) Default() {
 	// determine the owning account's name
 	owningAcct := strings.TrimPrefix(r.Namespace, AccountNamespacePrefix)
 
-	// add a GUE key to this service
-	acctKey, lbKey, err := allocateLBKey(ctx, crtclient, owningAcct)
+	// add a service id to this service
+	serviceID, err := allocateServiceID(ctx, crtclient, owningAcct)
 	if err != nil {
-		loadbalancerlog.Info("failed to allocate GUE key", "error", err)
+		loadbalancerlog.Info("failed to allocate serviceID", "error", err)
 	}
-	r.Spec.GUEKey = (uint32(acctKey) * 0x10000) + uint32(lbKey)
+	r.Spec.ServiceID = serviceID
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
@@ -86,40 +86,40 @@ func (r *LoadBalancer) ValidateDelete() error {
 	return nil
 }
 
-// allocateLBKey allocates a GUE key from the Account that owns this
-// LB. If this call succeeds (i.e., error is nil) then the returned
-// "key" values will be unique.
-func allocateLBKey(ctx context.Context, cl client.Client, acctName string) (acctKey uint16, lbKey uint16, err error) {
+// allocateServiceID allocates a service id from the Account that owns
+// this LB. If this call succeeds (i.e., error is nil) then the
+// returned service id will be unique.
+func allocateServiceID(ctx context.Context, cl client.Client, acctName string) (serviceID uint16, err error) {
 	tries := 3
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
-		acctKey, lbKey, err = nextLBKey(ctx, cl, acctName)
+		serviceID, err = nextServiceID(ctx, cl, acctName)
 		if err != nil {
-			accountlog.Info("problem allocating account GUE key", "error", err)
+			accountlog.Info("problem allocating account serviceID", "error", err)
 		}
 	}
-	return acctKey, lbKey, err
+	return serviceID, err
 }
 
-// nextLBKey gets the current account GUE key and next LB GUE key by
-// doing a read-modify-write cycle. It might be inefficient in terms
-// of not using all of the values that it allocates but it's safe
-// because the Update() will only succeed if the Account hasn't been
-// modified since the Get().
+// nextServiceID gets the next LB ServiceID by doing a
+// read-modify-write cycle. It might be inefficient in terms of not
+// using all of the values that it allocates but it's safe because the
+// Update() will only succeed if the Account hasn't been modified
+// since the Get().
 //
 // This function doesn't retry so if there's a collision with some
 // other process the caller needs to retry.
-func nextLBKey(ctx context.Context, cl client.Client, acctName string) (acctKey uint16, lbKey uint16, err error) {
+func nextServiceID(ctx context.Context, cl client.Client, acctName string) (serviceID uint16, err error) {
 
-	// load this LBs owning Account which holds the GUE keys
+	// load this LBs owning Account which holds the ServiceID allocator
 	accountName := types.NamespacedName{Namespace: AccountNamespace, Name: acctName}
 	account := Account{}
 	if err := crtclient.Get(ctx, accountName, &account); err != nil {
 		loadbalancerlog.Info("can't Get owning Account", "error", err)
-		return 0, 0, err
+		return 0, err
 	}
 
-	// increment the Account's GUE key counter
-	account.Status.CurrentServiceGUEKey++
+	// increment the Account's service ID counter
+	account.Status.CurrentServiceID++
 
-	return account.Spec.GUEKey, account.Status.CurrentServiceGUEKey, cl.Status().Update(ctx, &account)
+	return account.Status.CurrentServiceID, cl.Status().Update(ctx, &account)
 }

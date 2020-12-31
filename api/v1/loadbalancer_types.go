@@ -26,14 +26,11 @@ type LoadBalancerSpec struct {
 	// PublicPorts is the set of ports on which this LB will listen.
 	PublicPorts []corev1.ServicePort `json:"public-ports"`
 
-	// GUEKey is used with the account-level GUEKey to set up this
-	// service's GUE tunnels between the EGW and the client cluster. The
-	// account-level GUEKey is 16 bits but this GUEKey is 32 bits
-	// because it contains *both* the account key (in the upper 16 bits)
-	// and the service key (in the lower 16 bits). It should not be set
-	// in the YAML manifest - a webhook fills it in when the CR is
-	// created.
-	GUEKey uint32 `json:"gue-key,omitempty"`
+	// ServiceID is used with the account-level GroupID to set up this
+	// service's GUE tunnels between the EGW and the client cluster. It
+	// should not be set by the client - a webhook fills it in when the
+	// CR is created.
+	ServiceID uint16 `json:"service-id,omitempty"`
 }
 
 // GUETunnelEndpoint is an Endpoint on the EGW.

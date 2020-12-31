@@ -12,12 +12,13 @@ To generate a webhook:
 $ operator-sdk create webhook --group egw --version v1 --kind EGW --defaulting --programmatic-validation
 ```
 
-## ID/Key Allocation
+## ID Allocation
 
-Numeric ID's (like Tunnel ID) and keys (like ServiceID and GroupID)
-are allocated from fields in their parent CR Status. Tunnel IDs are
-unique across the whole system so they're allocated from the egw
-singleton object. You can examine the current value by dumping the contents of the object:
+Numeric ID's (like Tunnel ID, ServiceID, and GroupID) are allocated
+from fields in their parent CR Status. Tunnel IDs are unique across
+the whole system so they're allocated from the egw singleton
+object. You can examine the current value by dumping the contents of
+the object:
 
 ```
 $ kubectl get -n egw egws.egw.acnodal.io egw -o yaml
@@ -31,18 +32,18 @@ metadata:
   uid: e6a50ecf-1829-4e47-8537-abfd9b6a9146
 spec: {}
 status:
-  current-account-gue-key: 1
+  current-group-id: 1
   current-tunnel-id: 4
 ```
 
-The ```current-account-gue-key``` holds the most recent value that we
-assigned to an Account object.
+The ```current-group-id``` is the most recent value that we assigned
+to an Account object.
 
-The ```current-tunnel-id``` field holds the most recent value that we
+The ```current-tunnel-id``` field is the most recent value that we
 assigned to a tunnel ID (within a Service object).
 
-When we assign an account GUE key we add it to the spec.gue-key field
-of the Account custom resource:
+When we assign an account GroupID we add it to the spec.group-id
+field of the Account custom resource:
 
 ```
 $ kubectl get -n egw accounts.egw.acnodal.io sample -o yaml
@@ -55,13 +56,16 @@ metadata:
   resourceVersion: "22769"
   uid: 2c422e97-9d3f-4181-9b07-59484ce09566
 spec:
-  gue-key: 1
+  group-id: 1
 status:
-  current-service-gue-key: 3
+  current-service-id: 3
 ```
 
-There's also a ```current-service-gue-key``` field within the status
-which is the source of GUE keys for the services within that account.
+There's also a ```current-service-id``` field within the status which
+is the source of ServiceIDs for the services within that account.
+
+We allocate a ServiceID for each LB in a similar way to how we
+allocate GroupIDs for accounts.
 
 ```
 $ kubectl get -n egw-sample loadbalancers.egw.acnodal.io sample-acnodal -o yaml
@@ -74,7 +78,7 @@ metadata:
   resourceVersion: "2584"
   uid: 1a8522b9-70a4-4a9c-bdd7-ba912a61170a
 spec:
-  gue-key: 65537
+  service-id: 1
   public-address: 192.168.77.2
   public-ports:
   - nodePort: 30390
@@ -102,11 +106,6 @@ status:
   proxy-ifname: veth67060f1f
 ```
 
-The gue-key in the spec is the 32-bit value that's the combination of
-the account key in the upper 16 bits and the service key in the
-lower. In this case 65537 is 0x00010001 which indicates an account key
-of 1 and a service key of 1.
-
 Each tunnel in the status has a tunnel ID that was allocated from the
 EGW configuration singleton.
 
@@ -132,21 +131,20 @@ spec:
     port: 8080
     protocol: TCP
 status:
-  gue-key: 65539
+  group-id: 1
+  service-id: 3
   proxy-ifindex: 20
   tunnel-id: 4
 ```
 
-In this case the gue key is 65539 which is 0x00010003 so the account
-key is 1 and the service key is 3.
-
 ### Allocation Algorithm
 
-We use Kubernetes' opportunistic locking to allocate GUE keys. When a
-key is needed, we increment the key value in the parent's status and
-then Update() the parent. Using an Update() is important because the
-update will fail if someone else got there first. In that case we read
-the object again and retry the Update().
+We use Kubernetes' opportunistic locking to allocate group/service
+IDs. When an ID is needed, we increment the current ID value in the
+parent's status and then Update() the parent. Using Update() (and not
+Patch()) is important because Update() will fail if another request
+got there first. In that case we read the object again and retry the
+Update().
 
 ## Namespaces
 

@@ -9,20 +9,20 @@ import (
 
 // AccountSpec defines the desired state of Account
 type AccountSpec struct {
-	// GUEKey is used with a service's GUEKey to set up GUE tunnels
-	// between the EGW and the client cluster for that service. It
-	// should not be set in the YAML manifest - the controller manager
-	// will fill in the value when the object is created.
-	GUEKey uint16 `json:"gue-key,omitempty"`
+	// GroupID is used with a service's ServiceID to set up GUE tunnels
+	// for that service between the EGW and the client cluster. It
+	// should not be set by the client - the controller manager will
+	// fill in the value when the object is created.
+	GroupID uint16 `json:"group-id,omitempty"`
 }
 
 // AccountStatus defines the observed state of Account
 type AccountStatus struct {
-	// CurrentServiceGUEKey stores the most-recently-allocated value of
-	// GUE key for services in this account. See the comments on
-	// CurrentAccountGUEKey in the EGW CR for notes on how to use this
+	// CurrentServiceID stores the most-recently-allocated GUE Service
+	// ID for services in this account. See the comments on
+	// CurrentAccountID in the EGW CR for notes on how to use this
 	// field.
-	CurrentServiceGUEKey uint16 `json:"current-service-gue-key"`
+	CurrentServiceID uint16 `json:"current-service-id"`
 }
 
 // +kubebuilder:object:root=true

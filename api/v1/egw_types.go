@@ -31,14 +31,15 @@ type EGWSpec struct {
 
 // EGWStatus defines the observed state of EGW
 type EGWStatus struct {
-	// CurrentAccountGUEKey stores the most-recently-allocated value of
-	// the account-level GUE key. Clients should read the CR, calculate
-	// the next value and then write that back. If the write succeeds
-	// then they own that value. If not then they need to try again.
-	CurrentAccountGUEKey uint16 `json:"current-account-gue-key"`
+	// CurrentGroupID stores the most-recently-allocated value of the
+	// account-level GUE group id. Clients should read the CR, calculate
+	// the next value and then write that back using Update() and not
+	// Patch(). If the write succeeds then they own that value. If not
+	// then they need to try again.
+	CurrentGroupID uint16 `json:"current-group-id"`
 
 	// CurrentTunnelID stores the most-recently-allocated tunnel ID. See
-	// the comments on CurrentAccountGUEKey for notes on how to use this
+	// the comments on CurrentGroupID for notes on how to use this
 	// field.
 	CurrentTunnelID uint32 `json:"current-tunnel-id"`
 }

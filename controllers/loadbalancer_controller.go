@@ -88,6 +88,16 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return done, err
 	}
 
+	// determine the owning account's name
+	owningAcct := strings.TrimPrefix(req.NamespacedName.Namespace, egwv1.AccountNamespacePrefix)
+
+	// get the Account that owns this LB
+	accountName := types.NamespacedName{Namespace: egwv1.AccountNamespace, Name: owningAcct}
+	account := &egwv1.Account{}
+	if err := r.Get(ctx, accountName, account); err != nil {
+		return done, err
+	}
+
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
@@ -103,7 +113,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			delRt(lb.Spec.PublicAddress)
 
 			// Remove PFC configuration
-			if err := r.cleanupPFC(log, lb, prefix); err != nil {
+			if err := r.cleanupPFC(log, lb, account, prefix); err != nil {
 				log.Error(err, "Failed to cleanup PFC")
 			}
 
@@ -478,12 +488,7 @@ func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelE
 	return cmd.Run()
 }
 
-func (r *LoadBalancerReconciler) deleteService(l logr.Logger, tunnelKey uint32) error {
-	// split the tunnelKey into its parts: groupId in the upper 16 bits
-	// and serviceId in the lower 16
-	var groupID uint16 = uint16(tunnelKey >> 16)
-	var serviceID uint16 = uint16(tunnelKey & 0xffff)
-
+func (r *LoadBalancerReconciler) deleteService(l logr.Logger, groupID uint16, serviceID uint16) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
 	l.Info(script)
 	cmd := exec.Command("/bin/sh", "-c", script)
@@ -499,7 +504,7 @@ func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) 
 }
 
 // cleanupPFC undoes the PFC setup that we did for this lb.
-func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *egwv1.LoadBalancer, prefix *egwv1.ServicePrefix) error {
+func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *egwv1.LoadBalancer, acct *egwv1.Account, prefix *egwv1.ServicePrefix) error {
 	// remove IPSet entry
 	delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 
@@ -511,7 +516,7 @@ func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *egwv1.LoadBalance
 	delRt(publicaddr)
 
 	// remove the endpoint PFC "services"
-	r.deleteService(l, lb.Spec.GUEKey)
+	r.deleteService(l, acct.Spec.GroupID, lb.Spec.ServiceID)
 
 	// remove the PFC tunnels
 	for _, tunnel := range lb.Status.GUETunnelEndpoints {

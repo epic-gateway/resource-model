@@ -38,28 +38,28 @@ func (r *Account) Default() {
 	ctx := context.TODO()
 	accountlog.Info("default", "name", r.Name)
 
-	// add a fake GUE key to this service
-	r.Spec.GUEKey, err = allocateAccountKey(ctx, crtclient)
+	// add a group ID to this account
+	r.Spec.GroupID, err = allocateGroupID(ctx, crtclient)
 	if err != nil {
-		accountlog.Info("failed to allocate GUE key", "error", err)
+		accountlog.Info("failed to allocate groupID", "error", err)
 	}
 }
 
-// allocateAccountKey allocates a GUE key from the EGW singleton. If
-// this call succeeds (i.e., error is nil) then the returned "key"
-// value will be unique.
-func allocateAccountKey(ctx context.Context, cl client.Client) (key uint16, err error) {
+// allocateGroupID allocates a group ID from the EGW singleton. If
+// this call succeeds (i.e., error is nil) then the returned ID will
+// be unique.
+func allocateGroupID(ctx context.Context, cl client.Client) (groupID uint16, err error) {
 	tries := 3
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
-		key, err = nextAccountKey(ctx, cl)
+		groupID, err = nextGroupID(ctx, cl)
 		if err != nil {
-			accountlog.Info("problem allocating account GUE key", "error", err)
+			accountlog.Info("problem allocating groupID", "error", err)
 		}
 	}
-	return key, err
+	return groupID, err
 }
 
-// nextAccountKey gets the next account GUE key by doing a
+// nextGroupID gets the next account group ID by doing a
 // read-modify-write cycle. It might be inefficient in terms of not
 // using all of the values that it allocates but it's safe because the
 // Update() will only succeed if the EGW hasn't been modified since
@@ -67,7 +67,7 @@ func allocateAccountKey(ctx context.Context, cl client.Client) (key uint16, err 
 //
 // This function doesn't retry so if there's a collision with some
 // other process the caller needs to retry.
-func nextAccountKey(ctx context.Context, cl client.Client) (key uint16, err error) {
+func nextGroupID(ctx context.Context, cl client.Client) (groupID uint16, err error) {
 
 	// get the EGW singleton
 	egw := EGW{}
@@ -76,10 +76,10 @@ func nextAccountKey(ctx context.Context, cl client.Client) (key uint16, err erro
 		return 0, err
 	}
 
-	// increment the EGW's GUE key counter
-	egw.Status.CurrentAccountGUEKey++
+	// increment the allocator
+	egw.Status.CurrentGroupID++
 
-	accountlog.Info("allocating key", "egw", egw)
+	accountlog.Info("allocating groupID", "egw", egw)
 
-	return egw.Status.CurrentAccountGUEKey, cl.Status().Update(ctx, &egw)
+	return egw.Status.CurrentGroupID, cl.Status().Update(ctx, &egw)
 }
