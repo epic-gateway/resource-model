@@ -52,30 +52,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.AccountReconciler{
+	// Set up controllers and webhooks
+
+	if err = (&controllers.EGWReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Account"),
+		Log:    ctrl.Log.WithName("controllers").WithName("EGW"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Account")
+		setupLog.Error(err, "unable to create controller", "controller", "EGW")
 		os.Exit(1)
 	}
-	if err = (&controllers.ServiceGroupReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ServiceGroup"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceGroup")
+	if err = (&egwv1.EGW{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EGW")
 		os.Exit(1)
 	}
-	if err = (&controllers.LoadBalancerReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
-		os.Exit(1)
-	}
+
 	if err = (&controllers.ServicePrefixReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ServicePrefix"),
@@ -84,38 +75,55 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ServicePrefix")
 		os.Exit(1)
 	}
-	if err = (&egwv1.LoadBalancer{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancer")
-		os.Exit(1)
-	}
-	if err = (&controllers.NodeConfigReconciler{
+
+	if err = (&controllers.ServiceGroupReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("NodeConfig"),
+		Log:    ctrl.Log.WithName("controllers").WithName("ServiceGroup"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "NodeConfig")
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceGroup")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.AccountReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Account"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Account")
 		os.Exit(1)
 	}
 	if err = (&egwv1.Account{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Account")
 		os.Exit(1)
 	}
-	if err = (&controllers.RemoteEndpointReconciler{
+
+	if err = (&controllers.LoadBalancerReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Endpoint"),
+		Log:    ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
+		os.Exit(1)
+	}
+	if err = (&egwv1.LoadBalancer{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancer")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.RemoteEndpointReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("RemoteEndpoint"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RemoteEndpoint")
 		os.Exit(1)
 	}
 	if err = (&egwv1.RemoteEndpoint{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Endpoint")
+		setupLog.Error(err, "unable to create webhook", "webhook", "RemoteEndpoint")
 		os.Exit(1)
 	}
-	if err = (&egwv1.EGW{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "EGW")
-		os.Exit(1)
-	}
+
 	// +kubebuilder:scaffold:builder
 
 	// See if the PFC is installed

@@ -3,4 +3,9 @@ kind: EGW
 metadata:
   namespace: egw
   name: egw
-spec: {}
+spec:
+  base:
+    gue-endpoint:
+      egw-address: 192.168.1.40
+    gue-ingress-nics:
+    - eth0

@@ -4,11 +4,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// ConfigName is the name of the EGW configuration singleton. Its
+	// namespace is defined in namespaces.go.
+	ConfigName = "egw"
+)
+
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 
+// Node is the config for one node.
+type Node struct {
+	// +kubebuilder:default={"eth0"}
+	IngressNICs []string `json:"gue-ingress-nics,omitempty"`
+
+	// +kubebuilder:default={"egw-port":{"port":6080,"protocol":"UDP","appProtocol":"gue"}}
+	GUEEndpoint GUETunnelEndpoint `json:"gue-endpoint,omitempty"`
+}
+
 // EGWSpec defines the desired state of EGW
 type EGWSpec struct {
+	// NodeBase is the "base" configuration for all nodes in the
+	// cluster.
+	NodeBase Node `json:"base"`
 }
 
 // EGWStatus defines the observed state of EGW
