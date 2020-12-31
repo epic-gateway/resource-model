@@ -1,6 +1,6 @@
 ---
 apiVersion: egw.acnodal.io/v1
-kind: Endpoint
+kind: RemoteEndpoint
 metadata:
   namespace: egw-sample
   name: sample-1
@@ -13,7 +13,7 @@ spec:
     protocol: tcp
 ---
 apiVersion: egw.acnodal.io/v1
-kind: Endpoint
+kind: RemoteEndpoint
 metadata:
   namespace: egw-sample
   name: sample-2
@@ -26,7 +26,7 @@ spec:
     protocol: tcp
 ---
 apiVersion: egw.acnodal.io/v1
-kind: Endpoint
+kind: RemoteEndpoint
 metadata:
   namespace: egw-sample
   name: sample-3
@@ -39,7 +39,7 @@ spec:
     protocol: tcp
 ---
 apiVersion: egw.acnodal.io/v1
-kind: Endpoint
+kind: RemoteEndpoint
 metadata:
   namespace: egw-sample
   name: sample-4

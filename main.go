@@ -100,7 +100,7 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Account")
 		os.Exit(1)
 	}
-	if err = (&controllers.EndpointReconciler{
+	if err = (&controllers.RemoteEndpointReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Endpoint"),
 		Scheme: mgr.GetScheme(),
@@ -108,7 +108,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 		os.Exit(1)
 	}
-	if err = (&egwv1.Endpoint{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&egwv1.RemoteEndpoint{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Endpoint")
 		os.Exit(1)
 	}

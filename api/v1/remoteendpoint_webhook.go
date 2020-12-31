@@ -17,7 +17,7 @@ import (
 
 var (
 	// log is for logging in this package.
-	endpointlog = logf.Log.WithName("endpoint-resource")
+	replog = logf.Log.WithName("rep-resource")
 
 	// crtclient looks up objects related to the one we're defaulting.
 	crtclient client.Client
@@ -27,7 +27,7 @@ var (
 )
 
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
-func (r *Endpoint) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *RemoteEndpoint) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	crtclient = mgr.GetClient()
 	epscheme = mgr.GetScheme()
 
@@ -36,7 +36,7 @@ func (r *Endpoint) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-egw-acnodal-io-v1-endpoint,mutating=true,failurePolicy=fail,groups=egw.acnodal.io,resources=endpoints,verbs=create,versions=v1,name=mendpoint.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:path=/mutate-egw-acnodal-io-v1-remoteendpoint,mutating=true,failurePolicy=fail,groups=egw.acnodal.io,resources=remoteendpoints,verbs=create,versions=v1,name=mremoteendpoint.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
 //
 //  FIXME: we use v1beta1 here because controller-runtime doesn't
 //  support v1 yet. When it does, we should remove
@@ -44,19 +44,19 @@ func (r *Endpoint) SetupWebhookWithManager(mgr ctrl.Manager) error {
 //  will switch to v1 (the default)
 //
 
-var _ webhook.Defaulter = &Endpoint{}
+var _ webhook.Defaulter = &RemoteEndpoint{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Endpoint) Default() {
-	endpointlog.Info("default", "name", r.Name)
+func (r *RemoteEndpoint) Default() {
+	replog.Info("default", "name", r.Name)
 
 	// Add the controller as a finalizer so we can clean up when this
-	// Endpoint is deleted.
-	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, EndpointFinalizerName)
+	// RemoteEndpoint is deleted.
+	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, RemoteEndpointFinalizerName)
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-endpoint,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=endpoints,versions=v1,name=vendpoint.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-remoteendpoint,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=remoteendpoints,versions=v1,name=vremoteendpoint.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
 //
 //  FIXME: we use v1beta1 here because controller-runtime doesn't
 //  support v1 yet. When it does, we should remove
@@ -64,11 +64,11 @@ func (r *Endpoint) Default() {
 //  will switch to v1 (the default)
 //
 
-var _ webhook.Validator = &Endpoint{}
+var _ webhook.Validator = &RemoteEndpoint{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Endpoint) ValidateCreate() error {
-	endpointlog.Info("validate create", "name", r.Name)
+func (r *RemoteEndpoint) ValidateCreate() error {
+	replog.Info("validate create", "name", r.Name)
 
 	// Parameter validation
 	if net.ParseIP(r.Spec.Address) == nil {
@@ -82,16 +82,16 @@ func (r *Endpoint) ValidateCreate() error {
 	ownerName := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.Labels[OwningLoadBalancerLabel]}
 	owner := &LoadBalancer{}
 	if err := crtclient.Get(context.TODO(), ownerName, owner); err != nil {
-		endpointlog.Info("bad input: no owning load balancer", "name", ownerName)
+		replog.Info("bad input: no owning load balancer", "name", ownerName)
 		return err
 	}
 
 	// Block create if this loadbalancer has a duplicate endpoint
 	labelSelector := labels.SelectorFromSet(map[string]string{OwningLoadBalancerLabel: ownerName.Name})
 	listOps := client.ListOptions{Namespace: r.ObjectMeta.Namespace, LabelSelector: labelSelector}
-	list := EndpointList{}
+	list := RemoteEndpointList{}
 	if err := crtclient.List(context.TODO(), &list, &listOps); err != nil {
-		endpointlog.Error(err, "Listing endpoints", "name", ownerName)
+		replog.Error(err, "Listing endpoints", "name", ownerName)
 		return err
 	}
 	for _, ep := range list.Items {
@@ -104,16 +104,16 @@ func (r *Endpoint) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Endpoint) ValidateUpdate(old runtime.Object) error {
-	endpointlog.Info("validate update", "name", r.Name)
+func (r *RemoteEndpoint) ValidateUpdate(old runtime.Object) error {
+	replog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Endpoint) ValidateDelete() error {
-	endpointlog.Info("validate delete", "name", r.Name)
+func (r *RemoteEndpoint) ValidateDelete() error {
+	replog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil

@@ -1,20 +1,24 @@
-# permissions for end users to view endpoints.
+# permissions for end users to edit remoteendpoints.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: endpoint-viewer-role
+  name: remoteendpoint-editor-role
 rules:
 - apiGroups:
   - egw.acnodal.io
   resources:
-  - endpoints
+  - remoteendpoints
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - egw.acnodal.io
   resources:
-  - endpoints/status
+  - remoteendpoints/status
   verbs:
   - get

@@ -39,7 +39,7 @@ type LoadBalancerReconciler struct {
 
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=endpoints,verbs=get;list;delete;deletecollection
+// +kubebuilder:rbac:groups=egw.acnodal.io,resources=remoteendpoints,verbs=get;list;delete;deletecollection
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
@@ -107,12 +107,12 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 				log.Error(err, "Failed to cleanup PFC")
 			}
 
-			// Delete the endpoints that belong to this LB
+			// Delete the reps that belong to this LB
 			opts := []client.DeleteAllOfOption{
 				client.InNamespace(req.NamespacedName.Namespace),
 				client.MatchingLabels{egwv1.OwningLoadBalancerLabel: req.NamespacedName.Name},
 			}
-			if err := r.DeleteAllOf(ctx, &egwv1.Endpoint{}, opts...); err != nil {
+			if err := r.DeleteAllOf(ctx, &egwv1.RemoteEndpoint{}, opts...); err != nil {
 				return done, err
 			}
 

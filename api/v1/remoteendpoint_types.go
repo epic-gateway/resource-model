@@ -6,10 +6,9 @@ import (
 )
 
 const (
-	// EndpointFinalizerName is the name of the finalizer that cleans up
-	// when an Endpoint CR is deleted.
-	// FIXME: I don't think that this is a valid finalizer name. See the xds controller for a better one.
-	EndpointFinalizerName string = "egw.acnodal.io/endpointFinalizer"
+	// RemoteEndpointFinalizerName is the name of the finalizer that cleans up
+	// when an RemoteEndpoint CR is deleted.
+	RemoteEndpointFinalizerName string = "remoteendpoint-finalizer.controller-manager.acnodal.io"
 
 	// OwningLoadBalancerLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which
@@ -20,9 +19,9 @@ const (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 
-// EndpointSpec defines the desired state of Endpoint. It represents
+// RemoteEndpointSpec defines the desired state of RemoteEndpoint. It represents
 // one pod endpoint on a customer cluster.
-type EndpointSpec struct {
+type RemoteEndpointSpec struct {
 	// LoadBalancer is the name of the LoadBalancer to which this
 	// endpoint belongs.
 	// FIXME: remove this since it's redundant with OwningLoadBalancerLabel.
@@ -40,8 +39,8 @@ type EndpointSpec struct {
 	Port corev1.EndpointPort `json:"port"`
 }
 
-// EndpointStatus defines the observed state of Endpoint
-type EndpointStatus struct {
+// RemoteEndpointStatus defines the observed state of RemoteEndpoint
+type RemoteEndpointStatus struct {
 	// The ProxyIfindex in the LoadBalancer Status is canonical but we
 	// cache it here so we can cleanup the PFC service without having to
 	// lookup the LB since it might have been deleted.
@@ -59,26 +58,28 @@ type EndpointStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=rep;reps
 // +kubebuilder:subresource:status
 
-// Endpoint is the Schema for the endpoints API
-type Endpoint struct {
+// RemoteEndpoint represents a service endpoint on a remote customer
+// cluster.
+type RemoteEndpoint struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   EndpointSpec   `json:"spec,omitempty"`
-	Status EndpointStatus `json:"status,omitempty"`
+	Spec   RemoteEndpointSpec   `json:"spec,omitempty"`
+	Status RemoteEndpointStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// EndpointList contains a list of Endpoint
-type EndpointList struct {
+// RemoteEndpointList contains a list of RemoteEndpoint
+type RemoteEndpointList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Endpoint `json:"items"`
+	Items           []RemoteEndpoint `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Endpoint{}, &EndpointList{})
+	SchemeBuilder.Register(&RemoteEndpoint{}, &RemoteEndpointList{})
 }
