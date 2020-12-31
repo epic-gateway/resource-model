@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -95,6 +94,15 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		if containsString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName) {
 			log.Info("to be deleted")
 
+			// Close host ports by updating IPSET tables
+			if err := delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+				log.Error(err, "deleting ipset entry")
+			}
+
+			// Remove route to public address
+			delRt(lb.Spec.PublicAddress)
+
+			// Remove PFC configuration
 			if err := r.cleanupPFC(log, lb, prefix); err != nil {
 				log.Error(err, "Failed to cleanup PFC")
 			}
@@ -166,7 +174,9 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	//Open host ports by updating IPSET tables
-	addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
+	if err := addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+		log.Error(err, "adding ipset entry")
+	}
 
 	return done, nil
 }
@@ -320,27 +330,36 @@ func delRt(publicaddr string) {
 
 }
 
-func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
-
+// addIpsetEntry adds the provided address and ports to the "egw-in"
+// set. The last error to happen will be returned.
+func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
 	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "add", "egw-in", publicaddr+","+strconv.Itoa(int(port.Port)))
-		err := cmd.Run()
-		if err != nil {
-			println(err)
+		cmd := exec.Command("ipset", "-exist", "add", "egw-in", ipsetAddress(publicaddr, port))
+		if cmdErr := cmd.Run(); cmdErr != nil {
+			err = cmdErr
 		}
 	}
-
+	return err
 }
-func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) {
 
+// delIpsetEntry deletes the provided address and ports from the
+// "egw-in" set. The last error to happen will be returned.
+func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
 	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "del", "egw-in", publicaddr+":"+strconv.Itoa(int(port.Port)))
-		err := cmd.Run()
-		if err != nil {
-			println(err)
+		cmd := exec.Command("ipset", "-exist", "del", "egw-in", ipsetAddress(publicaddr, port))
+		if cmdErr := cmd.Run(); cmdErr != nil {
+			err = cmdErr
 		}
 	}
+	return err
+}
 
+// ipsetAddress formats an address and port how ipset likes them,
+// e.g., "192.168.77.2,tcp:8088". From what I can tell, ipset accepts
+// the protocol in upper-case and lower-case so we don't need to do
+// anything with it here.
+func ipsetAddress(publicaddr string, port corev1.ServicePort) string {
+	return fmt.Sprintf("%s,%s:%d", publicaddr, port.Protocol, port.Port)
 }
 
 // configureBridge configures the bridge interface used to get packets
