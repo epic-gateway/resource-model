@@ -9,6 +9,7 @@ metadata:
     owning-serviceprefix: default
 spec:
   auth-creds: fredfredfredfred
+  envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:latest
 ---
 apiVersion: egw.acnodal.io/v1
 kind: ServiceGroup
@@ -20,3 +21,4 @@ metadata:
     owning-serviceprefix: non-default
 spec:
   auth-creds: wilmawilmawilma!
+  envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:latest
