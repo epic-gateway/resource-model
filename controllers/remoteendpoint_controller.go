@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -77,18 +76,15 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 
 	// Get the ServiceGroup that owns this RemoteEndpoint
 	sg := &egwv1.ServiceGroup{}
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Spec.ServiceGroup}
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[egwv1.OwningServiceGroupLabel]}
 	if err := r.Get(ctx, sgname, sg); err != nil {
 		log.Error(err, "Failed to find owning service group", "name", sgname)
 		return done, err
 	}
 
-	// determine the owning account's name
-
 	// get the Account that owns this LB
-	accountName := strings.TrimPrefix(req.NamespacedName.Namespace, egwv1.AccountNamespacePrefix)
-	accountNSName := types.NamespacedName{Namespace: egwv1.AccountNamespace, Name: accountName}
 	account := &egwv1.Account{}
+	accountNSName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[egwv1.OwningAccountLabel]}
 	if err := r.Get(ctx, accountNSName, account); err != nil {
 		return done, err
 	}

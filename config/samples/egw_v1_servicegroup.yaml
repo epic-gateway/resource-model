@@ -4,6 +4,9 @@ kind: ServiceGroup
 metadata:
   namespace: egw-sample
   name: sample
+  labels:
+    owning-account: sample
+    owning-serviceprefix: default
 spec:
   auth-creds: fredfredfredfred
 ---
@@ -12,5 +15,8 @@ kind: ServiceGroup
 metadata:
   namespace: egw-sample
   name: sample2
+  labels:
+    owning-account: sample
+    owning-serviceprefix: non-default
 spec:
   auth-creds: wilmawilmawilma!

@@ -5,7 +5,7 @@ metadata:
   namespace: egw-sample
   name: sample-1
   labels:
-    owningLB: sample
+    owning-loadbalancer: sample
 spec:
   address: 10.0.42.27
   node-address: 42.42.42.42
@@ -19,7 +19,7 @@ metadata:
   namespace: egw-sample
   name: sample-2
   labels:
-    owningLB: sample
+    owning-loadbalancer: sample
 spec:
   address: 10.0.42.28
   node-address: 42.42.42.42
@@ -33,7 +33,7 @@ metadata:
   namespace: egw-sample
   name: sample-3
   labels:
-    owningLB: sample
+    owning-loadbalancer: sample
 spec:
   address: 10.0.42.29
   node-address: 42.42.42.43
@@ -47,7 +47,7 @@ metadata:
   namespace: egw-sample
   name: sample-4
   labels:
-    owningLB: sample
+    owning-loadbalancer: sample
 spec:
   address: 10.0.42.29
   node-address: 42.42.42.43

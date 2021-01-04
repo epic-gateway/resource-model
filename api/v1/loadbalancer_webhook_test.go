@@ -11,6 +11,7 @@ var _ = Describe("LoadbalancerWebhook", func() {
 		lb := v1.LoadBalancer{
 			Spec: v1.LoadBalancerSpec{},
 		}
-		Expect(lb.ValidateCreate()).To(BeNil())
+		// no owning SG label, this should fail
+		Expect(lb.ValidateCreate()).ToNot(BeNil())
 	})
 })

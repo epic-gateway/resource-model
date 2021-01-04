@@ -66,33 +66,24 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 	// read the ServiceGroup that owns this LB
 	sg := &egwv1.ServiceGroup{}
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Spec.ServiceGroup}
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[egwv1.OwningServiceGroupLabel]}
 	err = r.Get(ctx, sgname, sg)
 	if err != nil {
 		log.Error(err, "Failed to find owning service group", "name", sgname)
 		return done, err
 	}
 
-	// the ServiceGroup points to the ServicePrefix
-	spname, err := splitNSName(sg.Spec.ServicePrefix)
-	if err != nil {
-		log.Error(err, "Failed to look up ServicePrefix", "name", spname)
-		return done, err
-	}
-
 	// read the ServicePrefix that determines the interface that we'll use
+	prefixName := types.NamespacedName{Namespace: egwv1.ConfigNamespace, Name: sg.Labels[egwv1.OwningServicePrefixLabel]}
 	prefix := &egwv1.ServicePrefix{}
-	err = r.Get(ctx, *spname, prefix)
+	err = r.Get(ctx, prefixName, prefix)
 	if err != nil {
-		log.Error(err, "Failed to find owning service prefix", "name", spname)
+		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
 		return done, err
 	}
-
-	// determine the owning account's name
-	owningAcct := strings.TrimPrefix(req.NamespacedName.Namespace, egwv1.AccountNamespacePrefix)
 
 	// get the Account that owns this LB
-	accountName := types.NamespacedName{Namespace: egwv1.AccountNamespace, Name: owningAcct}
+	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[egwv1.OwningAccountLabel]}
 	account := &egwv1.Account{}
 	if err := r.Get(ctx, accountName, account); err != nil {
 		return done, err
@@ -138,7 +129,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// Launch the Envoy deployment that will proxy this LB
-	dep := r.deploymentForLB(lb, spname, sg.Spec.EnvoyImage)
+	dep := r.deploymentForLB(lb, &prefixName, sg.Spec.EnvoyImage)
 	err = r.Create(ctx, dep)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
@@ -168,7 +159,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	// configure the Multus bridge interface
 	err = r.configureBridge(prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr())
 	if err != nil {
-		log.Error(err, "Failed to configure multus bridge", "name", spname)
+		log.Error(err, "Failed to configure multus bridge", "name", prefixName)
 		return done, err
 	}
 

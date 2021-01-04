@@ -16,10 +16,6 @@ const (
 
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
-	// ServiceGroup is the name of the ServiceGroup to which this
-	// LoadBalancer belongs.
-	ServiceGroup string `json:"service-group"`
-
 	// PublicAddress is the publicly-visible IP address for this LB.
 	PublicAddress string `json:"public-address"`
 

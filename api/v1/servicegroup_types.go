@@ -9,12 +9,6 @@ import (
 
 // ServiceGroupSpec defines the desired state of ServiceGroup
 type ServiceGroupSpec struct {
-
-	// ServicePrefix is the name of the service prefix from which
-	// ServiceGroup's addresses are allocated.
-	// +kubebuilder:default=egw/default
-	ServicePrefix string `json:"service-prefix,omitempty"`
-
 	// AuthCreds validate that the client who's setting up a GUE tunnel
 	// is who they say they are.
 	AuthCreds string `json:"auth-creds"`

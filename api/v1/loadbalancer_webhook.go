@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,13 +42,10 @@ func (r *LoadBalancer) Default() {
 
 	// Add the controller as a finalizer so we can clean up when this
 	// LoadBalancer is deleted.
-	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, LoadbalancerFinalizerName)
-
-	// determine the owning account's name
-	owningAcct := strings.TrimPrefix(r.Namespace, AccountNamespacePrefix)
+	r.Finalizers = append(r.Finalizers, LoadbalancerFinalizerName)
 
 	// add a service id to this service
-	serviceID, err := allocateServiceID(ctx, crtclient, owningAcct)
+	serviceID, err := allocateServiceID(ctx, crtclient, r.Namespace, r.Labels[OwningServiceGroupLabel])
 	if err != nil {
 		loadbalancerlog.Info("failed to allocate serviceID", "error", err)
 	}
@@ -69,6 +65,18 @@ var _ webhook.Validator = &LoadBalancer{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateCreate() error {
 	loadbalancerlog.Info("validate create", "name", r.Name, "contents", r)
+
+	// Block create if there's no owning SG
+	if r.Labels[OwningServiceGroupLabel] == "" {
+		return fmt.Errorf("LB has no owning service group label")
+	}
+	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningServiceGroupLabel]}
+	sg := &ServiceGroup{}
+	if err := crtclient.Get(context.TODO(), sgName, sg); err != nil {
+		replog.Info("bad input: no owning service group", "name", sgName)
+		return err
+	}
+
 	return nil
 }
 
@@ -89,10 +97,10 @@ func (r *LoadBalancer) ValidateDelete() error {
 // allocateServiceID allocates a service id from the Account that owns
 // this LB. If this call succeeds (i.e., error is nil) then the
 // returned service id will be unique.
-func allocateServiceID(ctx context.Context, cl client.Client, acctName string) (serviceID uint16, err error) {
+func allocateServiceID(ctx context.Context, cl client.Client, acctNS string, acctName string) (serviceID uint16, err error) {
 	tries := 3
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
-		serviceID, err = nextServiceID(ctx, cl, acctName)
+		serviceID, err = nextServiceID(ctx, cl, acctNS, acctName)
 		if err != nil {
 			accountlog.Info("problem allocating account serviceID", "error", err)
 		}
@@ -108,12 +116,12 @@ func allocateServiceID(ctx context.Context, cl client.Client, acctName string) (
 //
 // This function doesn't retry so if there's a collision with some
 // other process the caller needs to retry.
-func nextServiceID(ctx context.Context, cl client.Client, acctName string) (serviceID uint16, err error) {
+func nextServiceID(ctx context.Context, cl client.Client, acctNS string, acctName string) (serviceID uint16, err error) {
 
 	// load this LBs owning Account which holds the ServiceID allocator
-	accountName := types.NamespacedName{Namespace: AccountNamespace, Name: acctName}
+	accountName := types.NamespacedName{Namespace: acctNS, Name: acctName}
 	account := Account{}
-	if err := crtclient.Get(ctx, accountName, &account); err != nil {
+	if err := cl.Get(ctx, accountName, &account); err != nil {
 		loadbalancerlog.Info("can't Get owning Account", "error", err)
 		return 0, err
 	}
