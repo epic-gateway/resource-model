@@ -8,7 +8,7 @@ import (
 const (
 	// LoadbalancerFinalizerName is the name of the finalizer that
 	// cleans up when a LoadBalancer CR is deleted.
-	LoadbalancerFinalizerName string = "egw.acnodal.io/loadBalancerFinalizer"
+	LoadbalancerFinalizerName string = "loadbalancer-finalizer.controller-manager.acnodal.io"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
