@@ -200,8 +200,9 @@ func envoyPodName(lb *egwv1.LoadBalancer) string {
 // Envoy pod
 func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName, envoyImage string) *appsv1.Deployment {
 	var (
-		privileged  bool = true
-		escalatable bool = true
+		privileged        bool  = true
+		escalatable       bool  = true
+		defaultSecretMode int32 = 420
 	)
 
 	labels := labelsForLB(lb.Name)
@@ -224,7 +225,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 	// format a fragment of Envoy config yaml that will set the dynamic
 	// command-line overrides that differentiate this instance of Envoy
 	// from the others.
-	envoyOverrides := fmt.Sprintf("node: {cluster: %s, id: %s/%s}", lb.Namespace, lb.Namespace, lb.Name)
+	envoyOverrides := fmt.Sprintf("node: {cluster: xds_cluster, id: %s.%s}", lb.Namespace, lb.Name)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -256,10 +257,44 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 									Add: []corev1.Capability{"NET_ADMIN"},
 								},
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "envoy-sidecar-tls",
+									MountPath: "/etc/envoy/tls/client",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "envoy-sidecar-bootstrap",
+									MountPath: "/etc/envoy/bootstrap",
+									ReadOnly:  true,
+								},
+							},
 						},
 					},
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{Name: gitlabSecret},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "envoy-sidecar-tls",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  "envoy-sidecar-client-cert",
+									DefaultMode: &defaultSecretMode,
+								},
+							},
+						},
+						{
+							Name: "envoy-sidecar-bootstrap",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "envoy-sidecar-bootstrap",
+									},
+									DefaultMode: &defaultSecretMode,
+								},
+							},
+						},
 					},
 				},
 			},
