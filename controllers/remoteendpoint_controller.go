@@ -74,6 +74,13 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return done, err
 	}
 
+	// If the LB doesn't have its ifindex set then we can't configure,
+	// so try again in a few seconds
+	if lb.Status.ProxyIfindex == 0 {
+		log.Info("LB ifindex not set yet")
+		return tryAgain, nil
+	}
+
 	// Get the ServiceGroup that owns this RemoteEndpoint
 	sg := &egwv1.ServiceGroup{}
 	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[egwv1.OwningServiceGroupLabel]}
@@ -87,13 +94,6 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	accountNSName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[egwv1.OwningAccountLabel]}
 	if err := r.Get(ctx, accountNSName, account); err != nil {
 		return done, err
-	}
-
-	// If the LB doesn't have its ifindex set then we can't configure so
-	// try again in a few seconds
-	if lb.Status.ProxyIfindex == 0 {
-		log.Info("LB ifindex not set yet")
-		return tryAgain, nil
 	}
 
 	// Add GUE ingress address/port to the endpoint
