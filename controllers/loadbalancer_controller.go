@@ -249,7 +249,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 							Name:            name,
 							Ports:           portsToPorts(lb.Spec.PublicPorts),
 							Command:         []string{"/docker-entrypoint.sh"},
-							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides},
+							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides, "--log-level", "debug"},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged:               &privileged,
 								AllowPrivilegeEscalation: &escalatable,
