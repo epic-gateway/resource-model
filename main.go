@@ -11,6 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
@@ -24,6 +25,7 @@ var (
 )
 
 func init() {
+	utilruntime.Must(marin3r.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(egwv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
@@ -22,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
 	"gitlab.com/acnodal/egw-resource-model/internal/pfc"
 )
 
@@ -42,6 +44,7 @@ type LoadBalancerReconciler struct {
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=remoteendpoints,verbs=get;list;delete;deletecollection
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marin3r.3scale.net,resources=envoyconfigs,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
@@ -117,6 +120,17 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 				return done, err
 			}
 
+			// Delete the service's EnvoyConfig
+			ec := marin3r.EnvoyConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: req.NamespacedName.Namespace,
+					Name:      req.NamespacedName.Name,
+				},
+			}
+			if err := r.Delete(ctx, &ec); err != nil {
+				return done, err
+			}
+
 			// remove our finalizer from the list and update the lb
 			lb.ObjectMeta.Finalizers = removeString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName)
 			if err := r.Update(ctx, lb); err != nil {
@@ -177,6 +191,24 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	//Open host ports by updating IPSET tables
 	if err := addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
 		log.Error(err, "adding ipset entry")
+	}
+
+	// Apply a marin3r EnvoyConfig with just the loadbalancer. This will
+	// configure Envoy with a Listener and an upstream Cluster but the
+	// cluster will have no endpoints.
+	envoyConfig, err := envoy.ServiceToEnvoyConfig(*lb, []egwv1.RemoteEndpoint{})
+	if err != nil {
+		return done, err
+	}
+	err = r.Create(ctx, &envoyConfig)
+	if err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			log.Info("Failed to create new envoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+			return done, err
+		}
+		log.Info("envoyConfig created previously", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+	} else {
+		log.Info("envoyConfig created", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 	}
 
 	return done, nil

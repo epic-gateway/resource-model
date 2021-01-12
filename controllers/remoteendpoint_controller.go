@@ -7,13 +7,16 @@ import (
 	"os/exec"
 	"time"
 
+	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
 )
 
 // RemoteEndpointReconciler reconciles RemoteEndpoint objects.
@@ -127,6 +130,30 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	err = r.Status().Patch(ctx, rep, client.RawPatch(types.MergePatchType, patchBytes))
 	if err != nil {
 		log.Error(err, "patching EP status", "ep", rep)
+		return done, err
+	}
+
+	// list the endpoints that belong to the parent LB
+	reps, err := listActiveLBEndpoints(r, lb)
+	if err != nil {
+		return done, err
+	}
+
+	// Get the EnvoyConfig
+	ec := marin3r.EnvoyConfig{}
+	ecname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Name}
+	if err := r.Get(ctx, ecname, &ec); err != nil {
+		log.Error(err, "Failed to find envoy config", "name", ecname)
+		return done, err
+	}
+
+	// Update the EnvoyConfig's Cluster which contains the endpoints
+	cluster, err := envoy.ServiceToCluster(lb.Name, reps)
+	if err != nil {
+		return done, err
+	}
+	ec.Spec.EnvoyResources.Clusters = cluster
+	if err = r.Update(ctx, &ec); err != nil {
 		return done, err
 	}
 
@@ -256,4 +283,23 @@ func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelI
 	l.Info("allocating tunnelID", "egw", egw, "tunnelID", egw.Status.CurrentTunnelID)
 
 	return egw.Status.CurrentTunnelID, cl.Status().Update(ctx, &egw)
+}
+
+// listActiveLBEndpoints lists the endpoints that belong to lb that
+// are active, i.e., not in the process of being deleted.
+func listActiveLBEndpoints(cl client.Client, lb *egwv1.LoadBalancer) ([]egwv1.RemoteEndpoint, error) {
+	labelSelector := labels.SelectorFromSet(map[string]string{egwv1.OwningLoadBalancerLabel: lb.Name})
+	listOps := client.ListOptions{Namespace: lb.Namespace, LabelSelector: labelSelector}
+	list := egwv1.RemoteEndpointList{}
+	err := cl.List(context.TODO(), &list, &listOps)
+
+	activeEPs := []egwv1.RemoteEndpoint{}
+	// build a new list with no "in deletion" endpoints
+	for _, endpoint := range list.Items {
+		if endpoint.ObjectMeta.DeletionTimestamp.IsZero() {
+			activeEPs = append(activeEPs, endpoint)
+		}
+	}
+
+	return activeEPs, err
 }

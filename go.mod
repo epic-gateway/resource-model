@@ -3,12 +3,16 @@ module gitlab.com/acnodal/egw-resource-model
 go 1.15
 
 require (
+	github.com/3scale/marin3r v0.7.0-alpha6
 	github.com/containernetworking/plugins v0.8.7
+	github.com/envoyproxy/go-control-plane v0.9.7
 	github.com/go-logr/logr v0.1.0
+	github.com/golang/protobuf v1.4.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/common v0.4.1
+	github.com/stretchr/testify v1.6.1
 	github.com/vishvananda/netlink v1.1.0
 	gitlab.com/acnodal/packet-forwarding-component/src/go v0.0.0-20201020212529-ed4982208c08
 	go.uber.org/multierr v1.5.0 // indirect
