@@ -10,6 +10,58 @@ metadata:
 spec:
   auth-creds: fredfredfredfred
   envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:latest
+  envoy-template:
+    serialization: yaml
+    nodeID: template
+    envoyResources:
+      clusters:
+      - name: template
+        value: |
+          name: {{.ClusterName}}
+          connect_timeout: 2s
+          type: STRICT_DNS
+          lb_policy: ROUND_ROBIN
+          load_assignment:
+            cluster_name: {{.ClusterName}}
+          {{- if .Endpoints}}
+            endpoints:
+            - lb_endpoints:
+          {{- range .Endpoints}}
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: {{.Spec.Address}}
+                      protocol: {{.Spec.Port.Protocol | ToUpper}}
+                      port_value: {{.Spec.Port.Port}}
+          {{- end}}
+          {{- end}}
+      listeners:
+      - name: template
+        value: |
+          name: {{.PortName}}
+          address:
+            socket_address:
+              address: 0.0.0.0
+              port_value: {{.Port}}
+              protocol: {{.Protocol | ToUpper}}
+          filter_chains:
+            - filters:
+              - name: envoy.http_connection_manager
+                typed_config:
+                  "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
+                  stat_prefix: ingress_http
+                  route_config:
+                    name: local_route
+                    virtual_hosts:
+                      - name: {{.ClusterName}}
+                        domains: ["*"]
+                        routes:
+                          - match:
+                              prefix: "/"
+                            route:
+                              cluster: {{.ClusterName}}
+                  http_filters:
+                    - name: envoy.router
 ---
 apiVersion: egw.acnodal.io/v1
 kind: ServiceGroup
@@ -22,3 +74,55 @@ metadata:
 spec:
   auth-creds: wilmawilmawilma!
   envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:latest
+  envoy-template:
+    serialization: yaml
+    nodeID: template
+    envoyResources:
+      clusters:
+      - name: template
+        value: |
+          name: {{.ClusterName}}
+          connect_timeout: 2s
+          type: STRICT_DNS
+          lb_policy: ROUND_ROBIN
+          load_assignment:
+            cluster_name: {{.ClusterName}}
+          {{- if .Endpoints}}
+            endpoints:
+            - lb_endpoints:
+          {{- range .Endpoints}}
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: {{.Spec.Address}}
+                      protocol: {{.Spec.Port.Protocol | ToUpper}}
+                      port_value: {{.Spec.Port.Port}}
+          {{- end}}
+          {{- end}}
+      listeners:
+      - name: template
+        value: |
+          name: {{.PortName}}
+          address:
+            socket_address:
+              address: 0.0.0.0
+              port_value: {{.Port}}
+              protocol: {{.Protocol | ToUpper}}
+          filter_chains:
+            - filters:
+              - name: envoy.http_connection_manager
+                typed_config:
+                  "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
+                  stat_prefix: ingress_http
+                  route_config:
+                    name: local_route
+                    virtual_hosts:
+                      - name: {{.ClusterName}}
+                        domains: ["*"]
+                        routes:
+                          - match:
+                              prefix: "/"
+                            route:
+                              cluster: {{.ClusterName}}
+                  http_filters:
+                    - name: envoy.router

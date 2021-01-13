@@ -1,6 +1,7 @@
 package v1
 
 import (
+	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,6 +28,12 @@ type LoadBalancerSpec struct {
 	// should not be set by the client - a webhook fills it in when the
 	// CR is created.
 	ServiceID uint16 `json:"service-id,omitempty"`
+
+	// EnvoyTemplate is the template that will be used to configure
+	// Envoy for the load balancers that belong to this ServiceGroup. It
+	// can be provided by the user, but if not it will be copied from
+	// the owning ServiceGroup.
+	EnvoyTemplate *marin3r.EnvoyConfigSpec `json:"envoy-template,omitempty"`
 }
 
 // GUETunnelEndpoint is an Endpoint on the EGW.

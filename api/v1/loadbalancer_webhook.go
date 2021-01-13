@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +51,18 @@ func (r *LoadBalancer) Default() {
 		loadbalancerlog.Info("failed to allocate serviceID", "error", err)
 	}
 	r.Spec.ServiceID = serviceID
+
+	// If the user hasn't provided an Envoy config template, copy it
+	// from the owning ServiceGroup
+	if r.Spec.EnvoyTemplate == (*marin3r.EnvoyConfigSpec)(nil) {
+		sg, err := r.fetchServiceGroup()
+		if err != nil {
+			loadbalancerlog.Info("failed to fetch owning service group", "error", err)
+			return
+		}
+		r.Spec.EnvoyTemplate = &sg.Spec.EnvoyTemplate
+	}
+	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
@@ -67,13 +80,7 @@ func (r *LoadBalancer) ValidateCreate() error {
 	loadbalancerlog.Info("validate create", "name", r.Name, "contents", r)
 
 	// Block create if there's no owning SG
-	if r.Labels[OwningServiceGroupLabel] == "" {
-		return fmt.Errorf("LB has no owning service group label")
-	}
-	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningServiceGroupLabel]}
-	sg := &ServiceGroup{}
-	if err := crtclient.Get(context.TODO(), sgName, sg); err != nil {
-		replog.Info("bad input: no owning service group", "name", sgName)
+	if _, err := r.fetchServiceGroup(); err != nil {
 		return err
 	}
 
@@ -92,6 +99,21 @@ func (r *LoadBalancer) ValidateDelete() error {
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
+}
+
+func (r *LoadBalancer) fetchServiceGroup() (*ServiceGroup, error) {
+	// Block create if there's no owning SG
+	if r.Labels[OwningServiceGroupLabel] == "" {
+		return nil, fmt.Errorf("LB has no owning service group label")
+	}
+	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningServiceGroupLabel]}
+	sg := &ServiceGroup{}
+	if err := crtclient.Get(context.TODO(), sgName, sg); err != nil {
+		replog.Info("bad input: no owning service group", "name", sgName)
+		return nil, err
+	}
+
+	return sg, nil
 }
 
 // allocateServiceID allocates a service id from the Account that owns
