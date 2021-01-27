@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
@@ -95,7 +96,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
-		if containsString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName) {
+		if controllerutil.ContainsFinalizer(lb, egwv1.LoadbalancerFinalizerName) {
 			log.Info("to be deleted")
 
 			// Close host ports by updating IPSET tables
@@ -132,7 +133,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			}
 
 			// remove our finalizer from the list and update the lb
-			lb.ObjectMeta.Finalizers = removeString(lb.ObjectMeta.Finalizers, egwv1.LoadbalancerFinalizerName)
+			controllerutil.RemoveFinalizer(lb, egwv1.LoadbalancerFinalizerName)
 			if err := r.Update(ctx, lb); err != nil {
 				return done, err
 			}
@@ -582,26 +583,4 @@ func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *egwv1.LoadBalance
 	}
 
 	return nil
-}
-
-// Helper functions to check and remove string from a slice of
-// strings.  From
-// https://book.kubebuilder.io/reference/using-finalizers.html
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
-func removeString(slice []string, s string) (result []string) {
-	for _, item := range slice {
-		if item == s {
-			continue
-		}
-		result = append(result, item)
-	}
-	return
 }

@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
@@ -51,7 +52,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	// Check if k8s wants to delete this RemoteEndpoint
 	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
-		if containsString(rep.ObjectMeta.Finalizers, egwv1.RemoteEndpointFinalizerName) {
+		if controllerutil.ContainsFinalizer(rep, egwv1.RemoteEndpointFinalizerName) {
 			log.Info("object to be deleted")
 
 			if err := r.cleanupService(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GroupID, rep.Status.ServiceID); err != nil {
@@ -59,7 +60,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 			}
 
 			// remove our finalizer from the list and update the object
-			rep.ObjectMeta.Finalizers = removeString(rep.ObjectMeta.Finalizers, egwv1.RemoteEndpointFinalizerName)
+			controllerutil.RemoveFinalizer(rep, egwv1.RemoteEndpointFinalizerName)
 			if err := r.Update(ctx, rep); err != nil {
 				return done, err
 			}
