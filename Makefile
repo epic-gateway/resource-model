@@ -66,8 +66,8 @@ generate:
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: test
-	docker build . --build-arg=GITLAB_TOKEN -t ${IMG}
+docker-build:
+	docker build . --build-arg=GITLAB_AUTHN -t ${IMG}
 
 # Push the docker image
 docker-push:

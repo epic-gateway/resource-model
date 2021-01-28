@@ -1,6 +1,7 @@
-image: golang:latest
+manifest:
+  image: golang:latest
 
-before_script:
+  before_script:
   - apt-get update
   - apt-get install -y gettext-base
   # this lets the CI runner clone any repo that the pushing user can
@@ -10,12 +11,23 @@ before_script:
   - go get sigs.k8s.io/controller-tools/cmd/controller-gen
   - go get golang.org/x/lint/golint
 
-make:
   script:
-  - make SUFFIX=latest
+  - make SUFFIX=ci-${CI_COMMIT_BRANCH} all
   - 'curl --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file deploy/egw-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest/0.0.1/egw-resource-model.yaml"'
 
   artifacts:
     paths:
       - config
       - deploy/*.yaml
+
+docker:
+  image: docker:latest
+  services:
+  - docker:dind
+
+  before_script:
+  - apk add make
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+
+  script:
+  - make SUFFIX=ci-${CI_COMMIT_BRANCH} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push

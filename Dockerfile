@@ -1,10 +1,8 @@
 # Build the manager binary
 FROM golang:1.15 as builder
-ARG GITLAB_TOKEN
+ARG GITLAB_AUTHN
 
-# install and configure git. we need it because some of our modules
-# (e.g., egw-resource-model) are private
-RUN git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.com/acnodal".insteadOf https://gitlab.com/acnodal
+RUN git config --global url."https://$GITLAB_AUTHN@gitlab.com/acnodal".insteadOf https://gitlab.com/acnodal
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
