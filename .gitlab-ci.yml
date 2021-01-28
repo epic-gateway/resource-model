@@ -30,4 +30,4 @@ docker:
   - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
 
   script:
-  - make SUFFIX=ci-${CI_COMMIT_BRANCH} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push
+  - make SUFFIX=ci-${CI_COMMIT_REF_SLUG} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push
