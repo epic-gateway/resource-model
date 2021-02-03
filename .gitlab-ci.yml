@@ -12,7 +12,7 @@ manifest:
   - go get golang.org/x/lint/golint
 
   script:
-  - make SUFFIX=ci-${CI_COMMIT_BRANCH} all
+  - make SUFFIX=ci-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA} all
   - 'curl --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file deploy/egw-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest/0.0.1/egw-resource-model.yaml"'
 
   artifacts:
@@ -30,4 +30,4 @@ docker:
   - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
 
   script:
-  - make SUFFIX=ci-${CI_COMMIT_REF_SLUG} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push
+  - make SUFFIX=ci-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push
