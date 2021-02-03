@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"time"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
@@ -18,6 +17,7 @@ import (
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
+	egwexec "gitlab.com/acnodal/egw-resource-model/internal/exec"
 )
 
 // RemoteEndpointReconciler reconciles RemoteEndpoint objects.
@@ -170,9 +170,7 @@ func (r *RemoteEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *RemoteEndpointReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", ep.TunnelID, ep.Address, ep.Port.Port)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
+	return egwexec.RunScript(ctrl.Log, script)
 }
 
 // setGUEIngressAddress sets the GUEAddress/Port fields of the
@@ -227,24 +225,18 @@ func (r *RemoteEndpointReconciler) setGUEIngressAddress(ctx context.Context, l l
 
 func (r *RemoteEndpointReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
+	return egwexec.RunScript(l, script)
 }
 
 func (r *RemoteEndpointReconciler) configureService(l logr.Logger, ep egwv1.RemoteEndpointSpec, ifindex int, groupID uint16, serviceID uint16, tunnelID uint32, tunnelAuth string) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
+	return egwexec.RunScript(l, script)
 }
 
 // cleanupService undoes the PFC setup that we did for this RemoteEndpoint.
 func (r *RemoteEndpointReconciler) cleanupService(l logr.Logger, ep egwv1.RemoteEndpointSpec, ifindex int, tunnelID uint32, groupID uint16, serviceID uint16) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, "unused", tunnelID, ep.Address, ep.Port.Port, ifindex)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
+	return egwexec.RunScript(l, script)
 }
 
 // allocateTunnelID allocates a tunnel ID from the EGW singleton. If

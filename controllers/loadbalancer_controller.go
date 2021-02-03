@@ -25,6 +25,7 @@ import (
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
+	egwexec "gitlab.com/acnodal/egw-resource-model/internal/exec"
 	"gitlab.com/acnodal/egw-resource-model/internal/pfc"
 )
 
@@ -547,16 +548,12 @@ func ipTablesCheck(brname string) error {
 
 func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
+	return egwexec.RunScript(l, script)
 }
 
 func (r *LoadBalancerReconciler) deleteService(l logr.Logger, groupID uint16, serviceID uint16) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
-	l.Info(script)
-	cmd := exec.Command("/bin/sh", "-c", script)
-	return cmd.Run()
+	return egwexec.RunScript(l, script)
 }
 
 func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) error {
