@@ -27,53 +27,6 @@ import (
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 )
 
-const (
-	clusterConfigFragment = `name: {{.ClusterName}}
-connect_timeout: 2s
-type: STRICT_DNS
-lb_policy: ROUND_ROBIN
-load_assignment:
-  cluster_name: {{.ClusterName}}
-{{- if .Endpoints}}
-  endpoints:
-  - lb_endpoints:
-{{- range .Endpoints}}
-    - endpoint:
-        address:
-          socket_address:
-            address: {{.Spec.Address}}
-            protocol: {{.Spec.Port.Protocol | ToUpper}}
-            port_value: {{.Spec.Port.Port}}
-{{- end}}
-{{- end}}
-`
-	listenerConfigFragment = `name: {{.PortName}}
-address:
-  socket_address:
-    address: 0.0.0.0
-    port_value: {{.Port}}
-    protocol: {{.Protocol | ToUpper}}
-filter_chains:
-  - filters:
-    - name: envoy.http_connection_manager
-      typed_config:
-        "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
-        stat_prefix: ingress_http
-        route_config:
-          name: local_route
-          virtual_hosts:
-            - name: {{.ClusterName}}
-              domains: ["*"]
-              routes:
-                - match:
-                    prefix: "/"
-                  route:
-                    cluster: {{.ClusterName}}
-        http_filters:
-          - name: envoy.router
-`
-)
-
 var (
 	funcMap = template.FuncMap{
 		"ToUpper": toUpper,
@@ -93,19 +46,19 @@ type listenerParams struct {
 
 // ServiceToCluster translates from our RemoteEndpoint objects to a
 // Marin3r Resource containing a text Envoy Cluster config.
-func ServiceToCluster(name string, endpoints []egwv1.RemoteEndpoint) ([]marin3r.EnvoyResource, error) {
+func ServiceToCluster(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoint) ([]marin3r.EnvoyResource, error) {
 	var (
 		tmpl     *template.Template
 		err      error
 		doc      bytes.Buffer
-		fullName string = name + "Upstream"
+		fullName string = service.Name + "Upstream"
 	)
 
 	params := clusterParams{
 		ClusterName: fullName,
 		Endpoints:   endpoints,
 	}
-	if tmpl, err = template.New("cluster").Funcs(funcMap).Parse(clusterConfigFragment); err != nil {
+	if tmpl, err = template.New("cluster").Funcs(funcMap).Parse(service.Spec.EnvoyTemplate.EnvoyResources.Clusters[0].Value); err != nil {
 		return []marin3r.EnvoyResource{}, err
 	}
 	err = tmpl.Execute(&doc, params)
@@ -120,7 +73,7 @@ func makeHTTPListeners(service egwv1.LoadBalancer, upstreamHost string) ([]marin
 	)
 
 	for _, port := range service.Spec.PublicPorts {
-		listener, err := makeHTTPListener(service.Name, port, upstreamHost)
+		listener, err := makeHTTPListener(service.Spec.EnvoyTemplate.EnvoyResources.Listeners[0].Value, service.Name, port, upstreamHost)
 		if err != nil {
 			return resources, err
 		}
@@ -130,7 +83,7 @@ func makeHTTPListeners(service egwv1.LoadBalancer, upstreamHost string) ([]marin
 	return resources, nil
 }
 
-func makeHTTPListener(serviceName string, port v1.ServicePort, upstreamHost string) (marin3r.EnvoyResource, error) {
+func makeHTTPListener(listenerConfigFragment string, serviceName string, port v1.ServicePort, upstreamHost string) (marin3r.EnvoyResource, error) {
 	var (
 		tmpl        *template.Template
 		err         error
@@ -155,7 +108,7 @@ func makeHTTPListener(serviceName string, port v1.ServicePort, upstreamHost stri
 func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoint) (marin3r.EnvoyConfig, error) {
 	var serialization = "yaml"
 
-	cluster, err := ServiceToCluster(service.Name, endpoints)
+	cluster, err := ServiceToCluster(service, endpoints)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
 	}

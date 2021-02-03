@@ -207,11 +207,16 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			log.Info("Failed to create new envoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 			return done, err
 		}
-		log.Info("envoyConfig created previously", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
-	} else {
-		log.Info("envoyConfig created", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+		log.Info("envoyConfig created previously, will update", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+		existing := marin3r.EnvoyConfig{}
+		if err := r.Get(ctx, types.NamespacedName{Namespace: lb.Namespace, Name: lb.Name}, &existing); err != nil {
+			return done, err
+		}
+		envoyConfig.Spec.DeepCopyInto(&existing.Spec)
+		return done, r.Update(ctx, &existing)
 	}
 
+	log.Info("envoyConfig created", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 	return done, nil
 }
 
