@@ -47,6 +47,10 @@ type GUETunnelEndpoint struct {
 
 	// TunnelID is used to route traffic to the correct tunnel.
 	TunnelID uint32 `json:"tunnel-id,omitempty"`
+
+	// TunnelKey authenticates the client with the EGW. It must be a
+	// base64-encoded 128-bit value.
+	TunnelKey string `json:"tunnel-key,omitempty"`
 }
 
 // LoadBalancerStatus defines the observed state of LoadBalancer

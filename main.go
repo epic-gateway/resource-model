@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 
@@ -38,6 +39,9 @@ var (
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers/status,verbs=get;update
 
 func init() {
+	// Seed the RNG so we can generate pseudo-random tunnel authn keys
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	utilruntime.Must(marin3r.AddToScheme(scheme))
 	utilruntime.Must(marin3roperator.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))

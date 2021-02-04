@@ -10,10 +10,6 @@ import (
 
 // ServiceGroupSpec defines the desired state of ServiceGroup
 type ServiceGroupSpec struct {
-	// AuthCreds validate that the client who's setting up a GUE tunnel
-	// is who they say they are.
-	AuthCreds string `json:"auth-creds"`
-
 	// EnvoyImage is the name of the Envoy Docker image to run.
 	// +kubebuilder:default="registry.gitlab.com/acnodal/envoy-for-egw:latest"
 	EnvoyImage string `json:"envoy-image,omitempty"`
