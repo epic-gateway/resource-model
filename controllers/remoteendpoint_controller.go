@@ -265,7 +265,7 @@ func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelI
 
 	// get the EGW singleton
 	egw := egwv1.EGW{}
-	if err := cl.Get(ctx, types.NamespacedName{Namespace: egwv1.ConfigNamespace, Name: "egw"}, &egw); err != nil {
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: egwv1.ConfigNamespace, Name: egwv1.ConfigName}, &egw); err != nil {
 		l.Info("EGW get failed", "error", err)
 		return 0, err
 	}

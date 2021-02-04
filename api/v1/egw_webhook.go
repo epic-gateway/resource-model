@@ -50,11 +50,11 @@ func (r *EGW) ValidateCreate() error {
 	egwlog.Info("validate create", "name", r.Name)
 
 	// The name and namespace must both be "egw"
-	if r.Name != "egw" {
-		return fmt.Errorf("the EGW object's name must be \"egw\"")
+	if r.Name != ConfigName {
+		return fmt.Errorf("the EGW object's name must be \"%s\"", ConfigName)
 	}
 	if r.Namespace != ConfigNamespace {
-		return fmt.Errorf("the EGW object must be in the \"egw\" namespace")
+		return fmt.Errorf("the EGW object must be in the \"%s\" namespace", ConfigNamespace)
 	}
 
 	// THERE CAN BE ONLY ONE - k8s enforces that each object's name must

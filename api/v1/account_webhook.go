@@ -71,7 +71,7 @@ func nextGroupID(ctx context.Context, cl client.Client) (groupID uint16, err err
 
 	// get the EGW singleton
 	egw := EGW{}
-	if err := cl.Get(ctx, types.NamespacedName{Namespace: ConfigNamespace, Name: "egw"}, &egw); err != nil {
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: ConfigNamespace, Name: ConfigName}, &egw); err != nil {
 		accountlog.Info("EGW get failed", "error", err)
 		return 0, err
 	}
