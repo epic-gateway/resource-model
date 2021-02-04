@@ -195,20 +195,33 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		log.Error(err, "adding ipset entry")
 	}
 
-	// Apply a marin3r EnvoyConfig with just the loadbalancer. This will
-	// configure Envoy with a Listener and an upstream Cluster but the
-	// cluster will have no endpoints.
-	envoyConfig, err := envoy.ServiceToEnvoyConfig(*lb, []egwv1.RemoteEndpoint{})
+	// List the endpoints that belong to this LB in case this is an
+	// update to an LB that already has endpoints. The remoteendpoints
+	// controller will set up the PFC stuff but we need to make sure
+	// that all of the endpoints are accounted for in the Envoy config.
+	reps, err := listActiveLBEndpoints(ctx, r, lb)
 	if err != nil {
 		return done, err
 	}
+	log.Info("endpoints", "endpoints", reps)
+
+	// Build a new EnvoyConfig
+	envoyConfig, err := envoy.ServiceToEnvoyConfig(*lb, reps)
+	if err != nil {
+		return done, err
+	}
+
+	// Create/update the marin3r EnvoyConfig. We'll Create() first since
+	// that's probably the most common case. If Create() fails then it
+	// might be an update, e.g., someone tweaking their Envoy config
+	// template.
 	err = r.Create(ctx, &envoyConfig)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
-			log.Info("Failed to create new envoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+			log.Info("Failed to create new EnvoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 			return done, err
 		}
-		log.Info("envoyConfig created previously, will update", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+		log.Info("existing EnvoyConfig, will update", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 		existing := marin3r.EnvoyConfig{}
 		if err := r.Get(ctx, types.NamespacedName{Namespace: lb.Namespace, Name: lb.Name}, &existing); err != nil {
 			return done, err
@@ -217,7 +230,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return done, r.Update(ctx, &existing)
 	}
 
-	log.Info("envoyConfig created", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+	log.Info("EnvoyConfig created", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 	return done, nil
 }
 
