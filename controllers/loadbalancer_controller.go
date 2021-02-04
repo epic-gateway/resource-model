@@ -54,7 +54,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	var err error
 	done := ctrl.Result{Requeue: false}
 	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
-	ctx := context.TODO()
+	ctx := context.Background()
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
 
 	log.Info("reconciling")

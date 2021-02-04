@@ -25,7 +25,7 @@ type EGWReconciler struct {
 // Request is asking for.
 func (r *EGWReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	done := ctrl.Result{Requeue: false}
-	ctx := context.TODO()
+	ctx := context.Background()
 	log := r.Log.WithValues("EGW", req.NamespacedName)
 
 	// read the object that caused the event

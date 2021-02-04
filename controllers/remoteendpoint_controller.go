@@ -36,7 +36,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	var err error
 	done := ctrl.Result{Requeue: false}
 	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
-	ctx := context.TODO()
+	ctx := context.Background()
 	log := r.Log.WithValues("rep", req.NamespacedName)
 
 	// Get the RemoteEndpoint that caused the event
@@ -135,7 +135,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 
 	// list the endpoints that belong to the parent LB
-	reps, err := listActiveLBEndpoints(r, lb)
+	reps, err := listActiveLBEndpoints(ctx, r, lb)
 	if err != nil {
 		return done, err
 	}
@@ -280,11 +280,11 @@ func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelI
 
 // listActiveLBEndpoints lists the endpoints that belong to lb that
 // are active, i.e., not in the process of being deleted.
-func listActiveLBEndpoints(cl client.Client, lb *egwv1.LoadBalancer) ([]egwv1.RemoteEndpoint, error) {
+func listActiveLBEndpoints(ctx context.Context, cl client.Client, lb *egwv1.LoadBalancer) ([]egwv1.RemoteEndpoint, error) {
 	labelSelector := labels.SelectorFromSet(map[string]string{egwv1.OwningLoadBalancerLabel: lb.Name})
 	listOps := client.ListOptions{Namespace: lb.Namespace, LabelSelector: labelSelector}
 	list := egwv1.RemoteEndpointList{}
-	err := cl.List(context.TODO(), &list, &listOps)
+	err := cl.List(ctx, &list, &listOps)
 
 	activeEPs := []egwv1.RemoteEndpoint{}
 	// build a new list with no "in deletion" endpoints
