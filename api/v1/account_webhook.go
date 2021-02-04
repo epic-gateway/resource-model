@@ -36,12 +36,13 @@ var _ webhook.Defaulter = &Account{}
 func (r *Account) Default() {
 	var err error
 	ctx := context.TODO()
-	accountlog.Info("default", "name", r.Name)
 
-	// add a group ID to this account
-	r.Spec.GroupID, err = allocateGroupID(ctx, crtclient)
-	if err != nil {
-		accountlog.Info("failed to allocate groupID", "error", err)
+	// add a group ID to this account if necessary
+	if r.Spec.GroupID == 0 {
+		r.Spec.GroupID, err = allocateGroupID(ctx, crtclient)
+		if err != nil {
+			accountlog.Info("failed to allocate groupID", "error", err)
+		}
 	}
 }
 
