@@ -94,6 +94,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *egwv1.ServicePrefix) (*nettype
 		"namespace":  sp.Namespace,
 		"plugins": []map[string]interface{}{{
 			"type":      "bridge",
+			"mtu":       1444,
 			"bridge":    sp.Spec.MultusBridge,
 			"isGateway": false,
 			"ipam": map[string]interface{}{
