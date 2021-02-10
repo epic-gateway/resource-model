@@ -174,7 +174,7 @@ func (r *RemoteEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *RemoteEndpointReconciler) configureTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", ep.TunnelID, ep.Address, ep.Port.Port)
-	return egwexec.RunScript(ctrl.Log, script)
+	return egwexec.RunScript(l, script)
 }
 
 // setGUEIngressAddress sets the GUEAddress/Port fields of the
