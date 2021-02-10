@@ -8,7 +8,7 @@ import (
 )
 
 // SetupNIC adds the PFC components to nic.
-func SetupNIC(nic string, direction string, qid int, flags int) error {
+func SetupNIC(nic string, function string, direction string, qid int, flags int) error {
 	var err error
 	log := ctrl.Log.WithName(nic)
 
@@ -21,9 +21,9 @@ func SetupNIC(nic string, direction string, qid int, flags int) error {
 	}
 
 	// tc filter add dev nic ingress bpf direct-action object-file pfc_ingress_tc.o sec .text
-	err = AddFilter(nic, direction, direction)
+	err = AddFilter(nic, direction, function)
 	if err == nil {
-		log.Info("filter added", "direction", direction)
+		log.Info("filter added", "function", function, "direction", direction)
 	} else {
 		log.Error(err, "ingress filter add error")
 	}

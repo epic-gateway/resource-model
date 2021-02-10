@@ -40,10 +40,10 @@ func (r *EGWReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	base := config.Spec.NodeBase
 	for _, nic := range base.IngressNICs {
-		if err := pfc.SetupNIC(nic, "ingress", 0, 9); err != nil {
+		if err := pfc.SetupNIC(nic, "decap", "ingress", 0, 9); err != nil {
 			log.Error(err, "Failed to setup NIC "+nic)
 		}
-		if err := pfc.SetupNIC(nic, "egress", 1, 25); err != nil {
+		if err := pfc.SetupNIC(nic, "encap", "egress", 1, 25); err != nil {
 			log.Error(err, "Failed to setup NIC "+nic)
 		}
 	}
