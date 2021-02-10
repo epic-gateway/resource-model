@@ -152,6 +152,8 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return done, err
 	}
 
+	log.Info("updating endpoints", "endpoints", reps)
+
 	// Update the EnvoyConfig's Cluster which contains the endpoints
 	cluster, err := envoy.ServiceToCluster(*lb, reps)
 	if err != nil {
