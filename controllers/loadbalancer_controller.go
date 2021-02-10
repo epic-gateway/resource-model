@@ -96,9 +96,22 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
+
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(lb, egwv1.LoadbalancerFinalizerName) {
 			log.Info("to be deleted")
+
+			// First, remove our finalizer from the list and update the
+			// lb. If anything goes wrong below we don't want to block the
+			// deletion of the CR
+			controllerutil.RemoveFinalizer(lb, egwv1.LoadbalancerFinalizerName)
+			if err := r.Update(ctx, lb); err != nil {
+				return done, err
+			}
+
+			// From here until we return at the end of this "if", everything
+			// is "best-effort", i.e., we try but if something fails we keep
+			// going to ensure that we try everything
 
 			// Close host ports by updating IPSET tables
 			if err := delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
@@ -119,7 +132,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 				client.MatchingLabels{egwv1.OwningLoadBalancerLabel: req.NamespacedName.Name},
 			}
 			if err := r.DeleteAllOf(ctx, &egwv1.RemoteEndpoint{}, opts...); err != nil {
-				return done, err
+				log.Error(err, "Failed to delete endpoints")
 			}
 
 			// Delete the service's EnvoyConfig
@@ -130,13 +143,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 				},
 			}
 			if err := r.Delete(ctx, &ec); err != nil {
-				return done, err
-			}
-
-			// remove our finalizer from the list and update the lb
-			controllerutil.RemoveFinalizer(lb, egwv1.LoadbalancerFinalizerName)
-			if err := r.Update(ctx, lb); err != nil {
-				return done, err
+				log.Error(err, "Failed to delete EnvoyConfig")
 			}
 		}
 
