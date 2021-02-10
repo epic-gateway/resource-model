@@ -35,7 +35,6 @@ type RemoteEndpointReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	var err error
 	done := ctrl.Result{Requeue: false}
 	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
 	ctx := context.Background()
@@ -51,11 +50,29 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return done, client.IgnoreNotFound(err)
 	}
 
+	// Check if k8s wants to delete this RemoteEndpoint
+	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
+		log.Info("object to be deleted")
+
+		if controllerutil.ContainsFinalizer(rep, egwv1.RemoteEndpointFinalizerName) {
+			// remove our finalizer from the list and update the object
+			controllerutil.RemoveFinalizer(rep, egwv1.RemoteEndpointFinalizerName)
+			if err := r.Update(ctx, rep); err != nil {
+				return done, err
+			}
+		}
+
+		// Attempt to clean up the PFC tunnel but continue even if it
+		// fails
+		if err := r.cleanupService(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GroupID, rep.Status.ServiceID); err != nil {
+			log.Error(err, "Failed to cleanup PFC")
+		}
+	}
+
 	// Get the LoadBalancer that owns this RemoteEndpoint
 	lb := &egwv1.LoadBalancer{}
 	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Labels[egwv1.OwningLoadBalancerLabel]}
 	if err := r.Get(ctx, lbname, lb); err != nil {
-		log.Error(err, "Failed to find owning load balancer", "name", lbname)
 		return done, err
 	}
 
@@ -63,7 +80,6 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	sg := &egwv1.ServiceGroup{}
 	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[egwv1.OwningServiceGroupLabel]}
 	if err := r.Get(ctx, sgname, sg); err != nil {
-		log.Error(err, "Failed to find owning service group", "name", sgname)
 		return done, err
 	}
 
@@ -74,24 +90,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return done, err
 	}
 
-	// Check if k8s wants to delete this RemoteEndpoint
-	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(rep, egwv1.RemoteEndpointFinalizerName) {
-			log.Info("object to be deleted")
-
-			if err := r.cleanupService(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GroupID, rep.Status.ServiceID); err != nil {
-				log.Error(err, "Failed to cleanup PFC")
-			}
-
-			// remove our finalizer from the list and update the object
-			controllerutil.RemoveFinalizer(rep, egwv1.RemoteEndpointFinalizerName)
-			if err := r.Update(ctx, rep); err != nil {
-				return done, err
-			}
-		}
-
-	} else {
+	if rep.ObjectMeta.DeletionTimestamp.IsZero() {
 
 		// The endpoint isn't being deleted, so set up a tunnel to it
 
