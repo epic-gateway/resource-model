@@ -49,40 +49,12 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return done, client.IgnoreNotFound(err)
 	}
 
-	// Check if k8s wants to delete this RemoteEndpoint
-	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(rep, egwv1.RemoteEndpointFinalizerName) {
-			log.Info("object to be deleted")
-
-			if err := r.cleanupService(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GroupID, rep.Status.ServiceID); err != nil {
-				log.Error(err, "Failed to cleanup PFC")
-			}
-
-			// remove our finalizer from the list and update the object
-			controllerutil.RemoveFinalizer(rep, egwv1.RemoteEndpointFinalizerName)
-			if err := r.Update(ctx, rep); err != nil {
-				return done, err
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return done, nil
-	}
-
 	// Get the LoadBalancer that owns this RemoteEndpoint
 	lb := &egwv1.LoadBalancer{}
 	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Labels[egwv1.OwningLoadBalancerLabel]}
 	if err := r.Get(ctx, lbname, lb); err != nil {
 		log.Error(err, "Failed to find owning load balancer", "name", lbname)
 		return done, err
-	}
-
-	// If the LB doesn't have its ifindex set then we can't configure,
-	// so try again in a few seconds
-	if lb.Status.ProxyIfindex == 0 {
-		log.Info("LB ifindex not set yet")
-		return tryAgain, nil
 	}
 
 	// Get the ServiceGroup that owns this RemoteEndpoint
@@ -100,39 +72,71 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return done, err
 	}
 
-	// Add GUE ingress address/port to the endpoint
-	gueEp, err := r.setGUEIngressAddress(ctx, log, lb, &rep.Spec)
-	if err != nil {
-		log.Error(err, "Patching LB status")
-		return done, err
+	// Check if k8s wants to delete this RemoteEndpoint
+	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(rep, egwv1.RemoteEndpointFinalizerName) {
+			log.Info("object to be deleted")
+
+			if err := r.cleanupService(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GroupID, rep.Status.ServiceID); err != nil {
+				log.Error(err, "Failed to cleanup PFC")
+			}
+
+			// remove our finalizer from the list and update the object
+			controllerutil.RemoveFinalizer(rep, egwv1.RemoteEndpointFinalizerName)
+			if err := r.Update(ctx, rep); err != nil {
+				return done, err
+			}
+		}
+
+	} else {
+
+		// The endpoint isn't being deleted, so set up a tunnel to it
+
+		// If the LB doesn't have its ifindex set then we can't configure,
+		// so try again in a few seconds
+		if lb.Status.ProxyIfindex == 0 {
+			log.Info("LB ifindex not set yet")
+			return tryAgain, nil
+		}
+
+		// Add GUE ingress address/port to the endpoint
+		gueEp, err := r.setGUEIngressAddress(ctx, log, lb, &rep.Spec)
+		if err != nil {
+			log.Error(err, "Patching LB status")
+			return done, err
+		}
+
+		// configure the GUE tunnel
+		err = r.configureTunnel(log, gueEp)
+		if err != nil {
+			log.Error(err, "configuring GUE tunnel")
+			return done, err
+		}
+
+		// configure the GUE "service"
+		err = r.configureService(log, rep.Spec, lb.Status.ProxyIfindex, account.Spec.GroupID, lb.Spec.ServiceID, gueEp.TunnelID, sg.Spec.AuthCreds)
+		if err != nil {
+			log.Error(err, "configuring GUE service")
+			return done, err
+		}
+
+		// Cache some values that we might need later if we need to delete
+		// the endpoint
+		patchBytes, err := json.Marshal(egwv1.RemoteEndpoint{Status: egwv1.RemoteEndpointStatus{GroupID: account.Spec.GroupID, ServiceID: lb.Spec.ServiceID, ProxyIfindex: lb.Status.ProxyIfindex, TunnelID: gueEp.TunnelID}})
+		if err != nil {
+			log.Error(err, "marshaling EP patch", "ep", rep)
+			return done, err
+		}
+		err = r.Status().Patch(ctx, rep, client.RawPatch(types.MergePatchType, patchBytes))
+		if err != nil {
+			log.Error(err, "patching EP status", "ep", rep)
+			return done, err
+		}
 	}
 
-	// configure the GUE tunnel
-	err = r.configureTunnel(log, gueEp)
-	if err != nil {
-		log.Error(err, "configuring GUE tunnel")
-		return done, err
-	}
-
-	// configure the GUE "service"
-	err = r.configureService(log, rep.Spec, lb.Status.ProxyIfindex, account.Spec.GroupID, lb.Spec.ServiceID, gueEp.TunnelID, sg.Spec.AuthCreds)
-	if err != nil {
-		log.Error(err, "configuring GUE service")
-		return done, err
-	}
-
-	// Cache some values that we might need later if we need to delete
-	// the endpoint
-	patchBytes, err := json.Marshal(egwv1.RemoteEndpoint{Status: egwv1.RemoteEndpointStatus{GroupID: account.Spec.GroupID, ServiceID: lb.Spec.ServiceID, ProxyIfindex: lb.Status.ProxyIfindex, TunnelID: gueEp.TunnelID}})
-	if err != nil {
-		log.Error(err, "marshaling EP patch", "ep", rep)
-		return done, err
-	}
-	err = r.Status().Patch(ctx, rep, client.RawPatch(types.MergePatchType, patchBytes))
-	if err != nil {
-		log.Error(err, "patching EP status", "ep", rep)
-		return done, err
-	}
+	// Update the Marin3r EnvoyConfig with the current set of active
+	// endpoints
 
 	// list the endpoints that belong to the parent LB
 	reps, err := listActiveLBEndpoints(ctx, r, lb)
