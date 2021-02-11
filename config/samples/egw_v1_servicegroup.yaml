@@ -8,7 +8,6 @@ metadata:
     owning-account: sample
     owning-serviceprefix: default
 spec:
-  auth-creds: fredfredfredfred
   envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:latest
   envoy-template:
     serialization: yaml
@@ -72,7 +71,6 @@ metadata:
     owning-account: sample
     owning-serviceprefix: non-default
 spec:
-  auth-creds: wilmawilmawilma!
   envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:latest
   envoy-template:
     serialization: yaml
