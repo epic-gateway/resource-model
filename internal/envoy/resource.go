@@ -116,6 +116,7 @@ func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEn
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
 	}
+
 	return marin3r.EnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      service.Name,
@@ -127,7 +128,10 @@ func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEn
 			EnvoyResources: &marin3r.EnvoyResources{
 				Endpoints: []marin3r.EnvoyResource{},
 				Clusters:  cluster,
+				Routes:    service.Spec.EnvoyTemplate.EnvoyResources.Routes,
 				Listeners: listeners,
+				Runtimes:  service.Spec.EnvoyTemplate.EnvoyResources.Runtimes,
+				Secrets:   service.Spec.EnvoyTemplate.EnvoyResources.Secrets,
 			},
 		},
 	}, nil
