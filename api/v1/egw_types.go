@@ -15,7 +15,7 @@ const (
 
 // Node is the config for one node.
 type Node struct {
-	// +kubebuilder:default={"eth0"}
+	// +kubebuilder:default={"enp1s0"}
 	IngressNICs []string `json:"gue-ingress-nics,omitempty"`
 
 	// +kubebuilder:default={"egw-port":{"port":6080,"protocol":"UDP","appProtocol":"gue"}}
