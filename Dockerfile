@@ -26,4 +26,4 @@ FROM ubuntu:20.04
 RUN apt-get update && apt-get install -y curl ipset iptables iproute2 linux-tools-generic
 
 COPY --from=builder /workspace/manager /usr/local/bin/manager
-CMD [ "/usr/local/bin/manager", "--enable-leader-election" ]
+CMD [ "/usr/local/bin/manager" ]
