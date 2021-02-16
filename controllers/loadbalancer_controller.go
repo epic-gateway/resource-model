@@ -348,7 +348,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "envoy-sidecar-bootstrap",
+										Name: "envoy-sidecar-bootstrap-v3",
 									},
 									DefaultMode: &defaultSecretMode,
 								},
