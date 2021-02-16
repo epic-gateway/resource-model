@@ -31,6 +31,8 @@ var (
 	funcMap = template.FuncMap{
 		"ToUpper": toUpper,
 	}
+	envoyAPIV3             = "v3"
+	envoySerializationYAML = "yaml"
 )
 
 type clusterParams struct {
@@ -106,8 +108,6 @@ func makeHTTPListener(listenerConfigFragment string, serviceName string, port v1
 // ServiceToEnvoyConfig translates one of our egwv1.LoadBalancers into
 // a Marin3r EnvoyConfig
 func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoint) (marin3r.EnvoyConfig, error) {
-	var serialization = "yaml"
-
 	cluster, err := ServiceToCluster(service, endpoints)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
@@ -123,7 +123,8 @@ func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEn
 			Namespace: service.Namespace,
 		},
 		Spec: marin3r.EnvoyConfigSpec{
-			Serialization: &serialization,
+			EnvoyAPI:      &envoyAPIV3,
+			Serialization: &envoySerializationYAML,
 			NodeID:        service.Namespace + "." + service.Name,
 			EnvoyResources: &marin3r.EnvoyResources{
 				Endpoints: []marin3r.EnvoyResource{},
