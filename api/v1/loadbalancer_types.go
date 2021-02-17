@@ -80,6 +80,9 @@ type LoadBalancerStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=lb;lbs
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:JSONPath=".spec.public-address",name=Public Address,type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-servicegroup",name=Service Group,type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-serviceprefix",name=Service Prefix,type=string
 
 // LoadBalancer is the Schema for the loadbalancers API
 type LoadBalancer struct {
