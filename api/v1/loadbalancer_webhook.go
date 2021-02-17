@@ -2,6 +2,8 @@ package v1
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
@@ -62,6 +64,13 @@ func (r *LoadBalancer) Default() {
 		}
 		r.Spec.EnvoyTemplate = &sg.Spec.EnvoyTemplate
 	}
+
+	// Generate the random tunnel key that we'll use to authenticate the
+	// EGO in the GUE tunnel
+	if r.Spec.TunnelKey == "" {
+		r.Spec.TunnelKey = generateTunnelKey()
+	}
+
 	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)
 }
 
@@ -152,4 +161,12 @@ func nextServiceID(ctx context.Context, cl client.Client, acctNS string, acctNam
 	account.Status.CurrentServiceID++
 
 	return account.Status.CurrentServiceID, cl.Status().Update(ctx, &account)
+}
+
+// generateTunnelKey generates a 128-bit tunnel key and returns it as
+// a base64-encoded string.
+func generateTunnelKey() string {
+	raw := make([]byte, 16, 16)
+	_, _ = rand.Read(raw)
+	return base64.StdEncoding.EncodeToString(raw)
 }

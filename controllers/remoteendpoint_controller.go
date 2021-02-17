@@ -2,8 +2,6 @@ package controllers
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -116,7 +114,7 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		}
 
 		// configure the GUE "service"
-		err = r.configureService(log, rep.Spec, lb.Status.ProxyIfindex, account.Spec.GroupID, lb.Spec.ServiceID, gueEp.TunnelID, gueEp.TunnelKey)
+		err = r.configureService(log, rep.Spec, lb.Status.ProxyIfindex, account.Spec.GroupID, lb.Spec.ServiceID, gueEp.TunnelID, lb.Spec.TunnelKey)
 		if err != nil {
 			log.Error(err, "configuring GUE service")
 			return done, err
@@ -212,10 +210,6 @@ func (r *RemoteEndpointReconciler) setGUEIngressAddress(ctx context.Context, l l
 		return gueEndpoint, err
 	}
 
-	// Generate the random tunnel key that we'll use to authenticate the
-	// EGO in the GUE tunnel
-	gueEndpoint.TunnelKey = generateTunnelKey()
-
 	// prepare a patch to set this node's tunnel endpoint in the LB status
 	patchBytes, err := json.Marshal(egwv1.LoadBalancer{Status: egwv1.LoadBalancerStatus{GUETunnelEndpoints: map[string]egwv1.GUETunnelEndpoint{ep.NodeAddress: gueEndpoint}}})
 	if err != nil {
@@ -287,14 +281,6 @@ func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelI
 	l.Info("allocating tunnelID", "egw", egw, "tunnelID", egw.Status.CurrentTunnelID)
 
 	return egw.Status.CurrentTunnelID, cl.Status().Update(ctx, &egw)
-}
-
-// generateTunnelKey generates a 128-bit tunnel key and returns it as
-// a base64-encoded string.
-func generateTunnelKey() string {
-	raw := make([]byte, 16, 16)
-	_, _ = rand.Read(raw)
-	return base64.StdEncoding.EncodeToString(raw)
 }
 
 // listActiveLBEndpoints lists the endpoints that belong to lb that

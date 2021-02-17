@@ -29,6 +29,11 @@ type LoadBalancerSpec struct {
 	// CR is created.
 	ServiceID uint16 `json:"service-id,omitempty"`
 
+	// TunnelKey authenticates clients with the EGW. It must be a
+	// base64-encoded 128-bit value. If not present, this will be filled
+	// in by the defaulting webhook.
+	TunnelKey string `json:"tunnel-key,omitempty"`
+
 	// EnvoyTemplate is the template that will be used to configure
 	// Envoy for the load balancers that belong to this ServiceGroup. It
 	// can be provided by the user, but if not it will be copied from
@@ -47,10 +52,6 @@ type GUETunnelEndpoint struct {
 
 	// TunnelID is used to route traffic to the correct tunnel.
 	TunnelID uint32 `json:"tunnel-id,omitempty"`
-
-	// TunnelKey authenticates the client with the EGW. It must be a
-	// base64-encoded 128-bit value.
-	TunnelKey string `json:"tunnel-key,omitempty"`
 }
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
