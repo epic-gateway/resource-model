@@ -31,8 +31,6 @@ var (
 	funcMap = template.FuncMap{
 		"ToUpper": toUpper,
 	}
-	envoyAPIV3             = "v3"
-	envoySerializationYAML = "yaml"
 )
 
 type clusterParams struct {
@@ -123,9 +121,9 @@ func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEn
 			Namespace: service.Namespace,
 		},
 		Spec: marin3r.EnvoyConfigSpec{
-			EnvoyAPI:      &envoyAPIV3,
-			Serialization: &envoySerializationYAML,
 			NodeID:        service.Namespace + "." + service.Name,
+			EnvoyAPI:      service.Spec.EnvoyTemplate.EnvoyAPI,
+			Serialization: service.Spec.EnvoyTemplate.Serialization,
 			EnvoyResources: &marin3r.EnvoyResources{
 				Endpoints: []marin3r.EnvoyResource{},
 				Clusters:  cluster,
