@@ -8,7 +8,7 @@ metadata:
     owning-account: sample
     owning-serviceprefix: default
 spec:
-  envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:v1.16.3
+  envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:ci-envoy-0-16-3-ad-1ee93658
   envoy-template:
     envoyAPI: v2
     serialization: yaml
