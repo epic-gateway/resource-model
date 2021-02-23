@@ -50,6 +50,7 @@ deploy: manifests
 manifests: kustomize
 	controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	$(KUSTOMIZE) build config/default | IMG=$(IMG) envsubst > deploy/egw-resource-model.yaml
+	cp deploy/egw-resource-model.yaml deploy/egw-resource-model-${SUFFIX}.yaml
 
 # Run go fmt against code
 fmt:
