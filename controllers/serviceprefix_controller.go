@@ -86,6 +86,7 @@ func (r *ServicePrefixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // netdefForSG returns a NetworkAttachmentDefinition object that will
 // allow Envoy pods to attach to the Multus interface.
+// the mtu is sufficently small for correct operation but not exact
 func (r *ServicePrefixReconciler) netdefForSP(sp *egwv1.ServicePrefix) (*nettypes.NetworkAttachmentDefinition, error) {
 	netdefspec, err := json.Marshal(map[string]interface{}{
 		// FIXME: need to add parameters to tell Multus which netdef to use
@@ -94,7 +95,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *egwv1.ServicePrefix) (*nettype
 		"namespace":  sp.Namespace,
 		"plugins": []map[string]interface{}{{
 			"type":      "bridge",
-			"mtu":       1444,
+			"mtu":       1380,
 			"bridge":    sp.Spec.MultusBridge,
 			"isGateway": false,
 			"ipam": map[string]interface{}{
