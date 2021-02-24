@@ -35,10 +35,12 @@ var (
 
 type clusterParams struct {
 	ClusterName string
+	ServiceName string
 	Endpoints   []egwv1.RemoteEndpoint
 }
 type listenerParams struct {
 	ClusterName string
+	ServiceName string
 	PortName    string
 	Port        int32
 	Protocol    v1.Protocol
@@ -51,18 +53,25 @@ func ServiceToCluster(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoi
 		tmpl     *template.Template
 		err      error
 		doc      bytes.Buffer
-		fullName string = service.Name + "Upstream"
+		clusters = []marin3r.EnvoyResource{}
 	)
 
-	params := clusterParams{
-		ClusterName: fullName,
-		Endpoints:   endpoints,
+	// Process each template
+	for _, cluster := range service.Spec.EnvoyTemplate.EnvoyResources.Clusters {
+		if tmpl, err = template.New("cluster").Funcs(funcMap).Parse(cluster.Value); err != nil {
+			return []marin3r.EnvoyResource{}, err
+		}
+		doc.Reset()
+		err = tmpl.Execute(&doc, clusterParams{
+			ClusterName: cluster.Name,
+			ServiceName: service.Name,
+			Endpoints:   endpoints,
+		})
+
+		clusters = append(clusters, marin3r.EnvoyResource{Name: cluster.Name, Value: doc.String()})
 	}
-	if tmpl, err = template.New("cluster").Funcs(funcMap).Parse(service.Spec.EnvoyTemplate.EnvoyResources.Clusters[0].Value); err != nil {
-		return []marin3r.EnvoyResource{}, err
-	}
-	err = tmpl.Execute(&doc, params)
-	return []marin3r.EnvoyResource{{Name: params.ClusterName, Value: doc.String()}}, err
+
+	return clusters, err
 }
 
 // makeHTTPListeners translates an egwv1.LoadBalancer's ports into
@@ -72,12 +81,15 @@ func makeHTTPListeners(service egwv1.LoadBalancer, upstreamHost string) ([]marin
 		resources = []marin3r.EnvoyResource{}
 	)
 
-	for _, port := range service.Spec.PublicPorts {
-		listener, err := makeHTTPListener(service.Spec.EnvoyTemplate.EnvoyResources.Listeners[0].Value, service.Name, port, upstreamHost)
-		if err != nil {
-			return resources, err
+	// Process each template
+	for _, listener := range service.Spec.EnvoyTemplate.EnvoyResources.Listeners {
+		for _, port := range service.Spec.PublicPorts {
+			listener, err := makeHTTPListener(listener.Value, service.Name, port, upstreamHost)
+			if err != nil {
+				return resources, err
+			}
+			resources = append(resources, listener)
 		}
-		resources = append(resources, listener)
 	}
 
 	return resources, nil
@@ -88,10 +100,11 @@ func makeHTTPListener(listenerConfigFragment string, serviceName string, port v1
 		tmpl        *template.Template
 		err         error
 		doc         bytes.Buffer
-		clusterName string = serviceName + "Upstream"
+		clusterName string = serviceName + "-Upstream"
 	)
 	params := listenerParams{
 		ClusterName: clusterName,
+		ServiceName: serviceName,
 		PortName:    fmt.Sprintf("%s-%d", port.Protocol, port.Port),
 		Port:        port.Port,
 		Protocol:    port.Protocol,

@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	clusterConfigSample = `name: {{.ClusterName}}
+	clusterConfigSample = `name: purelb
 connect_timeout: 2s
 type: STRICT_DNS
 lb_policy: ROUND_ROBIN
 load_assignment:
-  cluster_name: {{.ClusterName}}
+  cluster_name: purelb
 {{- if .Endpoints}}
   endpoints:
   - lb_endpoints:
@@ -46,13 +46,13 @@ filter_chains:
         route_config:
           name: local_route
           virtual_hosts:
-            - name: {{.ClusterName}}
+            - name: purelb
               domains: ["*"]
               routes:
                 - match:
                     prefix: "/"
                   route:
-                    cluster: {{.ClusterName}}
+                    cluster: purelb
         http_filters:
           - name: envoy.router
 `
