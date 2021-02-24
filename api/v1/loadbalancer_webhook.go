@@ -47,8 +47,15 @@ func (r *LoadBalancer) Default() {
 	// LoadBalancer is deleted.
 	r.Finalizers = append(r.Finalizers, LoadbalancerFinalizerName)
 
-	// add a service id to this service
-	serviceID, err := allocateServiceID(ctx, crtclient, r.Namespace, r.Labels[OwningServiceGroupLabel])
+	// Fetch this LB's owning service group
+	sg, err := r.fetchServiceGroup()
+	if err != nil {
+		loadbalancerlog.Info("failed to fetch owning service group", "error", err)
+		return
+	}
+
+	// Add a service id to this service
+	serviceID, err := allocateServiceID(ctx, crtclient, sg)
 	if err != nil {
 		loadbalancerlog.Info("failed to allocate serviceID", "error", err)
 	}
@@ -57,11 +64,6 @@ func (r *LoadBalancer) Default() {
 	// If the user hasn't provided an Envoy config template, copy it
 	// from the owning ServiceGroup
 	if r.Spec.EnvoyTemplate == (*marin3r.EnvoyConfigSpec)(nil) {
-		sg, err := r.fetchServiceGroup()
-		if err != nil {
-			loadbalancerlog.Info("failed to fetch owning service group", "error", err)
-			return
-		}
 		r.Spec.EnvoyTemplate = &sg.Spec.EnvoyTemplate
 	}
 
@@ -128,10 +130,10 @@ func (r *LoadBalancer) fetchServiceGroup() (*ServiceGroup, error) {
 // allocateServiceID allocates a service id from the Account that owns
 // this LB. If this call succeeds (i.e., error is nil) then the
 // returned service id will be unique.
-func allocateServiceID(ctx context.Context, cl client.Client, acctNS string, acctName string) (serviceID uint16, err error) {
+func allocateServiceID(ctx context.Context, cl client.Client, sg *ServiceGroup) (serviceID uint16, err error) {
 	tries := 3
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
-		serviceID, err = nextServiceID(ctx, cl, acctNS, acctName)
+		serviceID, err = nextServiceID(ctx, cl, sg)
 		if err != nil {
 			accountlog.Info("problem allocating account serviceID", "error", err)
 		}
@@ -142,25 +144,17 @@ func allocateServiceID(ctx context.Context, cl client.Client, acctNS string, acc
 // nextServiceID gets the next LB ServiceID by doing a
 // read-modify-write cycle. It might be inefficient in terms of not
 // using all of the values that it allocates but it's safe because the
-// Update() will only succeed if the Account hasn't been modified
+// Update() will only succeed if the ServiceGroup hasn't been modified
 // since the Get().
 //
 // This function doesn't retry so if there's a collision with some
 // other process the caller needs to retry.
-func nextServiceID(ctx context.Context, cl client.Client, acctNS string, acctName string) (serviceID uint16, err error) {
+func nextServiceID(ctx context.Context, cl client.Client, sg *ServiceGroup) (serviceID uint16, err error) {
 
-	// load this LBs owning Account which holds the ServiceID allocator
-	accountName := types.NamespacedName{Namespace: acctNS, Name: acctName}
-	account := Account{}
-	if err := cl.Get(ctx, accountName, &account); err != nil {
-		loadbalancerlog.Info("can't Get owning Account", "error", err)
-		return 0, err
-	}
+	// increment the SGs service ID counter
+	sg.Status.CurrentServiceID++
 
-	// increment the Account's service ID counter
-	account.Status.CurrentServiceID++
-
-	return account.Status.CurrentServiceID, cl.Status().Update(ctx, &account)
+	return sg.Status.CurrentServiceID, cl.Status().Update(ctx, sg)
 }
 
 // generateTunnelKey generates a 128-bit tunnel key and returns it as
