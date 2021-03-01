@@ -8,6 +8,7 @@ metadata:
     owning-account: sample
     owning-serviceprefix: default
 spec:
+  # If you change the envoy-image, please also change the egw project egw-data-model.yml to match
   envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:ci-envoy-0-16-3-ad-1ee93658
   envoy-template:
     envoyAPI: v2
@@ -72,6 +73,7 @@ metadata:
     owning-account: sample
     owning-serviceprefix: non-default
 spec:
+  # If you change the envoy-image, please also change the egw project egw-data-model.yml to match
   envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:ci-envoy-0-16-3-ad-1ee93658
   envoy-template:
     envoyAPI: v2
