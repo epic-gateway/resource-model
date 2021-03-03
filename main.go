@@ -174,6 +174,7 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+	setupLog.Info("manager returned, will exit")
 }
 
 // prebootCleanup cleans out leftover data that might be
