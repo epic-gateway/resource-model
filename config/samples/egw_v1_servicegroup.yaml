@@ -15,27 +15,38 @@ spec:
     serialization: yaml
     nodeID: template
     envoyResources:
+      endpoints:
+      - name: purelb
+        value: |
+          cluster_name: purelb
+          {{- if .Endpoints}}
+          endpoints:
+          - lb_endpoints:
+          {{- range .Endpoints}}
+            - endpoint:
+                address:
+                  socket_address:
+                    address: {{.Spec.Address}}
+                    protocol: {{.Spec.Port.Protocol | ToUpper}}
+                    port_value: {{.Spec.Port.Port}}
+          {{- end}}
+          {{- end}}
       clusters:
-      - name: template
+      - name: purelb
         value: |
           name: purelb
           connect_timeout: 2s
-          type: STATIC
+          type: EDS
+          eds_cluster_config:
+            eds_config:
+              resource_api_version: V2
+              api_config_source:
+                api_type: GRPC
+                transport_api_version: V2
+                grpc_services:
+                - envoy_grpc:
+                    cluster_name: epic_xds
           lb_policy: ROUND_ROBIN
-          load_assignment:
-            cluster_name: purelb
-          {{- if .Endpoints}}
-            endpoints:
-            - lb_endpoints:
-          {{- range .Endpoints}}
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: {{.Spec.Address}}
-                      protocol: {{.Spec.Port.Protocol | ToUpper}}
-                      port_value: {{.Spec.Port.Port}}
-          {{- end}}
-          {{- end}}
       listeners:
       - name: template
         value: |
