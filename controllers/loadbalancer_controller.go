@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -258,14 +259,7 @@ func envoyPodName(lb *egwv1.LoadBalancer) string {
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
 func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName, envoyImage string) *appsv1.Deployment {
-	var (
-		privileged        bool  = true
-		escalatable       bool  = true
-		defaultSecretMode int32 = 420
-	)
-
 	labels := labelsForLB(lb.Name)
-	replicas := int32(1)
 
 	multusConfig, err := json.Marshal([]map[string]interface{}{{
 		"name":      spname.Name,
@@ -292,7 +286,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 			Namespace: lb.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: pointer.Int32Ptr(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -310,8 +304,8 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 							Command:         []string{"/docker-entrypoint.sh"},
 							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides, "--log-level", "debug"},
 							SecurityContext: &corev1.SecurityContext{
-								Privileged:               &privileged,
-								AllowPrivilegeEscalation: &escalatable,
+								Privileged:               pointer.BoolPtr(true),
+								AllowPrivilegeEscalation: pointer.BoolPtr(true),
 								Capabilities: &corev1.Capabilities{
 									Add: []corev1.Capability{"NET_ADMIN"},
 								},
@@ -339,7 +333,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "envoy-sidecar-client-cert",
-									DefaultMode: &defaultSecretMode,
+									DefaultMode: pointer.Int32Ptr(420),
 								},
 							},
 						},
@@ -350,7 +344,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname 
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "envoy-sidecar-bootstrap",
 									},
-									DefaultMode: &defaultSecretMode,
+									DefaultMode: pointer.Int32Ptr(420),
 								},
 							},
 						},
