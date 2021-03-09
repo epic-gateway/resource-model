@@ -24,6 +24,11 @@ type Node struct {
 
 // EGWSpec defines the desired state of EGW
 type EGWSpec struct {
+	// EDSImage is the name of the EPIC EDS control plane Docker image
+	// to run.
+	// +kubebuilder:default="registry.gitlab.com/acnodal/xds-operator:latest"
+	EDSImage string `json:"eds-image"`
+
 	// NodeBase is the "base" configuration for all nodes in the
 	// cluster.
 	NodeBase Node `json:"base"`

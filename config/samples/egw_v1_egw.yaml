@@ -4,6 +4,7 @@ metadata:
   namespace: egw
   name: egw
 spec:
+  eds-image: registry.gitlab.com/acnodal/xds-operator:latest
   base:
     gue-endpoint:
       egw-address: 192.168.1.40
