@@ -1,5 +1,5 @@
 manifest:
-  image: golang:latest
+  image: golang:1.15.9-buster
 
   before_script:
   - apt-get update
@@ -21,9 +21,9 @@ manifest:
       - deploy/*.yaml
 
 docker:
-  image: docker:latest
+  image: docker:20.10.5
   services:
-  - docker:dind
+  - docker:20.10.5-dind
 
   before_script:
   - apk add make
