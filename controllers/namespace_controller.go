@@ -320,9 +320,41 @@ func maybeCreateDeployment(ctx context.Context, cl client.Client, l logr.Logger,
 							AllowPrivilegeEscalation: pointer.BoolPtr(true),
 							ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
 						},
+						VolumeMounts: []v1.VolumeMount{
+							{
+								Name:      "server-cert",
+								MountPath: "/etc/envoy/tls/server/",
+								ReadOnly:  true,
+							},
+							{
+								Name:      "ca-cert",
+								MountPath: "/etc/envoy/tls/ca/",
+								ReadOnly:  true,
+							},
+						},
 					}},
 					ServiceAccountName:            "endpoints",
 					TerminationGracePeriodSeconds: pointer.Int64Ptr(0),
+					Volumes: []v1.Volume{
+						{
+							Name: "server-cert",
+							VolumeSource: v1.VolumeSource{
+								Secret: &v1.SecretVolumeSource{
+									DefaultMode: pointer.Int32Ptr(420),
+									SecretName:  "marin3r-server-cert-discoveryservice",
+								},
+							},
+						},
+						{
+							Name: "ca-cert",
+							VolumeSource: v1.VolumeSource{
+								Secret: &v1.SecretVolumeSource{
+									DefaultMode: pointer.Int32Ptr(420),
+									SecretName:  "marin3r-ca-cert-discoveryservice",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
