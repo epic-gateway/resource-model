@@ -1,7 +1,19 @@
+.set-tag: &set-tag
+- |
+  if [ -n "${CI_COMMIT_TAG}" ] ; then
+    # If this build is from a git tag, use that as the docker tag.
+    export TAG_SPECIFIC="${CI_COMMIT_TAG}"
+  else
+    # If this build is from a branch, use the name and sha as the
+    # docker tag.
+    export TAG_SPECIFIC="${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+  fi
+
 manifest:
   image: golang:1.15.9-buster
 
   before_script:
+  - *set-tag
   - apt-get update
   - apt-get install -y gettext-base
   # this lets the CI runner clone any repo that the pushing user can
@@ -12,7 +24,7 @@ manifest:
   - go get golang.org/x/lint/golint
 
   script:
-  - make SUFFIX=ci-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA} all
+  - make SUFFIX=${TAG_SPECIFIC} all
   - 'curl --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file deploy/egw-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest/0.0.1/egw-resource-model.yaml"'
 
   artifacts:
@@ -26,8 +38,9 @@ docker:
   - docker:20.10.5-dind
 
   before_script:
+  - *set-tag
   - apk add make
   - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
 
   script:
-  - make SUFFIX=ci-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push
+  - make SUFFIX=${TAG_SPECIFIC} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push
