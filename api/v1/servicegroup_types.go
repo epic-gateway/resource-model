@@ -10,6 +10,11 @@ import (
 
 // ServiceGroupSpec defines the desired state of ServiceGroup
 type ServiceGroupSpec struct {
+	// CanBeShared determines whether the LBs that belong to this SG can
+	// be shared among multiple PureLB services.
+	// +kubebuilder:default=false
+	CanBeShared bool `json:"can-be-shared"`
+
 	// EnvoyImage is the name of the Envoy Docker image to run.
 	// +kubebuilder:default="registry.gitlab.com/acnodal/envoy-for-egw:latest"
 	EnvoyImage string `json:"envoy-image,omitempty"`
