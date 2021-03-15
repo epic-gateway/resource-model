@@ -40,6 +40,12 @@ type LoadBalancerSpec struct {
 	// can be provided by the user, but if not it will be copied from
 	// the owning ServiceGroup.
 	EnvoyTemplate *marin3r.EnvoyConfigSpec `json:"envoy-template,omitempty"`
+
+	// UpstreamClusters is a list of the names of the upstream clusters
+	// (currently only PureLB but maybe other types in the future) that
+	// this LB serves. The string must be the cluster-id that is passed
+	// in the announce and withdraw web service methods.
+	UpstreamClusters []string `json:"upstream-clusters,omitempty"`
 }
 
 // GUETunnelEndpoint is an Endpoint on the EGW.

@@ -14,9 +14,13 @@ const (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 
-// RemoteEndpointSpec defines the desired state of RemoteEndpoint. It represents
-// one pod endpoint on a customer cluster.
+// RemoteEndpointSpec defines the desired state of RemoteEndpoint. It
+// represents one pod endpoint on a customer cluster.
 type RemoteEndpointSpec struct {
+	// Cluster is the cluster-id of the cluster to which this rep
+	// belongs.
+	Cluster string `json:"cluster"`
+
 	// Address is the IP address for this endpoint.
 	Address string `json:"address"`
 
