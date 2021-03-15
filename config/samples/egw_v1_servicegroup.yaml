@@ -84,6 +84,7 @@ metadata:
     owning-account: sample
     owning-serviceprefix: non-default
 spec:
+  can-be-shared: no
   # If you change the envoy-image, please also change the egw project egw-data-model.yml to match
   envoy-image: registry.gitlab.com/acnodal/envoy-for-egw:latest
   envoy-template:

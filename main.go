@@ -25,6 +25,7 @@ import (
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
 	"gitlab.com/acnodal/egw-resource-model/controllers"
+	"gitlab.com/acnodal/egw-resource-model/internal/allocator"
 	"gitlab.com/acnodal/egw-resource-model/internal/exec"
 	// +kubebuilder:scaffold:imports
 )
@@ -32,6 +33,7 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	alloc    *allocator.Allocator
 )
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch;update
@@ -72,6 +74,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// set up address allocator
+	alloc = allocator.NewAllocator()
+
 	// Set up controllers and webhooks
 	if err = (&controllers.NamespaceReconciler{
 		Client: mgr.GetClient(),
@@ -95,11 +100,16 @@ func main() {
 	}
 
 	if err = (&controllers.ServicePrefixReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ServicePrefix"),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Log:       ctrl.Log.WithName("controllers").WithName("ServicePrefix"),
+		Allocator: alloc,
+		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServicePrefix")
+		os.Exit(1)
+	}
+	if err = (&egwv1.ServicePrefix{}).SetupWebhookWithManager(mgr, alloc); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "ServicePrefix")
 		os.Exit(1)
 	}
 
@@ -133,7 +143,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
 		os.Exit(1)
 	}
-	if err = (&egwv1.LoadBalancer{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&egwv1.LoadBalancer{}).SetupWebhookWithManager(mgr, alloc); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancer")
 		os.Exit(1)
 	}

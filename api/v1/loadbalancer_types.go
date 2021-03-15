@@ -4,6 +4,7 @@ import (
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -100,6 +101,12 @@ type LoadBalancerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LoadBalancer `json:"items"`
+}
+
+// NamespacedName returns a NamespacedName object filled in with this
+// Object's name info.
+func (lb *LoadBalancer) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Namespace: lb.Namespace, Name: lb.Name}
 }
 
 func init() {

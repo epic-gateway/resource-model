@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	"gitlab.com/acnodal/egw-resource-model/internal/allocator"
 	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
 	egwexec "gitlab.com/acnodal/egw-resource-model/internal/exec"
 	"gitlab.com/acnodal/egw-resource-model/internal/pfc"
@@ -38,8 +39,9 @@ const (
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log       logr.Logger
+	allocator *allocator.Allocator
+	Scheme    *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
@@ -113,6 +115,13 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			// From here until we return at the end of this "if", everything
 			// is "best-effort", i.e., we try but if something fails we keep
 			// going to ensure that we try everything
+
+			// Return the LB's address to its pool
+			if !r.allocator.Unassign(req.NamespacedName.String()) {
+				fmt.Printf("ERROR freeing address from %s\n", req.NamespacedName.String())
+				// Continue - we want to delete the CR even if something went
+				// wrong with this Unassign
+			}
 
 			// Close host ports by updating IPSET tables
 			if err := delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {

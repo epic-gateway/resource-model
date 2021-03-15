@@ -9,8 +9,12 @@ import (
 
 // ServicePrefixSpec defines the desired state of ServicePrefix
 type ServicePrefixSpec struct {
+	// Subnet is the subnet in which all of the pool addresses live. It
+	// must be in CIDR notation, e.g., "192.168.77.0/24".
 	Subnet string `json:"subnet"`
-	Pool   string `json:"pool"`
+	// Pool is the set of addresses to be allocated. It must be in
+	// from-to notation, e.g., "192.168.77.2-192.168.77.8".
+	Pool string `json:"pool"`
 	// Gateway is the gateway address of this ServicePrefix. It should
 	// be specified as an IP address alone, with no subnet.
 	Gateway string `json:"gateway"`

@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"net"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,10 +18,22 @@ import (
 )
 
 // log is for logging in this package.
-var loadbalancerlog = logf.Log.WithName("loadbalancer-resource")
+var (
+	loadbalancerlog = logf.Log.WithName("loadbalancer-resource")
+	allocator       PoolAllocator
+)
+
+// PoolAllocator allocates addresses. We use an interface to avoid
+// import loops between the v1 package and the allocator package.
+//
+// +kubebuilder:object:generate=false
+type PoolAllocator interface {
+	Allocate(string, []corev1.ServicePort, string) (string, net.IP, error)
+}
 
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
-func (r *LoadBalancer) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *LoadBalancer) SetupWebhookWithManager(mgr ctrl.Manager, alloc PoolAllocator) error {
+	allocator = alloc
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -71,6 +85,15 @@ func (r *LoadBalancer) Default() {
 	// EGO in the GUE tunnel
 	if r.Spec.TunnelKey == "" {
 		r.Spec.TunnelKey = generateTunnelKey()
+	}
+
+	// Add an external address if needed
+	if r.Spec.PublicAddress == "" {
+		_, address, err := allocator.Allocate(r.NamespacedName().String(), r.Spec.PublicPorts, "")
+		if err != nil {
+			loadbalancerlog.Error(err, "allocation failed")
+		}
+		r.Spec.PublicAddress = address.String()
 	}
 
 	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)

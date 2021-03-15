@@ -148,3 +148,22 @@ webhooks:
     resources:
     - remoteendpoints
   sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-egw-acnodal-io-v1-serviceprefix
+  failurePolicy: Fail
+  name: vserviceprefix.kb.io
+  rules:
+  - apiGroups:
+    - egw.acnodal.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - serviceprefixes

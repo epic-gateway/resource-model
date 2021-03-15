@@ -3,16 +3,20 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"net"
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
+
 	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	"gitlab.com/acnodal/egw-resource-model/internal/allocator"
 )
 
 // ServicePrefixReconciler reconciles a ServicePrefix object
@@ -20,6 +24,7 @@ type ServicePrefixReconciler struct {
 	client.Client
 	NetClient netclient.K8sCniCncfIoV1Interface
 	Log       logr.Logger
+	Allocator *allocator.Allocator
 	Scheme    *runtime.Scheme
 }
 
@@ -37,8 +42,8 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	l := r.Log.WithValues("serviceprefix", req.NamespacedName)
 
 	// read the object that caused the event
-	sp := &egwv1.ServicePrefix{}
-	err = r.Get(ctx, req.NamespacedName, sp)
+	sp := egwv1.ServicePrefix{}
+	err = r.Get(ctx, req.NamespacedName, &sp)
 	if err != nil {
 		r.Log.Error(err, "reading ServicePrefix")
 		return result, err
@@ -49,7 +54,7 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	if netdef == nil {
 		l.Info("need to create")
 		// create a netdef to work with the ServicePrefix
-		netdef, err = r.netdefForSP(sp)
+		netdef, err = r.netdefForSP(&sp)
 		if err == nil {
 			// load the netdef into k8s
 			netdef, err = r.addNetAttachDef(ctx, netdef)
@@ -63,6 +68,31 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 	} else {
 		l.Info("netdef already exists")
+	}
+
+	// Read the set of LBs that belong to this SP
+	labelSelector := labels.SelectorFromSet(map[string]string{egwv1.OwningServicePrefixLabel: req.Name})
+	listOps := client.ListOptions{Namespace: "", LabelSelector: labelSelector}
+	lbs := egwv1.LoadBalancerList{}
+	if err := r.List(ctx, &lbs, &listOps); err != nil {
+		return result, err
+	}
+
+	// Tell the allocator about the prefix
+	if err := r.Allocator.AddPool(sp); err != nil {
+		return result, err
+	}
+
+	// "Warm up" the allocator with the previously-allocated addresses
+	// from the list of LBs
+	for _, lb := range lbs.Items {
+		if existingIP := net.ParseIP(lb.Spec.PublicAddress); existingIP != nil {
+			if _, err := r.Allocator.Assign(lb.Name, existingIP, lb.Spec.PublicPorts, ""); err != nil {
+				r.Log.Info("Error assigning IP", "IP", existingIP, "error", err)
+			} else {
+				r.Log.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
+			}
+		}
 	}
 
 	return result, err
