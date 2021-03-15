@@ -1,6 +1,6 @@
 module gitlab.com/acnodal/egw-resource-model
 
-go 1.15
+go 1.14
 
 require (
 	github.com/3scale/marin3r v0.7.0-alpha6
