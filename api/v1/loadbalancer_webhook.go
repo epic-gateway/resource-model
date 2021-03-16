@@ -99,7 +99,7 @@ func (r *LoadBalancer) Default() {
 	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)
 }
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-egw-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
 //
 //  FIXME: we use v1beta1 here because controller-runtime doesn't
 //  support v1 yet. When it does, we should remove
@@ -131,7 +131,12 @@ func (r *LoadBalancer) ValidateUpdate(old runtime.Object) error {
 func (r *LoadBalancer) ValidateDelete() error {
 	loadbalancerlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
+	// Don't allow deletion if there are any upstream clusters still
+	// using this LB
+	if len(r.Spec.UpstreamClusters) > 0 {
+		return fmt.Errorf("LB %s has upstream clusters, can't delete: %v", r.NamespacedName(), r.Spec.UpstreamClusters)
+	}
+
 	return nil
 }
 
