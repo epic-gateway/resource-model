@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -113,6 +115,46 @@ type LoadBalancerList struct {
 // Object's name info.
 func (lb *LoadBalancer) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Namespace: lb.Namespace, Name: lb.Name}
+}
+
+// AddUpstream adds "clusterId" as an upstream cluster to this
+// LB. Returns an error if the LB already contained the cluster, nil
+// if it didn't.
+func (lb *LoadBalancer) AddUpstream(clusterID string) error {
+	if lb.ContainsUpstream(clusterID) {
+		return fmt.Errorf("LB %s already contains upstream %s", lb.NamespacedName(), clusterID)
+	}
+	lb.Spec.UpstreamClusters = append(lb.Spec.UpstreamClusters, clusterID)
+	return nil
+}
+
+// ContainsUpstream indicates whether "contains" is already registered
+// as an upstream cluster. Returns true if it is, false if it isn't.
+func (lb *LoadBalancer) ContainsUpstream(contains string) bool {
+	for _, upstream := range lb.Spec.UpstreamClusters {
+		if contains == upstream {
+			return true
+		}
+	}
+
+	return false
+}
+
+// RemoveUpstream removes "clusterId" as an upstream cluster from this
+// LB. Returns nil if the LB already contained the cluster, an error
+// if it didn't.
+func (lb *LoadBalancer) RemoveUpstream(clusterID string) error {
+	for i, upstream := range lb.Spec.UpstreamClusters {
+		if clusterID == upstream {
+			// https://stackoverflow.com/a/37335777/5967960
+			c := lb.Spec.UpstreamClusters
+			c[i] = c[len(c)-1]
+			lb.Spec.UpstreamClusters = c[:len(c)-1]
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Upstream %s not found", clusterID)
 }
 
 func init() {
