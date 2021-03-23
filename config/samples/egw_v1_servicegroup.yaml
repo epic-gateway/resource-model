@@ -19,7 +19,7 @@ spec:
       endpoints:
       - name: SET_BY_EPIC
         value: |
-          cluster_name: purelb
+          cluster_name: {{.ClusterName}}
           {{- if .Endpoints}}
           endpoints:
           - lb_endpoints:
@@ -35,7 +35,7 @@ spec:
       clusters:
       - name: SET_BY_EPIC
         value: |
-          name: purelb
+          name: {{.ClusterName}}
           connect_timeout: 2s
           type: EDS
           eds_cluster_config:
@@ -72,7 +72,13 @@ spec:
                           - match:
                               prefix: "/"
                             route:
-                              cluster: purelb
+                              weighted_clusters:
+                                total_weight: {{ .TotalWeight }}
+                                clusters:
+                                {{- range $i, $cl := .Clusters}}
+                                - name: {{$cl}}
+                                  weight: {{ $.ClusterWeight }}
+                                {{- end}}
                   http_filters:
                     - name: envoy.router
 ---

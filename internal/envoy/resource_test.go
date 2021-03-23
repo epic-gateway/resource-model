@@ -101,10 +101,10 @@ func TestServiceToCluster(t *testing.T) {
 }
 
 func TestMakeHTTPListener(t *testing.T) {
-	listener, err := makeHTTPListener(listenerConfigSample, "test", corev1.ServicePort{
+	listener, err := makeHTTPListener(listenerConfigSample, testService, corev1.ServicePort{
 		Protocol: "tcp",
 		Port:     42,
-	}, "")
+	})
 	assert.Nil(t, err, "template processing failed")
 	fmt.Println(listener)
 }

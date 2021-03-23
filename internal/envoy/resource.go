@@ -39,11 +39,18 @@ type clusterParams struct {
 	Endpoints   []egwv1.RemoteEndpoint
 }
 type listenerParams struct {
-	ClusterName string
+	Clusters    []string
 	ServiceName string
 	PortName    string
 	Port        int32
 	Protocol    v1.Protocol
+
+	// These make it easier to assign even weights to sets of more than
+	// one cluster. By default the weights need to add up to 100 which
+	// is awkward if you have 3 clusters so you can use these values for
+	// the total_weight and the per-cluster weight.
+	TotalWeight   int
+	ClusterWeight int
 }
 
 // ServiceToCluster translates from our RemoteEndpoint objects to a
@@ -57,18 +64,22 @@ func ServiceToCluster(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoi
 	)
 
 	// Process each template
-	for _, cluster := range service.Spec.EnvoyTemplate.EnvoyResources.Clusters {
-		if tmpl, err = template.New("cluster").Funcs(funcMap).Parse(cluster.Value); err != nil {
+	for _, clusterTemplate := range service.Spec.EnvoyTemplate.EnvoyResources.Clusters {
+		if tmpl, err = template.New("cluster").Funcs(funcMap).Parse(clusterTemplate.Value); err != nil {
 			return []marin3r.EnvoyResource{}, err
 		}
-		doc.Reset()
-		err = tmpl.Execute(&doc, clusterParams{
-			ClusterName: cluster.Name,
-			ServiceName: service.Name,
-			Endpoints:   endpoints,
-		})
 
-		clusters = append(clusters, marin3r.EnvoyResource{Name: cluster.Name, Value: doc.String()})
+		// For each template, process each cluster
+		for _, clusterName := range service.Spec.UpstreamClusters {
+			doc.Reset()
+			err = tmpl.Execute(&doc, clusterParams{
+				ClusterName: clusterName,
+				ServiceName: service.Name,
+				Endpoints:   endpoints,
+			})
+
+			clusters = append(clusters, marin3r.EnvoyResource{Name: clusterName, Value: doc.String()})
+		}
 	}
 
 	return clusters, err
@@ -76,38 +87,50 @@ func ServiceToCluster(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoi
 
 // makeHTTPListeners translates an egwv1.LoadBalancer's ports into
 // Envoy Listener objects.
-func makeHTTPListeners(service egwv1.LoadBalancer, upstreamHost string) ([]marin3r.EnvoyResource, error) {
+func makeHTTPListeners(service egwv1.LoadBalancer) ([]marin3r.EnvoyResource, error) {
 	var (
 		resources = []marin3r.EnvoyResource{}
 	)
 
-	// Process each template
-	for _, listener := range service.Spec.EnvoyTemplate.EnvoyResources.Listeners {
-		for _, port := range service.Spec.PublicPorts {
-			listener, err := makeHTTPListener(listener.Value, service.Name, port, upstreamHost)
-			if err != nil {
-				return resources, err
+	// Process each template, but only if we have at least one cluster
+	if len(service.Spec.UpstreamClusters) > 0 {
+		for _, listener := range service.Spec.EnvoyTemplate.EnvoyResources.Listeners {
+			for _, port := range service.Spec.PublicPorts {
+				listener, err := makeHTTPListener(listener.Value, service, port)
+				if err != nil {
+					return resources, err
+				}
+				resources = append(resources, listener)
 			}
-			resources = append(resources, listener)
 		}
 	}
 
 	return resources, nil
 }
 
-func makeHTTPListener(listenerConfigFragment string, serviceName string, port v1.ServicePort, upstreamHost string) (marin3r.EnvoyResource, error) {
+func makeHTTPListener(listenerConfigFragment string, service egwv1.LoadBalancer, port v1.ServicePort) (marin3r.EnvoyResource, error) {
 	var (
-		tmpl        *template.Template
-		err         error
-		doc         bytes.Buffer
-		clusterName string = serviceName + "-Upstream"
+		tmpl *template.Template
+		err  error
+		doc  bytes.Buffer
 	)
+
+	// We want the template to be able to range over the clusters but we
+	// might not have any so make sure that we pass in at least an empty
+	// array.
+	clusters := service.Spec.UpstreamClusters
+	if clusters == nil {
+		clusters = []string{}
+	}
+
 	params := listenerParams{
-		ClusterName: clusterName,
-		ServiceName: serviceName,
-		PortName:    fmt.Sprintf("%s-%d", port.Protocol, port.Port),
-		Port:        port.Port,
-		Protocol:    port.Protocol,
+		ServiceName:   service.Name,
+		Clusters:      clusters,
+		PortName:      fmt.Sprintf("%s-%d", port.Protocol, port.Port),
+		Port:          port.Port,
+		Protocol:      port.Protocol,
+		TotalWeight:   (100 / len(clusters)) * len(clusters),
+		ClusterWeight: 100 / len(clusters),
 	}
 	if tmpl, err = template.New("listener").Funcs(funcMap).Parse(listenerConfigFragment); err != nil {
 		return marin3r.EnvoyResource{}, err
@@ -123,7 +146,7 @@ func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEn
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
 	}
-	listeners, err := makeHTTPListeners(service, service.Spec.PublicAddress)
+	listeners, err := makeHTTPListeners(service)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
 	}
