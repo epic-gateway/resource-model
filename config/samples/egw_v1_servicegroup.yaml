@@ -14,10 +14,10 @@ spec:
   envoy-template:
     envoyAPI: v2
     serialization: yaml
-    nodeID: template
+    nodeID: SET_BY_EPIC
     envoyResources:
       endpoints:
-      - name: purelb
+      - name: SET_BY_EPIC
         value: |
           cluster_name: purelb
           {{- if .Endpoints}}
@@ -33,7 +33,7 @@ spec:
           {{- end}}
           {{- end}}
       clusters:
-      - name: purelb
+      - name: SET_BY_EPIC
         value: |
           name: purelb
           connect_timeout: 2s
@@ -49,7 +49,7 @@ spec:
                     cluster_name: endpoints
           lb_policy: ROUND_ROBIN
       listeners:
-      - name: template
+      - name: SET_BY_EPIC
         value: |
           name: {{.PortName}}
           address:
@@ -91,10 +91,10 @@ spec:
   envoy-template:
     envoyAPI: v2
     serialization: yaml
-    nodeID: template
+    nodeID: SET_BY_EPIC
     envoyResources:
       clusters:
-      - name: template
+      - name: SET_BY_EPIC
         value: |
           name: purelb
           connect_timeout: 2s
@@ -115,7 +115,7 @@ spec:
           {{- end}}
           {{- end}}
       listeners:
-      - name: template
+      - name: SET_BY_EPIC
         value: |
           name: {{.PortName}}
           address:
