@@ -1,8 +1,9 @@
 # Build the manager binary
 FROM golang:1.15 as builder
-ARG GITLAB_AUTHN
+ARG GITLAB_USER
+ARG GITLAB_PASSWORD
 
-RUN git config --global url."https://$GITLAB_AUTHN@gitlab.com/acnodal".insteadOf https://gitlab.com/acnodal
+RUN echo "machine gitlab.com login ${GITLAB_USER} password ${GITLAB_PASSWORD}" > ~/.netrc
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

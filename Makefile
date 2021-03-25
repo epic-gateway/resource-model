@@ -68,7 +68,7 @@ generate:
 
 # Build the docker image
 docker-build:
-	docker build . --build-arg=GITLAB_AUTHN -t ${IMG}
+	docker build . --build-arg=GITLAB_USER --build-arg=GITLAB_PASSWORD -t ${IMG}
 
 # Push the docker image
 docker-push:

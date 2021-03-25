@@ -17,9 +17,9 @@ manifest:
   - apt-get update
   - apt-get install -y gettext-base
   # this lets the CI runner clone any repo that the pushing user can
-  # clone. We need to clone private repos, e.g.,
-  # packet-forwarding-component since this project depends on them.
-  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/acnodal".insteadOf "https://gitlab.com/acnodal"
+  # clone. We need to clone private repos, e.g., epic/true-ingress
+  # since this project depends on them.
+  - echo "machine gitlab.com login gitlab-ci-token password ${CI_JOB_TOKEN}" > ~/.netrc
   - go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1
   - go get golang.org/x/lint/golint
 
@@ -43,4 +43,4 @@ docker:
   - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
 
   script:
-  - make SUFFIX=${TAG_SPECIFIC} GITLAB_AUTHN=gitlab-ci-token:${CI_JOB_TOKEN} docker-build docker-push
+  - make SUFFIX=${TAG_SPECIFIC} GITLAB_USER=gitlab-ci-token GITLAB_PASSWORD=${CI_JOB_TOKEN} docker-build docker-push
