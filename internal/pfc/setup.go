@@ -3,7 +3,7 @@ package pfc
 import (
 	"fmt"
 
-	egwexec "gitlab.com/acnodal/egw-resource-model/internal/exec"
+	egwexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

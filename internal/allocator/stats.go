@@ -15,7 +15,7 @@
 package allocator
 
 import (
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

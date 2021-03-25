@@ -23,10 +23,10 @@ import (
 	marin3roperator "github.com/3scale/marin3r/apis/operator/v1alpha1"
 	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
-	"gitlab.com/acnodal/egw-resource-model/controllers"
-	"gitlab.com/acnodal/egw-resource-model/internal/allocator"
-	"gitlab.com/acnodal/egw-resource-model/internal/exec"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	"gitlab.com/acnodal/epic/resource-model/controllers"
+	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
+	"gitlab.com/acnodal/epic/resource-model/internal/exec"
 	// +kubebuilder:scaffold:imports
 )
 

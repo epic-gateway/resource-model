@@ -6,7 +6,7 @@ import (
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

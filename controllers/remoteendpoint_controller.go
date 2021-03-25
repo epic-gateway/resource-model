@@ -15,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
-	"gitlab.com/acnodal/egw-resource-model/internal/envoy"
-	egwexec "gitlab.com/acnodal/egw-resource-model/internal/exec"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
+	egwexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
 )
 
 // RemoteEndpointReconciler reconciles RemoteEndpoint objects.

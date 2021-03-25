@@ -1,5 +1,5 @@
-REPO ?= registry.gitlab.com/acnodal
-PREFIX = egw-resource-model
+REPO ?= registry.gitlab.com/acnodal/epic
+PREFIX = resource-model
 SUFFIX = ${USER}-dev
 
 # Current Operator version

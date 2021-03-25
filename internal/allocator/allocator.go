@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 

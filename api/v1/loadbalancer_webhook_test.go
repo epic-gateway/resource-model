@@ -3,7 +3,7 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	v1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	v1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
 var _ = Describe("LoadbalancerWebhook", func() {

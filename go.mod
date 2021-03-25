@@ -1,4 +1,4 @@
-module gitlab.com/acnodal/egw-resource-model
+module gitlab.com/acnodal/epic/resource-model
 
 go 1.14
 

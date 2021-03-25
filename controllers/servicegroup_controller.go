@@ -8,7 +8,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
 // ServiceGroupReconciler reconciles a ServiceGroup object

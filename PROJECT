@@ -1,7 +1,7 @@
 domain: acnodal.io
 layout: go.kubebuilder.io/v2
 projectName: egw-resource-model
-repo: gitlab.com/acnodal/egw-resource-model
+repo: gitlab.com/acnodal/epic/resource-model
 resources:
 - group: egw
   kind: Account

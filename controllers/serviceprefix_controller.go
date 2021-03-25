@@ -15,8 +15,8 @@ import (
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
-	"gitlab.com/acnodal/egw-resource-model/internal/allocator"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
 )
 
 // ServicePrefixReconciler reconciles a ServicePrefix object

@@ -14,7 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	egwv1 "gitlab.com/acnodal/egw-resource-model/api/v1"
+	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	// +kubebuilder:scaffold:imports
 )
 
