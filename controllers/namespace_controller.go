@@ -6,7 +6,7 @@ import (
 
 	marin3r "github.com/3scale/marin3r/apis/operator/v1alpha1"
 	"github.com/go-logr/logr"
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -71,8 +71,8 @@ func (r *NamespaceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// fetch the node config; it tells us the EDS image to launch
-	config := &egwv1.EGW{}
-	err = r.Get(ctx, types.NamespacedName{Name: egwv1.ConfigName, Namespace: egwv1.ConfigNamespace}, config)
+	config := &epicv1.EPIC{}
+	err = r.Get(ctx, types.NamespacedName{Name: epicv1.ConfigName, Namespace: epicv1.ConfigNamespace}, config)
 	if err != nil {
 		return result, err
 	}
@@ -158,7 +158,7 @@ func maybeCreateServiceAccount(ctx context.Context, cl client.Client, l logr.Log
 			Name:      "endpoints",
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app": "egw",
+				"app": "epic",
 			},
 		},
 	}
@@ -181,17 +181,17 @@ func maybeCreateRole(ctx context.Context, cl client.Client, l logr.Logger, names
 			Name:      "endpoints",
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app": "egw",
+				"app": "epic",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{"egw.acnodal.io"},
+				APIGroups: []string{"epic.acnodal.io"},
 				Resources: []string{"loadbalancers", "remoteendpoints", "servicegroups"},
 				Verbs:     []string{"get", "list", "watch", "update", "patch"},
 			},
 			{
-				APIGroups: []string{"egw.acnodal.io"},
+				APIGroups: []string{"epic.acnodal.io"},
 				Resources: []string{"servicegroups/status"},
 				Verbs:     []string{"get", "update", "patch"},
 			},
@@ -216,7 +216,7 @@ func maybeCreateRoleBinding(ctx context.Context, cl client.Client, l logr.Logger
 			Name:      "endpoints",
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app": "egw",
+				"app": "epic",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -250,13 +250,13 @@ func maybeCreateService(ctx context.Context, cl client.Client, l logr.Logger, na
 			Name:      "epic",
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app":       "egw",
+				"app":       "epic",
 				"component": "endpoints",
 			},
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
-				"app":       "egw",
+				"app":       "epic",
 				"component": "endpoints",
 			},
 			ClusterIP: "None",
@@ -276,7 +276,7 @@ func maybeCreateService(ctx context.Context, cl client.Client, l logr.Logger, na
 // one doesn't exist, or does nothing if one already exists.
 func maybeCreateDeployment(ctx context.Context, cl client.Client, l logr.Logger, namespace string, edsImage string) error {
 	labels := map[string]string{
-		"app":       "egw",
+		"app":       "epic",
 		"component": "endpoints",
 	}
 

@@ -1,8 +1,8 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- egw_v1_account.yaml
-- egw_v1_servicegroup.yaml
-- egw_v1_loadbalancer.yaml
-- egw_v1_serviceprefix.yaml
-- egw_v1_egw.yaml
+- epic_v1_account.yaml
+- epic_v1_servicegroup.yaml
+- epic_v1_loadbalancer.yaml
+- epic_v1_serviceprefix.yaml
+- epic_v1_epic.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

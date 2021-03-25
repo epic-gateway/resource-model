@@ -24,10 +24,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
 	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
-	egwexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
+	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
 	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
 )
 
@@ -44,9 +44,9 @@ type LoadBalancerReconciler struct {
 	Scheme    *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=remoteendpoints,verbs=get;list;delete;deletecollection
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=remoteendpoints,verbs=get;list;delete;deletecollection
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marin3r.3scale.net,resources=envoyconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -63,7 +63,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	log.Info("reconciling")
 
 	// read the object that caused the event
-	lb := &egwv1.LoadBalancer{}
+	lb := &epicv1.LoadBalancer{}
 	if err := r.Get(ctx, req.NamespacedName, lb); err != nil {
 		log.Info("can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
@@ -73,8 +73,8 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// read the ServiceGroup that owns this LB
-	sg := &egwv1.ServiceGroup{}
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[egwv1.OwningServiceGroupLabel]}
+	sg := &epicv1.ServiceGroup{}
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningServiceGroupLabel]}
 	err = r.Get(ctx, sgname, sg)
 	if err != nil {
 		log.Error(err, "Failed to find owning service group", "name", sgname)
@@ -82,8 +82,8 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// read the ServicePrefix that determines the interface that we'll use
-	prefixName := types.NamespacedName{Namespace: egwv1.ConfigNamespace, Name: sg.Labels[egwv1.OwningServicePrefixLabel]}
-	prefix := &egwv1.ServicePrefix{}
+	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
+	prefix := &epicv1.ServicePrefix{}
 	err = r.Get(ctx, prefixName, prefix)
 	if err != nil {
 		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
@@ -91,8 +91,8 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// get the Account that owns this LB
-	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[egwv1.OwningAccountLabel]}
-	account := &egwv1.Account{}
+	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
+	account := &epicv1.Account{}
 	if err := r.Get(ctx, accountName, account); err != nil {
 		return done, err
 	}
@@ -101,13 +101,13 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
 
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(lb, egwv1.LoadbalancerFinalizerName) {
+		if controllerutil.ContainsFinalizer(lb, epicv1.LoadbalancerFinalizerName) {
 			log.Info("to be deleted")
 
 			// First, remove our finalizer from the list and update the
 			// lb. If anything goes wrong below we don't want to block the
 			// deletion of the CR
-			controllerutil.RemoveFinalizer(lb, egwv1.LoadbalancerFinalizerName)
+			controllerutil.RemoveFinalizer(lb, epicv1.LoadbalancerFinalizerName)
 			if err := r.Update(ctx, lb); err != nil {
 				return done, err
 			}
@@ -139,9 +139,9 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			// Delete the reps that belong to this LB
 			opts := []client.DeleteAllOfOption{
 				client.InNamespace(req.NamespacedName.Namespace),
-				client.MatchingLabels{egwv1.OwningLoadBalancerLabel: req.NamespacedName.Name},
+				client.MatchingLabels{epicv1.OwningLoadBalancerLabel: req.NamespacedName.Name},
 			}
-			if err := r.DeleteAllOf(ctx, &egwv1.RemoteEndpoint{}, opts...); err != nil {
+			if err := r.DeleteAllOf(ctx, &epicv1.RemoteEndpoint{}, opts...); err != nil {
 				log.Error(err, "Failed to delete endpoints")
 			}
 
@@ -254,11 +254,11 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 // SetupWithManager sets up this controller to work with the mgr.
 func (r *LoadBalancerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&egwv1.LoadBalancer{}).
+		For(&epicv1.LoadBalancer{}).
 		Complete(r)
 }
 
-func envoyPodName(lb *egwv1.LoadBalancer) string {
+func envoyPodName(lb *epicv1.LoadBalancer) string {
 	// this should let us see that:
 	//  - it's an envoy
 	//  - it's working for the lb named lb.Name
@@ -267,7 +267,7 @@ func envoyPodName(lb *egwv1.LoadBalancer) string {
 
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
-func (r *LoadBalancerReconciler) deploymentForLB(lb *egwv1.LoadBalancer, spname *types.NamespacedName, envoyImage string) *appsv1.Deployment {
+func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, spname *types.NamespacedName, envoyImage string) *appsv1.Deployment {
 	labels := labelsForLB(lb.Name)
 
 	multusConfig, err := json.Marshal([]map[string]interface{}{{
@@ -380,7 +380,7 @@ func splitNSName(name string) (*types.NamespacedName, error) {
 // labelsForLB returns the labels for selecting the resources
 // belonging to the given CR name.
 func labelsForLB(name string) map[string]string {
-	return map[string]string{"app": "egw", "role": "proxy", "loadbalancer_cr": name}
+	return map[string]string{"app": "epic", "role": "proxy", "loadbalancer_cr": name}
 }
 
 // portsToPorts converts from ServicePorts to ContainerPorts.
@@ -428,11 +428,11 @@ func delRt(publicaddr string) {
 
 }
 
-// addIpsetEntry adds the provided address and ports to the "egw-in"
+// addIpsetEntry adds the provided address and ports to the "epic-in"
 // set. The last error to happen will be returned.
 func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
 	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "add", "egw-in", ipsetAddress(publicaddr, port))
+		cmd := exec.Command("ipset", "-exist", "add", "epic-in", ipsetAddress(publicaddr, port))
 		if cmdErr := cmd.Run(); cmdErr != nil {
 			err = cmdErr
 		}
@@ -441,10 +441,10 @@ func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
 }
 
 // delIpsetEntry deletes the provided address and ports from the
-// "egw-in" set. The last error to happen will be returned.
+// "epic-in" set. The last error to happen will be returned.
 func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
 	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "del", "egw-in", ipsetAddress(publicaddr, port))
+		cmd := exec.Command("ipset", "-exist", "del", "epic-in", ipsetAddress(publicaddr, port))
 		if cmdErr := cmd.Run(); cmdErr != nil {
 			err = cmdErr
 		}
@@ -474,9 +474,9 @@ func (r *LoadBalancerReconciler) configureBridge(brname string, gateway *netlink
 
 	err = ipsetSetCheck()
 	if err == nil {
-		r.Log.Info("IPset egw-in added")
+		r.Log.Info("IPset epic-in added")
 	} else {
-		r.Log.Info("IPset egw-in already exists")
+		r.Log.Info("IPset epic-in already exists")
 	}
 
 	err = ipTablesCheck(brname)
@@ -530,9 +530,9 @@ func (r *LoadBalancerReconciler) ensureBridge(brname string, gateway *netlink.Ad
 	return br, nil
 }
 
-// ipsetSetCheck runs ipset to create the egw-in table.
+// ipsetSetCheck runs ipset to create the epic-in table.
 func ipsetSetCheck() error {
-	cmd := exec.Command("/usr/sbin/ipset", "create", "egw-in", "hash:ip,port")
+	cmd := exec.Command("/usr/sbin/ipset", "create", "epic-in", "hash:ip,port")
 	return cmd.Run()
 }
 
@@ -555,10 +555,10 @@ func ipTablesCheck(brname string) error {
 		}
 	}
 
-	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-m", "set", "--match-set", "epic-in", "dst,dst", "-j", "ACCEPT")
 	err = cmd.Run()
 	if err != nil {
-		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-m", "set", "--match-set", "egw-in", "dst,dst", "-j", "ACCEPT")
+		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-m", "set", "--match-set", "epic-in", "dst,dst", "-j", "ACCEPT")
 		stdoutStderr, err = cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
@@ -569,14 +569,14 @@ func ipTablesCheck(brname string) error {
 	return err
 }
 
-func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep egwv1.GUETunnelEndpoint) error {
+func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
-	return egwexec.RunScript(l, script)
+	return epicexec.RunScript(l, script)
 }
 
 func (r *LoadBalancerReconciler) deleteService(l logr.Logger, groupID uint16, serviceID uint16) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
-	return egwexec.RunScript(l, script)
+	return epicexec.RunScript(l, script)
 }
 
 func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) error {
@@ -588,7 +588,7 @@ func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) 
 }
 
 // cleanupPFC undoes the PFC setup that we did for this lb.
-func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *egwv1.LoadBalancer, acct *egwv1.Account, prefix *egwv1.ServicePrefix) error {
+func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer, acct *epicv1.Account, prefix *epicv1.ServicePrefix) error {
 	// remove IPSet entry
 	delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 

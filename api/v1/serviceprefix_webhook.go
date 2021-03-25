@@ -29,7 +29,7 @@ func (r *ServicePrefix) SetupWebhookWithManager(mgr ctrl.Manager, val PoolValida
 		Complete()
 }
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-egw-acnodal-io-v1-serviceprefix,mutating=false,failurePolicy=fail,groups=egw.acnodal.io,resources=serviceprefixes,versions=v1,name=vserviceprefix.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:verbs=create;update,path=/validate-epic-acnodal-io-v1-serviceprefix,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=serviceprefixes,versions=v1,name=vserviceprefix.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
 
 var _ webhook.Validator = &ServicePrefix{}
 

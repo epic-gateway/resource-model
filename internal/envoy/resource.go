@@ -24,7 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
 var (
@@ -36,7 +36,7 @@ var (
 type clusterParams struct {
 	ClusterName string
 	ServiceName string
-	Endpoints   []egwv1.RemoteEndpoint
+	Endpoints   []epicv1.RemoteEndpoint
 }
 type listenerParams struct {
 	Clusters    []string
@@ -55,7 +55,7 @@ type listenerParams struct {
 
 // ServiceToCluster translates from our RemoteEndpoint objects to a
 // Marin3r Resource containing a text Envoy Cluster config.
-func ServiceToCluster(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoint) ([]marin3r.EnvoyResource, error) {
+func ServiceToCluster(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndpoint) ([]marin3r.EnvoyResource, error) {
 	var (
 		tmpl     *template.Template
 		err      error
@@ -85,9 +85,9 @@ func ServiceToCluster(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoi
 	return clusters, err
 }
 
-// makeHTTPListeners translates an egwv1.LoadBalancer's ports into
+// makeHTTPListeners translates an epicv1.LoadBalancer's ports into
 // Envoy Listener objects.
-func makeHTTPListeners(service egwv1.LoadBalancer) ([]marin3r.EnvoyResource, error) {
+func makeHTTPListeners(service epicv1.LoadBalancer) ([]marin3r.EnvoyResource, error) {
 	var (
 		resources = []marin3r.EnvoyResource{}
 	)
@@ -108,7 +108,7 @@ func makeHTTPListeners(service egwv1.LoadBalancer) ([]marin3r.EnvoyResource, err
 	return resources, nil
 }
 
-func makeHTTPListener(listenerConfigFragment string, service egwv1.LoadBalancer, port v1.ServicePort) (marin3r.EnvoyResource, error) {
+func makeHTTPListener(listenerConfigFragment string, service epicv1.LoadBalancer, port v1.ServicePort) (marin3r.EnvoyResource, error) {
 	var (
 		tmpl *template.Template
 		err  error
@@ -139,9 +139,9 @@ func makeHTTPListener(listenerConfigFragment string, service egwv1.LoadBalancer,
 	return marin3r.EnvoyResource{Name: params.PortName, Value: doc.String()}, err
 }
 
-// ServiceToEnvoyConfig translates one of our egwv1.LoadBalancers into
+// ServiceToEnvoyConfig translates one of our epicv1.LoadBalancers into
 // a Marin3r EnvoyConfig
-func ServiceToEnvoyConfig(service egwv1.LoadBalancer, endpoints []egwv1.RemoteEndpoint) (marin3r.EnvoyConfig, error) {
+func ServiceToEnvoyConfig(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndpoint) (marin3r.EnvoyConfig, error) {
 	cluster, err := ServiceToCluster(service, endpoints)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err

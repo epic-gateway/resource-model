@@ -15,7 +15,7 @@
 package allocator
 
 import (
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -26,14 +26,14 @@ var (
 	labelNames = []string{"pool"}
 
 	poolCapacity = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: egwv1.MetricsNamespace,
+		Namespace: epicv1.MetricsNamespace,
 		Subsystem: subsystem,
 		Name:      "size",
 		Help:      "Number of addresses in the pool",
 	}, labelNames)
 
 	poolActive = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: egwv1.MetricsNamespace,
+		Namespace: epicv1.MetricsNamespace,
 		Subsystem: subsystem,
 		Name:      "addresses_in_use",
 		Help:      "Number of addresses allocated from the pool",

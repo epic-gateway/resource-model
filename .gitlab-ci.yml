@@ -25,7 +25,7 @@ manifest:
 
   script:
   - make SUFFIX=${TAG_SPECIFIC} all
-  - 'curl --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file deploy/egw-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest/0.0.1/egw-resource-model.yaml"'
+  - 'curl --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file deploy/epic-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest/0.0.1/epic-resource-model.yaml"'
 
   artifacts:
     paths:

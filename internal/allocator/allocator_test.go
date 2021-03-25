@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
 var (
@@ -806,17 +806,17 @@ func TestValidation(t *testing.T) {
 	alloc.pools = map[string]Pool{
 		"test": mustLocalPool(t, "1.2.3.4/30"),
 	}
-	goodSpec := egwv1.ServicePrefixSpec{
+	goodSpec := epicv1.ServicePrefixSpec{
 		Subnet:  "1.2.3.0/24",
 		Pool:    "1.2.3.8-1.2.3.11",
 		Gateway: "1.2.3.0",
 	}
-	invalidSpec := egwv1.ServicePrefixSpec{
+	invalidSpec := epicv1.ServicePrefixSpec{
 		Subnet:  "gah",
 		Pool:    "3.2.1.1-3.2.1.4",
 		Gateway: "3.2.1.0",
 	}
-	overlapSpec := egwv1.ServicePrefixSpec{
+	overlapSpec := epicv1.ServicePrefixSpec{
 		Subnet:  "1.2.3.0/24",
 		Pool:    "1.2.3.7-1.2.3.11",
 		Gateway: "1.2.3.0",
@@ -853,8 +853,8 @@ func mustLocalPool(t *testing.T, r string) LocalPool {
 	return *p
 }
 
-func servicePrefix(name string, spec egwv1.ServicePrefixSpec) *egwv1.ServicePrefix {
-	return &egwv1.ServicePrefix{
+func servicePrefix(name string, spec epicv1.ServicePrefixSpec) *epicv1.ServicePrefix {
+	return &epicv1.ServicePrefix{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},

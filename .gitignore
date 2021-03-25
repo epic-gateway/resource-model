@@ -26,4 +26,4 @@ bin
 # generated manifests
 config/crd/bases/*yaml
 config/rbac/role.yaml
-deploy/egw-resource-model.yaml
+deploy/epic-resource-model*.yaml

@@ -3,7 +3,7 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: egws.egw.acnodal.io
+  name: epics.epic.acnodal.io
 spec:
   conversion:
     strategy: Webhook

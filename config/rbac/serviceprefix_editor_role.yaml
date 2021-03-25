@@ -5,7 +5,7 @@ metadata:
   name: serviceprefix-editor-role
 rules:
 - apiGroups:
-  - egw.acnodal.io
+  - epic.acnodal.io
   resources:
   - serviceprefixes
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - egw.acnodal.io
+  - epic.acnodal.io
   resources:
   - serviceprefixes/status
   verbs:

@@ -15,7 +15,7 @@ import (
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
 )
 
@@ -28,8 +28,8 @@ type ServicePrefixReconciler struct {
 	Scheme    *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=serviceprefixes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=serviceprefixes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=serviceprefixes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=serviceprefixes/status,verbs=get;update;patch
 
 // +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;create
 
@@ -42,7 +42,7 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	l := r.Log.WithValues("serviceprefix", req.NamespacedName)
 
 	// read the object that caused the event
-	sp := egwv1.ServicePrefix{}
+	sp := epicv1.ServicePrefix{}
 	err = r.Get(ctx, req.NamespacedName, &sp)
 	if err != nil {
 		r.Log.Error(err, "reading ServicePrefix")
@@ -71,9 +71,9 @@ func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	// Read the set of LBs that belong to this SP
-	labelSelector := labels.SelectorFromSet(map[string]string{egwv1.OwningServicePrefixLabel: req.Name})
+	labelSelector := labels.SelectorFromSet(map[string]string{epicv1.OwningServicePrefixLabel: req.Name})
 	listOps := client.ListOptions{Namespace: "", LabelSelector: labelSelector}
-	lbs := egwv1.LoadBalancerList{}
+	lbs := epicv1.LoadBalancerList{}
 	if err := r.List(ctx, &lbs, &listOps); err != nil {
 		return result, err
 	}
@@ -110,14 +110,14 @@ func (r *ServicePrefixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.NetClient = netclient
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&egwv1.ServicePrefix{}).
+		For(&epicv1.ServicePrefix{}).
 		Complete(r)
 }
 
 // netdefForSG returns a NetworkAttachmentDefinition object that will
 // allow Envoy pods to attach to the Multus interface.
 // the mtu is sufficently small for correct operation but not exact
-func (r *ServicePrefixReconciler) netdefForSP(sp *egwv1.ServicePrefix) (*nettypes.NetworkAttachmentDefinition, error) {
+func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix) (*nettypes.NetworkAttachmentDefinition, error) {
 	netdefspec, err := json.Marshal(map[string]interface{}{
 		// FIXME: need to add parameters to tell Multus which netdef to use
 		"cniVersion": "0.3.1",

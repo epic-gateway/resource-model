@@ -2,10 +2,10 @@ package v1
 
 const (
 	// MetricsNamespace is the namespace used with Prometheus.
-	MetricsNamespace string = "egw"
+	MetricsNamespace string = "epic"
 
 	// ConfigNamespace is the namespace where we store the system
-	// configuration objects like the EGW singleton and the service
+	// configuration objects like the EPIC singleton and the service
 	// prefixes.
-	ConfigNamespace string = "egw"
+	ConfigNamespace string = "epic"
 )

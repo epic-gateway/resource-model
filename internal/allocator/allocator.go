@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -44,7 +44,7 @@ func NewAllocator() *Allocator {
 }
 
 // AddPool adds an address pool to the allocator.
-func (a *Allocator) AddPool(sp egwv1.ServicePrefix) error {
+func (a *Allocator) AddPool(sp epicv1.ServicePrefix) error {
 	pool, err := parsePrefix(sp.Name, sp.Spec)
 	if err != nil {
 		return fmt.Errorf("parsing address pool #%s: %s", sp.Name, err)
@@ -192,7 +192,7 @@ func (a *Allocator) IP(svc string) net.IP {
 // ValidatePool checks whether the provided pool doesn't conflict with
 // any other pools. A nil return value is good; non-nil means that
 // this pool can't be used.
-func (a *Allocator) ValidatePool(sp *egwv1.ServicePrefix) error {
+func (a *Allocator) ValidatePool(sp *epicv1.ServicePrefix) error {
 	poolName := sp.Name
 
 	// Validate the pool by itself
@@ -226,7 +226,7 @@ func poolFor(pools map[string]Pool, ip net.IP) string {
 	return ""
 }
 
-func parsePrefix(name string, prefix egwv1.ServicePrefixSpec) (Pool, error) {
+func parsePrefix(name string, prefix epicv1.ServicePrefixSpec) (Pool, error) {
 	ret, err := NewLocalPool(prefix.Pool, prefix.Subnet, prefix.Aggregation)
 	if err != nil {
 		return nil, err

@@ -1,22 +1,22 @@
 domain: acnodal.io
 layout: go.kubebuilder.io/v2
-projectName: egw-resource-model
+projectName: epic-resource-model
 repo: gitlab.com/acnodal/epic/resource-model
 resources:
-- group: egw
+- group: epic
   kind: Account
   version: v1
-- group: egw
+- group: epic
   kind: ServiceGroup
   version: v1
-- group: egw
+- group: epic
   kind: LoadBalancer
   version: v1
-- group: egw
+- group: epic
   kind: ServicePrefix
   version: v1
-- group: egw
-  kind: EGW
+- group: epic
+  kind: EPIC
   version: v1
 version: 3-alpha
 plugins:

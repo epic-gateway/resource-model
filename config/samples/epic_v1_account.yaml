@@ -1,0 +1,6 @@
+apiVersion: epic.acnodal.io/v1
+kind: Account
+metadata:
+  namespace: epic-sample
+  name: sample
+spec: {}

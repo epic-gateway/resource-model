@@ -53,7 +53,7 @@ type ServicePrefixStatus struct {
 // +kubebuilder:resource:shortName=sp;sps
 // +kubebuilder:subresource:status
 
-// ServicePrefix represents a pool of IP addresses. The EGW web
+// ServicePrefix represents a pool of IP addresses. The EPIC web
 // service will allocate addresses from the set of ServicePrefixes.
 type ServicePrefix struct {
 	metav1.TypeMeta   `json:",inline"`

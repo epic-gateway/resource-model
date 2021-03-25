@@ -27,12 +27,12 @@ type LoadBalancerSpec struct {
 	PublicPorts []corev1.ServicePort `json:"public-ports"`
 
 	// ServiceID is used with the account-level GroupID to set up this
-	// service's GUE tunnels between the EGW and the client cluster. It
+	// service's GUE tunnels between the EPIC and the client cluster. It
 	// should not be set by the client - a webhook fills it in when the
 	// CR is created.
 	ServiceID uint16 `json:"service-id,omitempty"`
 
-	// TunnelKey authenticates clients with the EGW. It must be a
+	// TunnelKey authenticates clients with the EPIC. It must be a
 	// base64-encoded 128-bit value. If not present, this will be filled
 	// in by the defaulting webhook.
 	TunnelKey string `json:"tunnel-key,omitempty"`
@@ -50,14 +50,14 @@ type LoadBalancerSpec struct {
 	UpstreamClusters []string `json:"upstream-clusters,omitempty"`
 }
 
-// GUETunnelEndpoint is an Endpoint on the EGW.
+// GUETunnelEndpoint is an Endpoint on the EPIC.
 type GUETunnelEndpoint struct {
-	// Address is the IP address on the EGW for this endpoint.
-	Address string `json:"egw-address,omitempty"`
+	// Address is the IP address on the EPIC for this endpoint.
+	Address string `json:"epic-address,omitempty"`
 
 	// Port is the port on which this endpoint listens.
 	// +kubebuilder:default={"port":6080,"protocol":"UDP","appProtocol":"gue"}
-	Port corev1.EndpointPort `json:"egw-port,omitempty"`
+	Port corev1.EndpointPort `json:"epic-port,omitempty"`
 
 	// TunnelID is used to route traffic to the correct tunnel.
 	TunnelID uint32 `json:"tunnel-id,omitempty"`
@@ -66,7 +66,7 @@ type GUETunnelEndpoint struct {
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
 	// GUETunnelEndpoints is a map from client node addresses to public
-	// GUE tunnel endpoints on the EGW. The map key is a client node
+	// GUE tunnel endpoints on the EPIC. The map key is a client node
 	// address and must be one of the node addresses in the Spec
 	// Endpoints slice. The value is a GUETunnelEndpoint that describes
 	// the public IP and port to which the client can send tunnel ping

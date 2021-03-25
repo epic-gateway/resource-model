@@ -2,12 +2,12 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/egw.acnodal.io_accounts.yaml
-- bases/egw.acnodal.io_servicegroups.yaml
-- bases/egw.acnodal.io_loadbalancers.yaml
-- bases/egw.acnodal.io_serviceprefixes.yaml
-- bases/egw.acnodal.io_egws.yaml
-- bases/egw.acnodal.io_remoteendpoints.yaml
+- bases/epic.acnodal.io_accounts.yaml
+- bases/epic.acnodal.io_servicegroups.yaml
+- bases/epic.acnodal.io_loadbalancers.yaml
+- bases/epic.acnodal.io_serviceprefixes.yaml
+- bases/epic.acnodal.io_epics.yaml
+- bases/epic.acnodal.io_remoteendpoints.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -17,7 +17,7 @@ patchesStrategicMerge:
 #- patches/webhook_in_servicegroups.yaml
 - patches/webhook_in_loadbalancers.yaml
 #- patches/webhook_in_serviceprefixes.yaml
-#- patches/webhook_in_egws.yaml
+#- patches/webhook_in_epics.yaml
 #- patches/webhook_in_remoteendpoints.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
@@ -27,7 +27,7 @@ patchesStrategicMerge:
 #- patches/cainjection_in_servicegroups.yaml
 - patches/cainjection_in_loadbalancers.yaml
 #- patches/cainjection_in_serviceprefixes.yaml
-#- patches/cainjection_in_egws.yaml
+#- patches/cainjection_in_epics.yaml
 #- patches/cainjection_in_remoteendpoints.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 

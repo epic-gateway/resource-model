@@ -5,7 +5,7 @@ metadata:
   name: account-viewer-role
 rules:
 - apiGroups:
-  - egw.acnodal.io
+  - epic.acnodal.io
   resources:
   - accounts
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - egw.acnodal.io
+  - epic.acnodal.io
   resources:
   - accounts/status
   verbs:

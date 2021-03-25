@@ -23,7 +23,7 @@ import (
 	marin3roperator "github.com/3scale/marin3r/apis/operator/v1alpha1"
 	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/controllers"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
 	"gitlab.com/acnodal/epic/resource-model/internal/exec"
@@ -37,8 +37,8 @@ var (
 )
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch;update
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers,verbs=get;list
-// +kubebuilder:rbac:groups=egw.acnodal.io,resources=loadbalancers/status,verbs=get;update
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers/status,verbs=get;update
 
 func init() {
 	// Seed the RNG so we can generate pseudo-random tunnel authn keys
@@ -47,7 +47,7 @@ func init() {
 	utilruntime.Must(marin3r.AddToScheme(scheme))
 	utilruntime.Must(marin3roperator.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(egwv1.AddToScheme(scheme))
+	utilruntime.Must(epicv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -86,16 +86,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.EGWReconciler{
+	if err = (&controllers.EPICReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("EGW"),
+		Log:    ctrl.Log.WithName("controllers").WithName("EPIC"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "EGW")
+		setupLog.Error(err, "unable to create controller", "controller", "EPIC")
 		os.Exit(1)
 	}
-	if err = (&egwv1.EGW{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "EGW")
+	if err = (&epicv1.EPIC{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EPIC")
 		os.Exit(1)
 	}
 
@@ -108,7 +108,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ServicePrefix")
 		os.Exit(1)
 	}
-	if err = (&egwv1.ServicePrefix{}).SetupWebhookWithManager(mgr, alloc); err != nil {
+	if err = (&epicv1.ServicePrefix{}).SetupWebhookWithManager(mgr, alloc); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ServicePrefix")
 		os.Exit(1)
 	}
@@ -130,7 +130,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Account")
 		os.Exit(1)
 	}
-	if err = (&egwv1.Account{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&epicv1.Account{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Account")
 		os.Exit(1)
 	}
@@ -143,7 +143,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
 		os.Exit(1)
 	}
-	if err = (&egwv1.LoadBalancer{}).SetupWebhookWithManager(mgr, alloc); err != nil {
+	if err = (&epicv1.LoadBalancer{}).SetupWebhookWithManager(mgr, alloc); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancer")
 		os.Exit(1)
 	}
@@ -156,7 +156,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "RemoteEndpoint")
 		os.Exit(1)
 	}
-	if err = (&egwv1.RemoteEndpoint{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&epicv1.RemoteEndpoint{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "RemoteEndpoint")
 		os.Exit(1)
 	}
@@ -215,7 +215,7 @@ func prebootCleanup(ctx context.Context) error {
 	}
 
 	// List all of the LBs
-	list := egwv1.LoadBalancerList{}
+	list := epicv1.LoadBalancerList{}
 	if err = cl.List(ctx, &list); err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func prebootCleanup(ctx context.Context) error {
 // listProxyPods lists the pods that run our Envoy proxy.
 func listProxyPods(ctx context.Context, cl client.Client) (v1.PodList, error) {
 	listOps := client.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "egw", "role": "proxy"}),
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "epic", "role": "proxy"}),
 	}
 	list := v1.PodList{}
 	err := cl.List(ctx, &list, &listOps)

@@ -1,5 +1,5 @@
-The EPIC operator manages Envoy pods based on our custom
-resources. The data model and operator code are scaffolded by
+The EPIC operator manages Envoy pods based on our custom resources. The
+data model and operator code are scaffolded by
 https://operatorframework.io/.
 
 ## Developer Setup
@@ -35,30 +35,30 @@ You can test this by running the command:
 
 To generate a new custom resource definition:
 ```
-$ operator-sdk create api --group egw --version v1 --kind EGW
+$ operator-sdk create api --group epic --version v1 --kind EPIC
 ```
 
 To generate a webhook:
 ```
-$ operator-sdk create webhook --group egw --version v1 --kind EGW --defaulting --programmatic-validation
+$ operator-sdk create webhook --group epic --version v1 --kind EPIC --defaulting --programmatic-validation
 ```
 
 ## ID Allocation
 
 Numeric ID's (like Tunnel ID, ServiceID, and GroupID) are allocated
 from fields in their parent CR Status. Tunnel IDs are unique across
-the whole system so they're allocated from the egw singleton
+the whole system so they're allocated from the epic singleton
 object. You can examine the current value by dumping the contents of
 the object:
 
 ```
-$ kubectl get -n egw egws.egw.acnodal.io egw -o yaml
-apiVersion: egw.acnodal.io/v1
-kind: EGW
+$ kubectl get -n epic epics.epic.acnodal.io epic -o yaml
+apiVersion: epic.acnodal.io/v1
+kind: EPIC
 metadata:
   ... snip ...
-  name: egw
-  namespace: egw
+  name: epic
+  namespace: epic
   resourceVersion: "22829"
   uid: e6a50ecf-1829-4e47-8537-abfd9b6a9146
 spec: {}
@@ -77,13 +77,13 @@ When we assign an account GroupID we add it to the spec.group-id
 field of the Account custom resource:
 
 ```
-$ kubectl get -n egw accounts.egw.acnodal.io sample -o yaml
-apiVersion: egw.acnodal.io/v1
+$ kubectl get -n epic accounts.epic.acnodal.io sample -o yaml
+apiVersion: epic.acnodal.io/v1
 kind: Account
 metadata:
   ... snip ...
   name: sample
-  namespace: egw
+  namespace: epic
   resourceVersion: "22769"
   uid: 2c422e97-9d3f-4181-9b07-59484ce09566
 spec:
@@ -99,13 +99,13 @@ We allocate a ServiceID for each LB in a similar way to how we
 allocate GroupIDs for accounts.
 
 ```
-$ kubectl get -n egw-sample loadbalancers.egw.acnodal.io sample-acnodal -o yaml
-apiVersion: egw.acnodal.io/v1
+$ kubectl get -n epic-sample loadbalancers.epic.acnodal.io sample-acnodal -o yaml
+apiVersion: epic.acnodal.io/v1
 kind: LoadBalancer
 metadata:
   ... snip ...
   name: sample-acnodal
-  namespace: egw-sample
+  namespace: epic-sample
   resourceVersion: "2584"
   uid: 1a8522b9-70a4-4a9c-bdd7-ba912a61170a
 spec:
@@ -120,15 +120,15 @@ spec:
 status:
   gue-tunnel-endpoints:
     192.168.1.16:
-      egw-address: 192.168.1.40
-      egw-port:
+      epic-address: 192.168.1.40
+      epic-port:
         appProtocol: gue
         port: 6080
         protocol: UDP
       tunnel-id: 2
     192.168.1.25:
-      egw-address: 192.168.1.40
-      egw-port:
+      epic-address: 192.168.1.40
+      epic-port:
         appProtocol: gue
         port: 6080
         protocol: UDP
@@ -138,19 +138,19 @@ status:
 ```
 
 Each tunnel in the status has a tunnel ID that was allocated from the
-EGW configuration singleton.
+EPIC configuration singleton.
 
 We also cache some values in endpoint objects, mostly so we can use
 them to clean up when the parent load balancer is deleted.
 
 ```
-$ kubectl get -n egw-sample endpoints.egw.acnodal.io d2e08096-a3e4-4d1f-8555-d1641c7fa9ed -o yaml
-apiVersion: egw.acnodal.io/v1
+$ kubectl get -n epic-sample endpoints.epic.acnodal.io d2e08096-a3e4-4d1f-8555-d1641c7fa9ed -o yaml
+apiVersion: epic.acnodal.io/v1
 kind: Endpoint
 metadata:
   ... snip ...
   name: d2e08096-a3e4-4d1f-8555-d1641c7fa9ed
-  namespace: egw-sample
+  namespace: epic-sample
   resourceVersion: "22850"
   uid: 0c853955-2b5b-4f20-b67f-e56b9387766b
 spec:
@@ -178,7 +178,7 @@ got there first. In that case we read the object again and retry the
 Update().
 
 ## Namespaces
-The core namespace is "egw" - our processes run there, and system-scoped objects like the EGW config singleton and ServiceGroup CRs also live there.
+The core namespace is "epic" - our processes run there, and system-scoped objects like the EPIC config singleton and ServiceGroup CRs also live there.
 Each account gets their own k8s namespace, so their configuration data is separate from all other customers' data.
 
 ## Naming
@@ -187,9 +187,9 @@ Because our data model is implemented using k8s custom resources, our objects' n
 ## Objects
 
 ### Account
-Each account has its own namespace: "egw-accountName".
+Each account has its own namespace: "epic-accountName".
 Account CRs are stored in their k8s namespaces.
-The "acme-widgets" account's namespace, for example, would be "egw-acme-widgets".
+The "acme-widgets" account's namespace, for example, would be "epic-acme-widgets".
 
 ### ServiceGroup
 Service Groups are stored in their owning accounts' namespaces.

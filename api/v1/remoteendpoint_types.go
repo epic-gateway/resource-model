@@ -25,7 +25,7 @@ type RemoteEndpointSpec struct {
 	Address string `json:"address"`
 
 	// NodeAddress is the IP address of the node on which this endpoint
-	// is running. We use it to set up a GUE tunnel from the EGW to the
+	// is running. We use it to set up a GUE tunnel from the EPIC to the
 	// node.
 	NodeAddress string `json:"node-address"`
 

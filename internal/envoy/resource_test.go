@@ -6,7 +6,7 @@ import (
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	egwv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -59,12 +59,12 @@ filter_chains:
 )
 
 var (
-	testService = egwv1.LoadBalancer{
+	testService = epicv1.LoadBalancer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "test",
 		},
-		Spec: egwv1.LoadBalancerSpec{
+		Spec: epicv1.LoadBalancerSpec{
 			EnvoyTemplate: &marin3r.EnvoyConfigSpec{
 				EnvoyResources: &marin3r.EnvoyResources{
 					Clusters: []marin3r.EnvoyResource{{
@@ -75,17 +75,18 @@ var (
 					}},
 				},
 			},
+			UpstreamClusters: []string{"fred", "barney", "betty"},
 		},
 	}
 )
 
 func TestServiceToCluster(t *testing.T) {
-	cluster, err := ServiceToCluster(testService, []egwv1.RemoteEndpoint{})
+	cluster, err := ServiceToCluster(testService, []epicv1.RemoteEndpoint{})
 	assert.Nil(t, err, "template processing failed")
 	fmt.Println(cluster)
 
-	cluster, err = ServiceToCluster(testService, []egwv1.RemoteEndpoint{{
-		Spec: egwv1.RemoteEndpointSpec{
+	cluster, err = ServiceToCluster(testService, []epicv1.RemoteEndpoint{{
+		Spec: epicv1.RemoteEndpointSpec{
 			Address: "1.1.1.1",
 			Port: corev1.EndpointPort{
 				Port:     42,

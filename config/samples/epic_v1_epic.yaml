@@ -1,12 +1,12 @@
-apiVersion: egw.acnodal.io/v1
-kind: EGW
+apiVersion: epic.acnodal.io/v1
+kind: EPIC
 metadata:
-  namespace: egw
-  name: egw
+  namespace: epic
+  name: epic
 spec:
   eds-image: registry.gitlab.com/acnodal/xds-operator:latest
   base:
     gue-endpoint:
-      egw-address: 192.168.1.40
+      epic-address: 192.168.1.40
     gue-ingress-nics:
     - enp1s0

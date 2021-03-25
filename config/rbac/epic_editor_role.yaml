@@ -1,13 +1,13 @@
-# permissions for end users to edit egws.
+# permissions for end users to edit epics.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: egw-editor-role
+  name: epic-editor-role
 rules:
 - apiGroups:
-  - egw.acnodal.io
+  - epic.acnodal.io
   resources:
-  - egws
+  - epics
   verbs:
   - create
   - delete
@@ -17,8 +17,8 @@ rules:
   - update
   - watch
 - apiGroups:
-  - egw.acnodal.io
+  - epic.acnodal.io
   resources:
-  - egws/status
+  - epics/status
   verbs:
   - get

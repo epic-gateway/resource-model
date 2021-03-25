@@ -10,7 +10,7 @@ import (
 // AccountSpec defines the desired state of Account
 type AccountSpec struct {
 	// GroupID is used with a service's ServiceID to set up GUE tunnels
-	// for that service between the EGW and the client cluster. It
+	// for that service between the EPIC and the client cluster. It
 	// should not be set by the client - the controller manager will
 	// fill in the value when the object is created.
 	GroupID uint16 `json:"group-id,omitempty"`

@@ -12,12 +12,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-egw-acnodal-io-v1-account
+      path: /mutate-epic-acnodal-io-v1-account
   failurePolicy: Fail
   name: maccount.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:
@@ -31,31 +31,31 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-egw-acnodal-io-v1-egw
+      path: /mutate-epic-acnodal-io-v1-epic
   failurePolicy: Fail
-  name: megw.kb.io
+  name: mepic.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:
     - CREATE
     - UPDATE
     resources:
-    - egws
+    - epics
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-egw-acnodal-io-v1-loadbalancer
+      path: /mutate-epic-acnodal-io-v1-loadbalancer
   failurePolicy: Fail
   name: vloadbalancer.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:
@@ -68,12 +68,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-egw-acnodal-io-v1-remoteendpoint
+      path: /mutate-epic-acnodal-io-v1-remoteendpoint
   failurePolicy: Fail
   name: mremoteendpoint.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:
@@ -94,19 +94,19 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-egw-acnodal-io-v1-egw
+      path: /validate-epic-acnodal-io-v1-epic
   failurePolicy: Fail
-  name: vegw.kb.io
+  name: vepic.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:
     - CREATE
     - UPDATE
     resources:
-    - egws
+    - epics
   sideEffects: None
 - admissionReviewVersions:
   - v1beta1
@@ -114,12 +114,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-egw-acnodal-io-v1-loadbalancer
+      path: /validate-epic-acnodal-io-v1-loadbalancer
   failurePolicy: Fail
   name: vloadbalancer.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:
@@ -135,12 +135,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-egw-acnodal-io-v1-remoteendpoint
+      path: /validate-epic-acnodal-io-v1-remoteendpoint
   failurePolicy: Fail
   name: vremoteendpoint.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:
@@ -155,12 +155,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-egw-acnodal-io-v1-serviceprefix
+      path: /validate-epic-acnodal-io-v1-serviceprefix
   failurePolicy: Fail
   name: vserviceprefix.kb.io
   rules:
   - apiGroups:
-    - egw.acnodal.io
+    - epic.acnodal.io
     apiVersions:
     - v1
     operations:

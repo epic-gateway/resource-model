@@ -43,14 +43,14 @@ run: generate fmt vet manifests
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
-	kubectl apply -f deploy/egw-resource-model.yaml
+	kubectl apply -f deploy/epic-resource-model.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
 manifests: kustomize
 	controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(KUSTOMIZE) build config/default | IMG=$(IMG) envsubst > deploy/egw-resource-model.yaml
-	cp deploy/egw-resource-model.yaml deploy/egw-resource-model-${SUFFIX}.yaml
+	$(KUSTOMIZE) build config/default | IMG=$(IMG) envsubst > deploy/epic-resource-model.yaml
+	cp deploy/epic-resource-model.yaml deploy/epic-resource-model-${SUFFIX}.yaml
 
 # Run go fmt against code
 fmt:

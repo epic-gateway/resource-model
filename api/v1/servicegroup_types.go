@@ -16,7 +16,7 @@ type ServiceGroupSpec struct {
 	CanBeShared bool `json:"can-be-shared"`
 
 	// EnvoyImage is the name of the Envoy Docker image to run.
-	// +kubebuilder:default="registry.gitlab.com/acnodal/envoy-for-egw:latest"
+	// +kubebuilder:default="registry.gitlab.com/acnodal/epic/envoy:latest"
 	EnvoyImage string `json:"envoy-image,omitempty"`
 
 	// EnvoyTemplate is the template that will be used to configure
@@ -35,7 +35,7 @@ type ServiceGroupStatus struct {
 
 	// CurrentServiceID stores the most-recently-allocated GUE Service
 	// ID for services in this group. See the comments on CurrentGroupID
-	// in the EGW CR for notes on how to use this field.
+	// in the EPIC CR for notes on how to use this field.
 	CurrentServiceID uint16 `json:"current-service-id"`
 }
 
