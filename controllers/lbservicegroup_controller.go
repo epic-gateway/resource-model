@@ -11,21 +11,21 @@ import (
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
-// ServiceGroupReconciler reconciles a ServiceGroup object
-type ServiceGroupReconciler struct {
+// LBServiceGroupReconciler reconciles a LBServiceGroup object
+type LBServiceGroupReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=epic.acnodal.io,resources=servicegroups,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=epic.acnodal.io,resources=servicegroups/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups/status,verbs=get;update;patch
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *ServiceGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *LBServiceGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
-	_ = r.Log.WithValues("servicegroup", req.NamespacedName)
+	_ = r.Log.WithValues("lbservicegroup", req.NamespacedName)
 
 	// your logic here
 
@@ -33,8 +33,8 @@ func (r *ServiceGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 }
 
 // SetupWithManager sets up this controller to work with the mgr.
-func (r *ServiceGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *LBServiceGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&epicv1.ServiceGroup{}).
+		For(&epicv1.LBServiceGroup{}).
 		Complete(r)
 }

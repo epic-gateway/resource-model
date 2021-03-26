@@ -38,9 +38,9 @@ type LoadBalancerSpec struct {
 	TunnelKey string `json:"tunnel-key,omitempty"`
 
 	// EnvoyTemplate is the template that will be used to configure
-	// Envoy for the load balancers that belong to this ServiceGroup. It
+	// Envoy for the load balancers that belong to this LBServiceGroup. It
 	// can be provided by the user, but if not it will be copied from
-	// the owning ServiceGroup.
+	// the owning LBServiceGroup.
 	EnvoyTemplate *marin3r.EnvoyConfigSpec `json:"envoy-template,omitempty"`
 
 	// UpstreamClusters is a list of the names of the upstream clusters
@@ -90,7 +90,7 @@ type LoadBalancerStatus struct {
 // +kubebuilder:resource:shortName=lb;lbs
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:JSONPath=".spec.public-address",name=Public Address,type=string
-// +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-servicegroup",name=Service Group,type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-lbservicegroup",name=Service Group,type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-serviceprefix",name=Service Prefix,type=string
 
 // LoadBalancer is the Schema for the loadbalancers API

@@ -178,7 +178,7 @@ got there first. In that case we read the object again and retry the
 Update().
 
 ## Namespaces
-The core namespace is "epic" - our processes run there, and system-scoped objects like the EPIC config singleton and ServiceGroup CRs also live there.
+The core namespace is "epic" - our processes run there, and system-scoped objects like the EPIC config singleton and LBServiceGroup CRs also live there.
 Each account gets their own k8s namespace, so their configuration data is separate from all other customers' data.
 
 ## Naming
@@ -191,7 +191,7 @@ Each account has its own namespace: "epic-accountName".
 Account CRs are stored in their k8s namespaces.
 The "acme-widgets" account's namespace, for example, would be "epic-acme-widgets".
 
-### ServiceGroup
+### LBServiceGroup
 Service Groups are stored in their owning accounts' namespaces.
 
 ### LoadBalancer

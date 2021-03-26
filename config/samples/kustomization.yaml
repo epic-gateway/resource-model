@@ -1,7 +1,7 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
 - epic_v1_account.yaml
-- epic_v1_servicegroup.yaml
+- epic_v1_lbservicegroup.yaml
 - epic_v1_loadbalancer.yaml
 - epic_v1_serviceprefix.yaml
 - epic_v1_epic.yaml

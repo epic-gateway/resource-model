@@ -6,10 +6,10 @@ const (
 	// way to which Account they belong.
 	OwningAccountLabel string = "owning-account"
 
-	// OwningServiceGroupLabel is the name of the label that we apply to
+	// OwningLBServiceGroupLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which
-	// ServiceGroup they belong.
-	OwningServiceGroupLabel string = "owning-servicegroup"
+	// LBServiceGroup they belong.
+	OwningLBServiceGroupLabel string = "owning-lbservicegroup"
 
 	// OwningServicePrefixLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which

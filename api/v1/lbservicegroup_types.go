@@ -8,8 +8,8 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 
-// ServiceGroupSpec defines the desired state of ServiceGroup
-type ServiceGroupSpec struct {
+// LBServiceGroupSpec defines the desired state of LBServiceGroup
+type LBServiceGroupSpec struct {
 	// CanBeShared determines whether the LBs that belong to this SG can
 	// be shared among multiple PureLB services.
 	// +kubebuilder:default=false
@@ -20,15 +20,15 @@ type ServiceGroupSpec struct {
 	EnvoyImage string `json:"envoy-image,omitempty"`
 
 	// EnvoyTemplate is the template that will be used to configure
-	// Envoy for the load balancers that belong to this ServiceGroup.
+	// Envoy for the load balancers that belong to this LBServiceGroup.
 	EnvoyTemplate marin3r.EnvoyConfigSpec `json:"envoy-template"`
 }
 
-// ServiceGroupStatus defines the observed state of ServiceGroup
-type ServiceGroupStatus struct {
+// LBServiceGroupStatus defines the observed state of LBServiceGroup
+type LBServiceGroupStatus struct {
 	// ProxySnapshotVersions is a map of current Envoy proxy
 	// configuration snapshot versions for the LBs that belong to this
-	// ServiceGroup. Each increments every time the snapshot changes. We
+	// LBServiceGroup. Each increments every time the snapshot changes. We
 	// store them here because they need to survive pod restarts.
 	// +kubebuilder:default={}
 	ProxySnapshotVersions map[string]int `json:"proxy-snapshot-versions"`
@@ -40,27 +40,27 @@ type ServiceGroupStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=sg;sgs
+// +kubebuilder:resource:shortName=lbsg;lbsgs
 // +kubebuilder:subresource:status
 
-// ServiceGroup is the Schema for the servicegroups API
-type ServiceGroup struct {
+// LBServiceGroup is the Schema for the lbservicegroups API
+type LBServiceGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ServiceGroupSpec   `json:"spec,omitempty"`
-	Status ServiceGroupStatus `json:"status,omitempty"`
+	Spec   LBServiceGroupSpec   `json:"spec,omitempty"`
+	Status LBServiceGroupStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ServiceGroupList contains a list of ServiceGroup
-type ServiceGroupList struct {
+// LBServiceGroupList contains a list of LBServiceGroup
+type LBServiceGroupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ServiceGroup `json:"items"`
+	Items           []LBServiceGroup `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ServiceGroup{}, &ServiceGroupList{})
+	SchemeBuilder.Register(&LBServiceGroup{}, &LBServiceGroupList{})
 }

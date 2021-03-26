@@ -1,6 +1,6 @@
 ---
 apiVersion: epic.acnodal.io/v1
-kind: ServiceGroup
+kind: LBServiceGroup
 metadata:
   namespace: epic-sample
   name: sample
@@ -83,7 +83,7 @@ spec:
                     - name: envoy.router
 ---
 apiVersion: epic.acnodal.io/v1
-kind: ServiceGroup
+kind: LBServiceGroup
 metadata:
   namespace: epic-sample
   name: sample2

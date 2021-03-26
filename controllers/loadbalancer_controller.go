@@ -72,9 +72,9 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return done, client.IgnoreNotFound(err)
 	}
 
-	// read the ServiceGroup that owns this LB
-	sg := &epicv1.ServiceGroup{}
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningServiceGroupLabel]}
+	// read the LBServiceGroup that owns this LB
+	sg := &epicv1.LBServiceGroup{}
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
 	err = r.Get(ctx, sgname, sg)
 	if err != nil {
 		log.Error(err, "Failed to find owning service group", "name", sgname)

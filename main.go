@@ -113,12 +113,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ServiceGroupReconciler{
+	if err = (&controllers.LBServiceGroupReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ServiceGroup"),
+		Log:    ctrl.Log.WithName("controllers").WithName("LBServiceGroup"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceGroup")
+		setupLog.Error(err, "unable to create controller", "controller", "LBServiceGroup")
 		os.Exit(1)
 	}
 

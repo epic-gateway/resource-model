@@ -7,7 +7,7 @@ resources:
   kind: Account
   version: v1
 - group: epic
-  kind: ServiceGroup
+  kind: LBServiceGroup
   version: v1
 - group: epic
   kind: LoadBalancer

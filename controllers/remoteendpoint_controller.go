@@ -74,9 +74,9 @@ func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return done, err
 	}
 
-	// Get the ServiceGroup that owns this RemoteEndpoint
-	sg := &epicv1.ServiceGroup{}
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningServiceGroupLabel]}
+	// Get the LBServiceGroup that owns this RemoteEndpoint
+	sg := &epicv1.LBServiceGroup{}
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
 	if err := r.Get(ctx, sgname, sg); err != nil {
 		return done, err
 	}

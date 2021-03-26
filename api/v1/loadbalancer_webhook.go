@@ -62,7 +62,7 @@ func (r *LoadBalancer) Default() {
 	r.Finalizers = append(r.Finalizers, LoadbalancerFinalizerName)
 
 	// Fetch this LB's owning service group
-	sg, err := r.fetchServiceGroup()
+	sg, err := r.fetchLBServiceGroup()
 	if err != nil {
 		loadbalancerlog.Info("failed to fetch owning service group", "error", err)
 		return
@@ -76,7 +76,7 @@ func (r *LoadBalancer) Default() {
 	r.Spec.ServiceID = serviceID
 
 	// If the user hasn't provided an Envoy config template, copy it
-	// from the owning ServiceGroup
+	// from the owning LBServiceGroup
 	if r.Spec.EnvoyTemplate == (*marin3r.EnvoyConfigSpec)(nil) {
 		r.Spec.EnvoyTemplate = &sg.Spec.EnvoyTemplate
 	}
@@ -114,7 +114,7 @@ func (r *LoadBalancer) ValidateCreate() error {
 	loadbalancerlog.Info("validate create", "name", r.Name, "contents", r)
 
 	// Block create if there's no owning SG
-	if _, err := r.fetchServiceGroup(); err != nil {
+	if _, err := r.fetchLBServiceGroup(); err != nil {
 		return err
 	}
 
@@ -140,13 +140,13 @@ func (r *LoadBalancer) ValidateDelete() error {
 	return nil
 }
 
-func (r *LoadBalancer) fetchServiceGroup() (*ServiceGroup, error) {
+func (r *LoadBalancer) fetchLBServiceGroup() (*LBServiceGroup, error) {
 	// Block create if there's no owning SG
-	if r.Labels[OwningServiceGroupLabel] == "" {
+	if r.Labels[OwningLBServiceGroupLabel] == "" {
 		return nil, fmt.Errorf("LB has no owning service group label")
 	}
-	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningServiceGroupLabel]}
-	sg := &ServiceGroup{}
+	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningLBServiceGroupLabel]}
+	sg := &LBServiceGroup{}
 	if err := crtclient.Get(context.TODO(), sgName, sg); err != nil {
 		replog.Info("bad input: no owning service group", "name", sgName)
 		return nil, err
@@ -158,7 +158,7 @@ func (r *LoadBalancer) fetchServiceGroup() (*ServiceGroup, error) {
 // allocateServiceID allocates a service id from the Account that owns
 // this LB. If this call succeeds (i.e., error is nil) then the
 // returned service id will be unique.
-func allocateServiceID(ctx context.Context, cl client.Client, sg *ServiceGroup) (serviceID uint16, err error) {
+func allocateServiceID(ctx context.Context, cl client.Client, sg *LBServiceGroup) (serviceID uint16, err error) {
 	tries := 3
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
 		serviceID, err = nextServiceID(ctx, cl, sg)
@@ -172,12 +172,12 @@ func allocateServiceID(ctx context.Context, cl client.Client, sg *ServiceGroup) 
 // nextServiceID gets the next LB ServiceID by doing a
 // read-modify-write cycle. It might be inefficient in terms of not
 // using all of the values that it allocates but it's safe because the
-// Update() will only succeed if the ServiceGroup hasn't been modified
+// Update() will only succeed if the LBServiceGroup hasn't been modified
 // since the Get().
 //
 // This function doesn't retry so if there's a collision with some
 // other process the caller needs to retry.
-func nextServiceID(ctx context.Context, cl client.Client, sg *ServiceGroup) (serviceID uint16, err error) {
+func nextServiceID(ctx context.Context, cl client.Client, sg *LBServiceGroup) (serviceID uint16, err error) {
 
 	// increment the SGs service ID counter
 	sg.Status.CurrentServiceID++

@@ -1,13 +1,13 @@
-# permissions for end users to edit servicegroups.
+# permissions for end users to edit lbservicegroups.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: servicegroup-editor-role
+  name: lbservicegroup-editor-role
 rules:
 - apiGroups:
   - epic.acnodal.io
   resources:
-  - servicegroups
+  - lbservicegroups
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - epic.acnodal.io
   resources:
-  - servicegroups/status
+  - lbservicegroups/status
   verbs:
   - get
