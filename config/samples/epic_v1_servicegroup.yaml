@@ -46,7 +46,7 @@ spec:
                 transport_api_version: V2
                 grpc_services:
                 - envoy_grpc:
-                    cluster_name: endpoints
+                    cluster_name: eds-server
           lb_policy: ROUND_ROBIN
       listeners:
       - name: SET_BY_EPIC

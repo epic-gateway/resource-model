@@ -77,8 +77,7 @@ func (r *NamespaceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return result, err
 	}
 
-	// Create the "endpoints" EDS control plane deployment and RBAC
-	// cruft
+	// Create the EDS server deployment and RBAC cruft
 	if err := maybeCreateServiceAccount(ctx, r, l, ns.Name); err != nil {
 		return result, err
 	}
@@ -155,7 +154,7 @@ func maybeCreateMarin3r(ctx context.Context, cl client.Client, l logr.Logger, na
 func maybeCreateServiceAccount(ctx context.Context, cl client.Client, l logr.Logger, namespace string) error {
 	sa := v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "endpoints",
+			Name:      "eds-server",
 			Namespace: namespace,
 			Labels: map[string]string{
 				"app": "epic",
@@ -173,12 +172,12 @@ func maybeCreateServiceAccount(ctx context.Context, cl client.Client, l logr.Log
 }
 
 // maybeCreateRole creates a new Role (with the permissions that our
-// endpoints service needs) if one doesn't exist, or does nothing if
-// one already exists.
+// eds service needs) if one doesn't exist, or does nothing if one
+// already exists.
 func maybeCreateRole(ctx context.Context, cl client.Client, l logr.Logger, namespace string) error {
 	role := rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "endpoints",
+			Name:      "eds-server",
 			Namespace: namespace,
 			Labels: map[string]string{
 				"app": "epic",
@@ -213,7 +212,7 @@ func maybeCreateRole(ctx context.Context, cl client.Client, l logr.Logger, names
 func maybeCreateRoleBinding(ctx context.Context, cl client.Client, l logr.Logger, namespace string) error {
 	binding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "endpoints",
+			Name:      "eds-server",
 			Namespace: namespace,
 			Labels: map[string]string{
 				"app": "epic",
@@ -222,12 +221,12 @@ func maybeCreateRoleBinding(ctx context.Context, cl client.Client, l logr.Logger
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "endpoints",
+			Name:     "eds-server",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      "endpoints",
+				Name:      "eds-server",
 				Namespace: namespace,
 			},
 		},
@@ -251,13 +250,13 @@ func maybeCreateService(ctx context.Context, cl client.Client, l logr.Logger, na
 			Namespace: namespace,
 			Labels: map[string]string{
 				"app":       "epic",
-				"component": "endpoints",
+				"component": "eds-server",
 			},
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
 				"app":       "epic",
-				"component": "endpoints",
+				"component": "eds-server",
 			},
 			ClusterIP: "None",
 		},
@@ -277,12 +276,12 @@ func maybeCreateService(ctx context.Context, cl client.Client, l logr.Logger, na
 func maybeCreateDeployment(ctx context.Context, cl client.Client, l logr.Logger, namespace string, edsImage string) error {
 	labels := map[string]string{
 		"app":       "epic",
-		"component": "endpoints",
+		"component": "eds-server",
 	}
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "endpoints",
+			Name:      "eds-server",
 			Namespace: namespace,
 			Labels:    labels,
 		},
@@ -295,13 +294,13 @@ func maybeCreateDeployment(ctx context.Context, cl client.Client, l logr.Logger,
 					Labels: labels,
 				},
 				Spec: v1.PodSpec{
-					Hostname:  "endpoints",
+					Hostname:  "eds-server",
 					Subdomain: "epic",
 					ImagePullSecrets: []v1.LocalObjectReference{
 						{Name: "gitlab"},
 					},
 					Containers: []v1.Container{{
-						Name:            "endpoints",
+						Name:            "eds-server",
 						Image:           edsImage,
 						ImagePullPolicy: v1.PullAlways,
 						Env: []v1.EnvVar{{
@@ -333,7 +332,7 @@ func maybeCreateDeployment(ctx context.Context, cl client.Client, l logr.Logger,
 							},
 						},
 					}},
-					ServiceAccountName:            "endpoints",
+					ServiceAccountName:            "eds-server",
 					TerminationGracePeriodSeconds: pointer.Int64Ptr(0),
 					Volumes: []v1.Volume{
 						{
