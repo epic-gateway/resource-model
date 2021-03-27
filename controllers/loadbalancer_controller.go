@@ -227,6 +227,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if err != nil {
 		return done, err
 	}
+	ctrl.SetControllerReference(lb, &envoyConfig, r.Scheme)
 
 	// Create/update the marin3r EnvoyConfig. We'll Create() first since
 	// that's probably the most common case. If Create() fails then it
