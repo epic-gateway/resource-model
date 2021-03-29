@@ -14,8 +14,8 @@ import (
 // LBServiceGroupReconciler reconciles a LBServiceGroup object
 type LBServiceGroupReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log           logr.Logger
+	RuntimeScheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups,verbs=get;list;watch;create;update;patch;delete
@@ -23,8 +23,7 @@ type LBServiceGroupReconciler struct {
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *LBServiceGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
+func (r *LBServiceGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.Log.WithValues("lbservicegroup", req.NamespacedName)
 
 	// your logic here
@@ -37,4 +36,9 @@ func (r *LBServiceGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&epicv1.LBServiceGroup{}).
 		Complete(r)
+}
+
+// Scheme returns this reconciler's scheme.
+func (r *LBServiceGroupReconciler) Scheme() *runtime.Scheme {
+	return r.RuntimeScheme
 }

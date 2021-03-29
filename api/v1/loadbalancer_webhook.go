@@ -42,13 +42,7 @@ func (r *LoadBalancer) SetupWebhookWithManager(mgr ctrl.Manager, alloc PoolAlloc
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=accounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=accounts/status,verbs=get;update
 
-// +kubebuilder:webhook:verbs=create,path=/mutate-epic-acnodal-io-v1-loadbalancer,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
-//
-//  FIXME: we use v1beta1 here because controller-runtime doesn't
-//  support v1 yet. When it does, we should remove
-//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
-//  will switch to v1 (the default)
-//
+// +kubebuilder:webhook:verbs=create,path=/mutate-epic-acnodal-io-v1-loadbalancer,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &LoadBalancer{}
 
@@ -99,13 +93,7 @@ func (r *LoadBalancer) Default() {
 	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)
 }
 
-// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-epic-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
-//
-//  FIXME: we use v1beta1 here because controller-runtime doesn't
-//  support v1 yet. When it does, we should remove
-//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
-//  will switch to v1 (the default)
-//
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-epic-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Validator = &LoadBalancer{}
 

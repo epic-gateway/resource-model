@@ -15,17 +15,16 @@ import (
 // EPICReconciler reconciles a EPIC object
 type EPICReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log           logr.Logger
+	RuntimeScheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=epics,verbs=get;list;watch
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *EPICReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *EPICReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	done := ctrl.Result{Requeue: false}
-	ctx := context.Background()
 	log := r.Log.WithValues("EPIC", req.NamespacedName)
 
 	// read the object that caused the event
@@ -56,4 +55,9 @@ func (r *EPICReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&epicv1.EPIC{}).
 		Complete(r)
+}
+
+// Scheme returns this reconciler's scheme.
+func (r *EPICReconciler) Scheme() *runtime.Scheme {
+	return r.RuntimeScheme
 }

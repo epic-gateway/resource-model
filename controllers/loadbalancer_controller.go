@@ -39,9 +39,9 @@ const (
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
-	Log       logr.Logger
-	allocator *allocator.Allocator
-	Scheme    *runtime.Scheme
+	Log           logr.Logger
+	allocator     *allocator.Allocator
+	RuntimeScheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list;watch;update;patch;delete
@@ -53,11 +53,10 @@ type LoadBalancerReconciler struct {
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	done := ctrl.Result{Requeue: false}
 	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
-	ctx := context.Background()
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
 
 	log.Info("reconciling")
@@ -227,7 +226,7 @@ func (r *LoadBalancerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if err != nil {
 		return done, err
 	}
-	ctrl.SetControllerReference(lb, &envoyConfig, r.Scheme)
+	ctrl.SetControllerReference(lb, &envoyConfig, r.Scheme())
 
 	// Create/update the marin3r EnvoyConfig. We'll Create() first since
 	// that's probably the most common case. If Create() fails then it
@@ -257,6 +256,11 @@ func (r *LoadBalancerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&epicv1.LoadBalancer{}).
 		Complete(r)
+}
+
+// Scheme returns this reconciler's scheme.
+func (r *LoadBalancerReconciler) Scheme() *runtime.Scheme {
+	return r.RuntimeScheme
 }
 
 func envoyPodName(lb *epicv1.LoadBalancer) string {
@@ -365,7 +369,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, spname
 	}
 
 	// Set LB instance as the owner and controller
-	ctrl.SetControllerReference(lb, dep, r.Scheme)
+	ctrl.SetControllerReference(lb, dep, r.Scheme())
 	return dep
 }
 

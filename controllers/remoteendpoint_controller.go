@@ -23,8 +23,8 @@ import (
 // RemoteEndpointReconciler reconciles RemoteEndpoint objects.
 type RemoteEndpointReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log           logr.Logger
+	RuntimeScheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=remoteendpoints,verbs=get;list;watch;create;update;patch;delete
@@ -32,10 +32,9 @@ type RemoteEndpointReconciler struct {
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *RemoteEndpointReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	done := ctrl.Result{Requeue: false}
 	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
-	ctx := context.Background()
 	log := r.Log.WithValues("rep", req.NamespacedName)
 
 	// Get the RemoteEndpoint that caused the event
@@ -171,6 +170,11 @@ func (r *RemoteEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&epicv1.RemoteEndpoint{}).
 		Complete(r)
+}
+
+// Scheme returns this reconciler's scheme.
+func (r *RemoteEndpointReconciler) Scheme() *runtime.Scheme {
+	return r.RuntimeScheme
 }
 
 func (r *RemoteEndpointReconciler) configureTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {

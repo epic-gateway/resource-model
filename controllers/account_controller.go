@@ -15,8 +15,8 @@ import (
 // AccountReconciler reconciles a Account object
 type AccountReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log           logr.Logger
+	RuntimeScheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=accounts,verbs=get;list;watch;update
@@ -24,10 +24,9 @@ type AccountReconciler struct {
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *AccountReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *AccountReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	result := ctrl.Result{}
-	ctx := context.Background()
 	log := r.Log.WithValues("account", req.NamespacedName)
 
 	log.Info("reconciling")
@@ -56,4 +55,9 @@ func (r *AccountReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&epicv1.Account{}).
 		Complete(r)
+}
+
+// Scheme returns this reconciler's scheme.
+func (r *AccountReconciler) Scheme() *runtime.Scheme {
+	return r.RuntimeScheme
 }

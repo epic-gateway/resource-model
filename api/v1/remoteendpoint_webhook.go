@@ -32,13 +32,7 @@ func (r *RemoteEndpoint) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-epic-acnodal-io-v1-remoteendpoint,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=remoteendpoints,verbs=create,versions=v1,name=mremoteendpoint.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
-//
-//  FIXME: we use v1beta1 here because controller-runtime doesn't
-//  support v1 yet. When it does, we should remove
-//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
-//  will switch to v1 (the default)
-//
+// +kubebuilder:webhook:path=/mutate-epic-acnodal-io-v1-remoteendpoint,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=remoteendpoints,verbs=create,versions=v1,name=mremoteendpoint.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &RemoteEndpoint{}
 
@@ -52,13 +46,7 @@ func (r *RemoteEndpoint) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-epic-acnodal-io-v1-remoteendpoint,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=remoteendpoints,versions=v1,name=vremoteendpoint.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
-//
-//  FIXME: we use v1beta1 here because controller-runtime doesn't
-//  support v1 yet. When it does, we should remove
-//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
-//  will switch to v1 (the default)
-//
+// +kubebuilder:webhook:verbs=create;update,path=/validate-epic-acnodal-io-v1-remoteendpoint,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=remoteendpoints,versions=v1,name=vremoteendpoint.kb.io,sideEffects=None,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Validator = &RemoteEndpoint{}
 

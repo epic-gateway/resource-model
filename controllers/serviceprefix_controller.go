@@ -22,10 +22,10 @@ import (
 // ServicePrefixReconciler reconciles a ServicePrefix object
 type ServicePrefixReconciler struct {
 	client.Client
-	NetClient netclient.K8sCniCncfIoV1Interface
-	Log       logr.Logger
-	Allocator *allocator.Allocator
-	Scheme    *runtime.Scheme
+	NetClient     netclient.K8sCniCncfIoV1Interface
+	Log           logr.Logger
+	Allocator     *allocator.Allocator
+	RuntimeScheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=serviceprefixes,verbs=get;list;watch;create;update;patch;delete
@@ -35,10 +35,9 @@ type ServicePrefixReconciler struct {
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *ServicePrefixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	result := ctrl.Result{}
-	ctx := context.Background()
 	l := r.Log.WithValues("serviceprefix", req.NamespacedName)
 
 	// read the object that caused the event
@@ -112,6 +111,11 @@ func (r *ServicePrefixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&epicv1.ServicePrefix{}).
 		Complete(r)
+}
+
+// Scheme returns this reconciler's scheme.
+func (r *ServicePrefixReconciler) Scheme() *runtime.Scheme {
+	return r.RuntimeScheme
 }
 
 // netdefForSG returns a NetworkAttachmentDefinition object that will

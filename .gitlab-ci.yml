@@ -20,7 +20,7 @@ manifest:
   # clone. We need to clone private repos, e.g., epic/true-ingress
   # since this project depends on them.
   - echo "machine gitlab.com login gitlab-ci-token password ${CI_JOB_TOKEN}" > ~/.netrc
-  - go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1
+  - go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0
   - go get golang.org/x/lint/golint
 
   script:

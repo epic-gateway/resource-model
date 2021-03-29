@@ -25,8 +25,8 @@ var (
 // NamespaceReconciler reconciles a Namespace object
 type NamespaceReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log           logr.Logger
+	RuntimeScheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get;watch
@@ -39,10 +39,9 @@ type NamespaceReconciler struct {
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *NamespaceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
 	result := ctrl.Result{}
-	ctx := context.Background()
 	l := r.Log.WithValues("namespace", req.NamespacedName.Name)
 
 	// read the object that caused the event
@@ -102,6 +101,11 @@ func (r *NamespaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.Namespace{}).
 		Complete(r)
+}
+
+// Scheme returns this reconciler's scheme.
+func (r *NamespaceReconciler) Scheme() *runtime.Scheme {
+	return r.RuntimeScheme
 }
 
 // nsHasLabels indicates whether the provided namespace has the
@@ -370,7 +374,7 @@ func maybeCreateDeployment(ctx context.Context, cl client.Client, l logr.Logger,
 
 // maybeCreate creates obj if it doesn't exist, or does nothing if it
 // already exists.
-func maybeCreate(ctx context.Context, cl client.Client, obj runtime.Object) error {
+func maybeCreate(ctx context.Context, cl client.Client, obj client.Object) error {
 	if err := cl.Create(ctx, obj); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			return err

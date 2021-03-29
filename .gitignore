@@ -26,4 +26,5 @@ bin
 # generated manifests
 config/crd/bases/*yaml
 config/rbac/role.yaml
+config/webhook/manifests.yaml
 deploy/epic-resource-model*.yaml

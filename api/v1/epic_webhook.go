@@ -19,13 +19,7 @@ func (r *EPIC) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-epic-acnodal-io-v1-epic,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=epics,verbs=create;update,versions=v1,name=mepic.kb.io,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
-//
-//  FIXME: we use v1beta1 here because controller-runtime doesn't
-//  support v1 yet. When it does, we should remove
-//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
-//  will switch to v1 (the default)
-//
+// +kubebuilder:webhook:path=/mutate-epic-acnodal-io-v1-epic,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=epics,verbs=create;update,versions=v1,name=mepic.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &EPIC{}
 
@@ -35,13 +29,7 @@ func (r *EPIC) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-epic-acnodal-io-v1-epic,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=epics,versions=v1,name=vepic.kb.io,sideEffects=none,webhookVersions=v1beta1,admissionReviewVersions=v1beta1
-//
-//  FIXME: we use v1beta1 here because controller-runtime doesn't
-//  support v1 yet. When it does, we should remove
-//  ",webhookVersions=v1beta1,admissionReviewVersions=v1beta1" which
-//  will switch to v1 (the default)
-//
+// +kubebuilder:webhook:verbs=create;update,path=/validate-epic-acnodal-io-v1-epic,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=epics,versions=v1,name=vepic.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Validator = &EPIC{}
 
