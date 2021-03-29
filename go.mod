@@ -3,7 +3,7 @@ module gitlab.com/acnodal/epic/resource-model
 go 1.14
 
 require (
-	github.com/3scale/marin3r v0.7.0-alpha6
+	github.com/3scale/marin3r v0.7.0
 	github.com/containernetworking/plugins v0.8.7
 	github.com/go-logr/logr v0.3.0
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
