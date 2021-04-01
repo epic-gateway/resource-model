@@ -29,6 +29,11 @@ type EPICSpec struct {
 	// +kubebuilder:default="registry.gitlab.com/acnodal/xds-operator:latest"
 	EDSImage string `json:"eds-image"`
 
+	// XDSImage, if set, specifies the Marin3r discovery service image
+	// to run.  If not set, the default will be the image specified in
+	// the marin3r deployment manifest.
+	XDSImage *string `json:"xds-image,omitempty"`
+
 	// NodeBase is the "base" configuration for all nodes in the
 	// cluster.
 	NodeBase Node `json:"base"`

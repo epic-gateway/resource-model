@@ -63,16 +63,16 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return result, nil
 	}
 
-	// Create the Marin3r DiscoveryService that will configure this
-	// namespace's Envoys
-	if err := maybeCreateMarin3r(ctx, r, l, ns.Name, true); err != nil {
+	// read the configuration singleton
+	config := &epicv1.EPIC{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}, config); err != nil {
+		l.Info("can't get config singleton")
 		return result, err
 	}
 
-	// fetch the node config; it tells us the EDS image to launch
-	config := &epicv1.EPIC{}
-	err = r.Get(ctx, types.NamespacedName{Name: epicv1.ConfigName, Namespace: epicv1.ConfigNamespace}, config)
-	if err != nil {
+	// Create the Marin3r DiscoveryService that will configure this
+	// namespace's Envoys
+	if err := r.maybeCreateMarin3r(ctx, ns.Name, config.Spec.XDSImage, true); err != nil {
 		return result, err
 	}
 
@@ -133,23 +133,24 @@ func nsHasLabel(o *v1.Namespace, label, value string) bool {
 
 // maybeCreateMarin3r creates a new marin3r.DiscoveryService if one
 // doesn't exist, or does nothing if one already exists.
-func maybeCreateMarin3r(ctx context.Context, cl client.Client, l logr.Logger, namespace string, debug bool) error {
+func (r *NamespaceReconciler) maybeCreateMarin3r(ctx context.Context, namespace string, image *string, debug bool) error {
 	ds := marin3r.DiscoveryService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "discoveryservice",
 			Namespace: namespace,
 		},
 		Spec: marin3r.DiscoveryServiceSpec{
+			Image: image,
 			Debug: pointer.BoolPtr(true),
 		},
 	}
 
-	if err := maybeCreate(ctx, cl, &ds); err != nil {
-		l.Info("Failed to create new DiscoveryService", "message", err.Error(), "name", ds.Name)
+	if err := maybeCreate(ctx, r, &ds); err != nil {
+		r.Log.Info("Failed to create new DiscoveryService", "message", err.Error(), "name", ds.Name)
 		return err
 	}
 
-	l.Info("DiscoveryService created", "name", ds.Name)
+	r.Log.Info("DiscoveryService created", "name", ds.Name)
 	return nil
 }
 
