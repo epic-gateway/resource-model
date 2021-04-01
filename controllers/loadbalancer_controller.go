@@ -331,7 +331,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, spname
 									ReadOnly:  true,
 								},
 								{
-									Name:      "envoy-sidecar-bootstrap",
+									Name:      "envoy-sidecar-bootstrap-v3",
 									MountPath: "/etc/envoy/bootstrap",
 									ReadOnly:  true,
 								},
@@ -352,11 +352,11 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, spname
 							},
 						},
 						{
-							Name: "envoy-sidecar-bootstrap",
+							Name: "envoy-sidecar-bootstrap-v3",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "envoy-sidecar-bootstrap",
+										Name: "envoy-sidecar-bootstrap-v3",
 									},
 									DefaultMode: pointer.Int32Ptr(420),
 								},
