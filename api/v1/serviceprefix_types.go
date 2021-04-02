@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"net"
+
 	"github.com/vishvananda/netlink"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,6 +25,11 @@ type ServicePrefixSpec struct {
 	Aggregation string `json:"aggregation,omitempty"`
 	// +kubebuilder:default=multus0
 	MultusBridge string `json:"multus-bridge,omitempty"`
+}
+
+// SubnetIPNet returns this ServicePrefix's subnet in the form of a net.IPNet.
+func (sps *ServicePrefixSpec) SubnetIPNet() (*net.IPNet, error) {
+	return netlink.ParseIPNet(sps.Subnet)
 }
 
 // GatewayAddr returns this ServicePrefix's gateway in the form of a netlink.Addr.

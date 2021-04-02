@@ -133,8 +133,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix) (*nettyp
 			"bridge":    sp.Spec.MultusBridge,
 			"isGateway": false,
 			"ipam": map[string]interface{}{
-				"type":   "host-local",
-				"subnet": sp.Spec.Subnet,
+				"type": "static",
 			},
 		}},
 	})

@@ -161,7 +161,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Launch the Envoy deployment that will proxy this LB
-	dep := r.deploymentForLB(lb, &prefixName, sg.Spec.EnvoyImage)
+	dep := r.deploymentForLB(lb, prefix, sg.Spec.EnvoyImage)
 	err = r.Create(ctx, dep)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
@@ -272,13 +272,27 @@ func envoyPodName(lb *epicv1.LoadBalancer) string {
 
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
-func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, spname *types.NamespacedName, envoyImage string) *appsv1.Deployment {
+func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *epicv1.ServicePrefix, envoyImage string) *appsv1.Deployment {
 	labels := labelsForLB(lb.Name)
 
+	// Format the pod's IP address by parsing the raw address and adding
+	// the netmask from the service prefix Subnet
+	addr, err := netlink.ParseAddr(lb.Spec.PublicAddress + "/32")
+	if err != nil {
+		return nil
+	}
+	subnet, err := sp.Spec.SubnetIPNet()
+	if err != nil {
+		return nil
+	}
+	addr.Mask = subnet.Mask
+
+	// Format the multus configuration that tells multus which IP
+	// address to attach to the pod's net1 interface.
 	multusConfig, err := json.Marshal([]map[string]interface{}{{
-		"name":      spname.Name,
-		"namespace": spname.Namespace,
-		"ips":       []string{lb.Spec.PublicAddress}},
+		"name":      sp.Name,
+		"namespace": sp.Namespace,
+		"ips":       []string{addr.String()}},
 	})
 	if err != nil {
 		return nil
