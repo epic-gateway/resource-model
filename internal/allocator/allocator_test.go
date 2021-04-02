@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
@@ -809,21 +810,24 @@ func TestValidation(t *testing.T) {
 	goodSpec := epicv1.ServicePrefixSpec{
 		Subnet:  "1.2.3.0/24",
 		Pool:    "1.2.3.8-1.2.3.11",
-		Gateway: "1.2.3.0",
+		Gateway: pointer.StringPtr("1.2.3.0"),
+	}
+	noGatewaySpec := epicv1.ServicePrefixSpec{
+		Subnet: "1.2.3.0/24",
+		Pool:   "1.2.3.8-1.2.3.11",
 	}
 	invalidSpec := epicv1.ServicePrefixSpec{
-		Subnet:  "gah",
-		Pool:    "3.2.1.1-3.2.1.4",
-		Gateway: "3.2.1.0",
+		Subnet: "gah",
+		Pool:   "3.2.1.1-3.2.1.4",
 	}
 	overlapSpec := epicv1.ServicePrefixSpec{
-		Subnet:  "1.2.3.0/24",
-		Pool:    "1.2.3.7-1.2.3.11",
-		Gateway: "1.2.3.0",
+		Subnet: "1.2.3.0/24",
+		Pool:   "1.2.3.7-1.2.3.11",
 	}
 
-	// A good SP should validate
+	// Good SPs should validate
 	assert.Nil(t, alloc.ValidatePool(servicePrefix("notDuplicate", goodSpec)), "good SP should validate")
+	assert.Nil(t, alloc.ValidatePool(servicePrefix("notDuplicate", noGatewaySpec)), "noGatewaySpec SP should validate")
 
 	// Invalid SP should trigger an error
 	assert.Nil(t, alloc.ValidatePool(servicePrefix("notDuplicate", invalidSpec)), "non-duplicate SP name not accepted")

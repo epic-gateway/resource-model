@@ -18,8 +18,9 @@ type ServicePrefixSpec struct {
 	// from-to notation, e.g., "192.168.77.2-192.168.77.8".
 	Pool string `json:"pool"`
 	// Gateway is the gateway address of this ServicePrefix. It should
-	// be specified as an IP address alone, with no subnet.
-	Gateway string `json:"gateway"`
+	// be specified as an IP address alone, with no subnet. If no
+	// Gateway is provided the multus0 bridge won't have an IP address.
+	Gateway *string `json:"gateway,omitempty"`
 
 	// +kubebuilder:default=default
 	Aggregation string `json:"aggregation,omitempty"`
@@ -34,13 +35,17 @@ func (sps *ServicePrefixSpec) SubnetIPNet() (*net.IPNet, error) {
 
 // GatewayAddr returns this ServicePrefix's gateway in the form of a netlink.Addr.
 func (sps *ServicePrefixSpec) GatewayAddr() *netlink.Addr {
+	if sps.Gateway == nil {
+		return nil
+	}
+
 	sn, err := netlink.ParseIPNet(sps.Subnet)
 	if err != nil {
 		return nil
 	}
 
 	// parse with a dummy /32 for now, we'll override later
-	addr, err := netlink.ParseAddr(sps.Gateway + "/32")
+	addr, err := netlink.ParseAddr(*sps.Gateway + "/32")
 	if err != nil {
 		return nil
 	}

@@ -541,9 +541,10 @@ func (r *LoadBalancerReconciler) ensureBridge(brname string, gateway *netlink.Ad
 	}
 
 	// add the gateway address to the bridge interface
-	err = netlink.AddrReplace(br, gateway)
-	if err != nil {
-		return nil, fmt.Errorf("could not add %v: to %v %w", gateway, br, err)
+	if gateway != nil {
+		if err := netlink.AddrReplace(br, gateway); err != nil {
+			return nil, fmt.Errorf("could not add %v: to %v %w", gateway, br, err)
+		}
 	}
 
 	return br, nil
