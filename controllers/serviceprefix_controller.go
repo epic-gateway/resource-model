@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
@@ -37,36 +38,59 @@ type ServicePrefixReconciler struct {
 // Request is asking for.
 func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var err error
+	done := ctrl.Result{Requeue: false}
 	result := ctrl.Result{}
-	l := r.Log.WithValues("serviceprefix", req.NamespacedName)
+	log := r.Log.WithValues("serviceprefix", req.NamespacedName)
 
 	// read the object that caused the event
 	sp := epicv1.ServicePrefix{}
 	err = r.Get(ctx, req.NamespacedName, &sp)
 	if err != nil {
-		r.Log.Error(err, "reading ServicePrefix")
-		return result, err
+		log.Info("can't get resource, probably deleted")
+		// ignore not-found errors, since they can't be fixed by an
+		// immediate requeue (we'll need to wait for a new notification),
+		// and we can get them on deleted requests.
+		return done, client.IgnoreNotFound(err)
+	}
+
+	// Check if k8s wants to delete this object
+	if !sp.ObjectMeta.DeletionTimestamp.IsZero() {
+
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&sp, epicv1.ServicePrefixFinalizerName) {
+			log.Info("to be deleted")
+
+			// Remove our finalizer from the list and update the CR
+			controllerutil.RemoveFinalizer(&sp, epicv1.ServicePrefixFinalizerName)
+			if err := r.Update(ctx, &sp); err != nil {
+				return done, err
+			}
+
+			r.Allocator.RemovePool(sp)
+
+			return done, nil
+		}
 	}
 
 	// check if we've got a netattachdef for this SP
 	netdef := r.fetchNetAttachDef(ctx, req.NamespacedName.Namespace, req.NamespacedName.Name)
 	if netdef == nil {
-		l.Info("need to create")
+		log.Info("need to create")
 		// create a netdef to work with the ServicePrefix
 		netdef, err = r.netdefForSP(&sp)
 		if err == nil {
 			// load the netdef into k8s
 			netdef, err = r.addNetAttachDef(ctx, netdef)
 			if err != nil {
-				r.Log.Error(err, "adding netdef")
+				log.Error(err, "adding netdef")
 				return result, err
 			}
 		} else {
-			r.Log.Error(err, "creating netdef")
+			log.Error(err, "creating netdef")
 			return result, err
 		}
 	} else {
-		l.Info("netdef already exists")
+		log.Info("netdef already exists")
 	}
 
 	// Read the set of LBs that belong to this SP
@@ -87,9 +111,9 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	for _, lb := range lbs.Items {
 		if existingIP := net.ParseIP(lb.Spec.PublicAddress); existingIP != nil {
 			if _, err := r.Allocator.Assign(lb.Name, existingIP, lb.Spec.PublicPorts, ""); err != nil {
-				r.Log.Info("Error assigning IP", "IP", existingIP, "error", err)
+				log.Info("Error assigning IP", "IP", existingIP, "error", err)
 			} else {
-				r.Log.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
+				log.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
 			}
 		}
 	}
@@ -143,7 +167,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix) (*nettyp
 
 	r.Log.Info("multus config", "config", string(netdefspec))
 
-	return &nettypes.NetworkAttachmentDefinition{
+	netdef := &nettypes.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sp.Name,
 			Namespace: sp.Namespace,
@@ -151,7 +175,9 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix) (*nettyp
 		Spec: nettypes.NetworkAttachmentDefinitionSpec{
 			Config: string(netdefspec),
 		},
-	}, nil
+	}
+	ctrl.SetControllerReference(sp, netdef, r.RuntimeScheme)
+	return netdef, nil
 }
 
 // addNetAttachDef loads netattach into kubernetes.

@@ -802,7 +802,7 @@ func TestPoolMetrics(t *testing.T) {
 	}
 }
 
-func TestValidation(t *testing.T) {
+func TestValidateCreate(t *testing.T) {
 	alloc := NewAllocator()
 	alloc.pools = map[string]Pool{
 		"test": mustLocalPool(t, "1.2.3.4/30"),
@@ -826,17 +826,85 @@ func TestValidation(t *testing.T) {
 	}
 
 	// Good SPs should validate
-	assert.Nil(t, alloc.ValidatePool(servicePrefix("notDuplicate", goodSpec)), "good SP should validate")
-	assert.Nil(t, alloc.ValidatePool(servicePrefix("notDuplicate", noGatewaySpec)), "noGatewaySpec SP should validate")
+	assert.Nil(t, alloc.ValidateCreate(servicePrefix("notDuplicate", goodSpec)), "good SP should validate")
+	assert.Nil(t, alloc.ValidateCreate(servicePrefix("notDuplicate", noGatewaySpec)), "noGatewaySpec SP should validate")
 
 	// Invalid SP should trigger an error
-	assert.Nil(t, alloc.ValidatePool(servicePrefix("notDuplicate", invalidSpec)), "non-duplicate SP name not accepted")
+	assert.Nil(t, alloc.ValidateCreate(servicePrefix("notDuplicate", invalidSpec)), "non-duplicate SP name not accepted")
 
 	// Duplicate name should trigger an error
-	assert.NotNil(t, alloc.ValidatePool(servicePrefix("test", goodSpec)), "duplicate SP name not rejected")
+	assert.NotNil(t, alloc.ValidateCreate(servicePrefix("test", goodSpec)), "duplicate SP name not rejected")
 
 	// Overlap should trigger an error
-	assert.NotNil(t, alloc.ValidatePool(servicePrefix("test", overlapSpec)), "overlapping SP name not rejected")
+	assert.NotNil(t, alloc.ValidateCreate(servicePrefix("test", overlapSpec)), "overlapping SP name not rejected")
+}
+
+func TestValidateUpdate(t *testing.T) {
+	alloc := NewAllocator()
+	alloc.pools = map[string]Pool{
+		"test":  mustLocalPool(t, "1.2.3.4/30"),
+		"other": mustLocalPool(t, "1.2.3.7-1.2.3.11"),
+	}
+	goodSpec := epicv1.ServicePrefixSpec{
+		Subnet:  "2.2.3.0/24",
+		Pool:    "2.2.3.8-2.2.3.11",
+		Gateway: pointer.StringPtr("2.2.3.0"),
+	}
+	noGatewaySpec := epicv1.ServicePrefixSpec{
+		Subnet: "2.2.3.0/24",
+		Pool:   "2.2.3.8-2.2.3.11",
+	}
+	invalidSpec := epicv1.ServicePrefixSpec{
+		Subnet: "gah",
+		Pool:   "3.2.1.1-3.2.1.4",
+	}
+	overlapSpec := epicv1.ServicePrefixSpec{
+		Subnet: "1.2.3.0/24",
+		Pool:   "1.2.3.11-1.2.3.21",
+	}
+
+	// Good SPs should validate
+	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("notDuplicate", goodSpec)), "good SP should validate")
+	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("notDuplicate", noGatewaySpec)), "noGatewaySpec SP should validate")
+
+	// Invalid SP should trigger an error
+	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("notDuplicate", invalidSpec)), "non-duplicate SP name not accepted")
+
+	// Update to an existing SP should validate
+	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("test", goodSpec)), "updated SP rejected")
+
+	// Overlap should trigger an error
+	assert.NotNil(t, alloc.ValidateUpdate(servicePrefix("test", overlapSpec)), "overlapping SP name not rejected")
+
+	// Once an address has been allocated from the pool, the pool can no longer be modified
+	alloc.AllocateFromPool("testSvc", "test", []corev1.ServicePort{{Port: 0}}, "testKey")
+	assert.NotNil(t, alloc.ValidateDelete(servicePrefix("test", goodSpec)))
+
+	// By unassigning the address we make it OK to delete the pool again
+	alloc.Unassign("testSvc")
+	assert.Nil(t, alloc.ValidateDelete(servicePrefix("test", goodSpec)))
+}
+
+func TestValidateDelete(t *testing.T) {
+	alloc := NewAllocator()
+	alloc.pools = map[string]Pool{
+		"test": mustLocalPool(t, "1.2.3.4/30"),
+	}
+	spec := epicv1.ServicePrefixSpec{
+		Subnet: "1.2.3.0/24",
+		Pool:   "1.2.3.4/30",
+	}
+
+	// No allocations yet, so deletion is OK
+	assert.Nil(t, alloc.ValidateDelete(servicePrefix("test", spec)))
+
+	// Once an address has been allocated from the pool, the pool can no longer be deleted
+	alloc.AllocateFromPool("testSvc", "test", []corev1.ServicePort{{Port: 0}}, "testKey")
+	assert.NotNil(t, alloc.ValidateDelete(servicePrefix("test", spec)))
+
+	// By unassigning the address we make it OK to delete the pool again
+	alloc.Unassign("testSvc")
+	assert.Nil(t, alloc.ValidateDelete(servicePrefix("test", spec)))
 }
 
 // Some helpers

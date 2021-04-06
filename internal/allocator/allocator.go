@@ -58,6 +58,20 @@ func (a *Allocator) AddPool(sp epicv1.ServicePrefix) error {
 	return nil
 }
 
+// RemovePool removes an address pool from the allocator.
+func (a *Allocator) RemovePool(sp epicv1.ServicePrefix) error {
+	err := a.ValidateDelete(&sp)
+	if err != nil {
+		return err
+	}
+	delete(a.pools, sp.Name)
+
+	poolCapacity.DeleteLabelValues(sp.Name)
+	poolActive.DeleteLabelValues(sp.Name)
+
+	return nil
+}
+
 // assign unconditionally updates internal state to reflect svc's
 // allocation of alloc. Caller must ensure that this call is safe.
 func (a *Allocator) assign(svc string, alloc *alloc) {
@@ -189,10 +203,10 @@ func (a *Allocator) IP(svc string) net.IP {
 	return nil
 }
 
-// ValidatePool checks whether the provided pool doesn't conflict with
+// ValidateCreate checks whether the provided pool doesn't conflict with
 // any other pools. A nil return value is good; non-nil means that
 // this pool can't be used.
-func (a *Allocator) ValidatePool(sp *epicv1.ServicePrefix) error {
+func (a *Allocator) ValidateCreate(sp *epicv1.ServicePrefix) error {
 	poolName := sp.Name
 
 	// Validate the pool by itself
@@ -203,14 +217,61 @@ func (a *Allocator) ValidatePool(sp *epicv1.ServicePrefix) error {
 
 	// Check that the pool isn't already defined
 	if _, duplicate := a.pools[poolName]; duplicate {
-		return fmt.Errorf("duplicate definition of pool %s", poolName)
+		return fmt.Errorf("duplicate definition of pool \"%s\"", poolName)
 	}
 
 	// Check that the pool doesn't overlap with any of the previous
 	// ones
 	for name, r := range a.pools {
 		if pool.Overlaps(r) {
-			return fmt.Errorf("pool %q overlaps with already defined pool %q", poolName, name)
+			return fmt.Errorf("pool \"%q\" overlaps already defined pool \"%q\"", poolName, name)
+		}
+	}
+
+	return nil
+}
+
+// ValidateUpdate checks whether the provided pool doesn't conflict
+// with any other pools except itself. A nil return value is good;
+// non-nil means that this pool can't be used.
+func (a *Allocator) ValidateUpdate(sp *epicv1.ServicePrefix) error {
+	// Validate the pool by itself
+	pool, err := parsePrefix(sp.Name, sp.Spec)
+	if err != nil {
+		return err
+	}
+
+	// If the pool has any allocations then it can't be modified.
+	for _, alloc := range a.allocated {
+		if alloc.pool == sp.Name {
+			return fmt.Errorf("pool \"%s\" can't be modified, addresses have been allocated from it", sp.Name)
+		}
+	}
+
+	// Check that the pool doesn't overlap with any of the previous
+	// ones, but don't check the pool against itself
+	otherPools := make(map[string]Pool, len(a.pools)-1)
+	for k, v := range a.pools {
+		if k != sp.Name {
+			otherPools[k] = v
+		}
+	}
+	for name, r := range otherPools {
+		if pool.Overlaps(r) {
+			return fmt.Errorf("pool \"%q\" overlaps already defined pool \"%q\"", sp.Name, name)
+		}
+	}
+
+	return nil
+}
+
+// ValidateDelete checks whether "sp" can be deleted.  A nil return
+// value is good; non-nil means that this pool can't be deleted.
+func (a *Allocator) ValidateDelete(sp *epicv1.ServicePrefix) error {
+	// If the pool has any allocations then it can't be deleted.
+	for _, alloc := range a.allocated {
+		if alloc.pool == sp.Name {
+			return fmt.Errorf("pool \"%s\" can't be deleted, addresses have been allocated from it", sp.Name)
 		}
 	}
 

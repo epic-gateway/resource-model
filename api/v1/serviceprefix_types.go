@@ -9,6 +9,12 @@ import (
 
 // Important: Run "make" to regenerate code after modifying this file
 
+const (
+	// ServicePrefixFinalizerName is the name of the finalizer that
+	// cleans up when a ServicePrefix CR is deleted.
+	ServicePrefixFinalizerName string = "service-prefix-finalizer.controller-manager.acnodal.io"
+)
+
 // ServicePrefixSpec defines the desired state of ServicePrefix
 type ServicePrefixSpec struct {
 	// Subnet is the subnet in which all of the pool addresses live. It
