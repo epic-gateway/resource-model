@@ -134,17 +134,6 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err := r.cleanupPFC(log, lb, account, prefix); err != nil {
 				log.Error(err, "Failed to cleanup PFC")
 			}
-
-			// Delete the service's EnvoyConfig
-			ec := marin3r.EnvoyConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: req.NamespacedName.Namespace,
-					Name:      req.NamespacedName.Name,
-				},
-			}
-			if err := r.Delete(ctx, &ec); err != nil {
-				log.Error(err, "Failed to delete EnvoyConfig")
-			}
 		}
 
 		// Stop reconciliation as the item is being deleted
