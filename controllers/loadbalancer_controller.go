@@ -5,16 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
-	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netlink/nl"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +25,7 @@ import (
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
 	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
 	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
+	"gitlab.com/acnodal/epic/resource-model/internal/network"
 	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
 )
 
@@ -41,7 +38,7 @@ const (
 type LoadBalancerReconciler struct {
 	client.Client
 	Log           logr.Logger
-	allocator     *allocator.Allocator
+	Allocator     *allocator.Allocator
 	RuntimeScheme *runtime.Scheme
 }
 
@@ -136,7 +133,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// going to ensure that we try everything
 
 			// Return the LB's address to its pool
-			if !r.allocator.Unassign(req.NamespacedName.String()) {
+			if !r.Allocator.Unassign(req.NamespacedName.String()) {
 				fmt.Printf("ERROR freeing address from %s\n", req.NamespacedName.String())
 				// Continue - we want to delete the CR even if something went
 				// wrong with this Unassign
@@ -175,6 +172,9 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Set up the network and PFC
 	err = r.setup(log, publicAddr, subnet, lb, account.Spec.GroupID, prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr())
+	if err != nil {
+		return done, err
+	}
 
 	// List the endpoints that belong to this LB in case this is an
 	// update to an LB that already has endpoints. The remoteendpoints
@@ -381,199 +381,6 @@ func washProtocol(proto corev1.Protocol) corev1.Protocol {
 	return corev1.Protocol(strings.ToUpper(string(proto)))
 }
 
-func addRt(dest net.IPNet, link netlink.Link) error {
-	rta := netlink.Route{
-		LinkIndex: link.Attrs().Index,
-		Dst:       &dest,
-	}
-
-	fmt.Printf("bridge: %+v\n", link)
-	fmt.Printf("route: %+v\n", rta)
-
-	return netlink.RouteReplace(&rta)
-}
-
-func delRt(dest net.IPNet, link netlink.Link) error {
-	rta := netlink.Route{
-		LinkIndex: link.Attrs().Index,
-		Dst:       &dest,
-	}
-
-	return netlink.RouteDel(&rta)
-}
-
-// addIpsetEntry adds the provided address and ports to the "epic-in"
-// set. The last error to happen will be returned.
-func addIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
-	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "add", "epic-in", ipsetAddress(publicaddr, port))
-		if cmdErr := cmd.Run(); cmdErr != nil {
-			err = cmdErr
-		}
-	}
-	return err
-}
-
-// delIpsetEntry deletes the provided address and ports from the
-// "epic-in" set. The last error to happen will be returned.
-func delIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
-	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "del", "epic-in", ipsetAddress(publicaddr, port))
-		if cmdErr := cmd.Run(); cmdErr != nil {
-			err = cmdErr
-		}
-	}
-	return err
-}
-
-// ipsetAddress formats an address and port how ipset likes them,
-// e.g., "192.168.77.2,tcp:8088". From what I can tell, ipset accepts
-// the protocol in upper-case and lower-case so we don't need to do
-// anything with it here.
-func ipsetAddress(publicaddr string, port corev1.ServicePort) string {
-	return fmt.Sprintf("%s,%s:%d", publicaddr, port.Protocol, port.Port)
-}
-
-// configureBridge configures the bridge interface used to get packets
-// from the Envoy pods to the customer endpoints. It's called
-// "multus0" by default but that can be overridden in the
-// ServicePrefix CR.
-func (r *LoadBalancerReconciler) configureBridge(brname string, gateway *netlink.Addr) (*netlink.Bridge, error) {
-	var err error
-
-	bridge, err := r.ensureBridge(brname, gateway)
-	if err != nil {
-		r.Log.Error(err, "Multus", "unable to setup", brname)
-	}
-
-	err = ipsetSetCheck()
-	if err == nil {
-		r.Log.Info("IPset epic-in added")
-	} else {
-		r.Log.Info("IPset epic-in already exists")
-	}
-
-	err = ipTablesCheck(brname)
-	if err == nil {
-		r.Log.Info("IPtables setup for multus")
-	} else {
-		r.Log.Error(err, "iptables", "unable to setup", brname)
-	}
-
-	return bridge, err
-}
-
-// ensureBridge creates the bridge if it's not there and configures it in either case.
-func (r *LoadBalancerReconciler) ensureBridge(brname string, gateway *netlink.Addr) (*netlink.Bridge, error) {
-
-	br := &netlink.Bridge{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:   brname,
-			TxQLen: -1,
-		},
-	}
-
-	// create the bridge if it doesn't already exist
-	_, err := netlink.LinkByName(brname)
-	if err != nil {
-		err = netlink.LinkAdd(br)
-		if err != nil && err != syscall.EEXIST {
-			r.Log.Info("Multus Bridge could not add %q: %v", brname, err)
-		}
-	} else {
-		r.Log.Info(brname + " already exists")
-	}
-
-	// bring the interface up
-	if err := netlink.LinkSetUp(br); err != nil {
-		return nil, err
-	}
-
-	// Proxy ARP is required when we use a device route for the default gateway
-	_, err = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", brname), "1")
-	if err != nil {
-		return nil, err
-	}
-
-	// add the gateway address to the bridge interface
-	if gateway != nil {
-		if err := netlink.AddrReplace(br, gateway); err != nil {
-			return nil, fmt.Errorf("could not add %v: to %v %w", gateway, br, err)
-		}
-	}
-
-	return br, nil
-}
-
-// ipsetSetCheck runs ipset to create the epic-in table.
-func ipsetSetCheck() error {
-	cmd := exec.Command("/usr/sbin/ipset", "create", "epic-in", "hash:ip,port")
-	return cmd.Run()
-}
-
-// ipTablesCheck sets up the iptables rules.
-func ipTablesCheck(brname string) error {
-	var (
-		cmd          *exec.Cmd
-		err          error
-		stdoutStderr []byte
-	)
-
-	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-	err = cmd.Run()
-	if err != nil {
-		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-		stdoutStderr, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
-			return err
-		}
-	}
-
-	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-m", "set", "--match-set", "epic-in", "dst,dst", "-j", "ACCEPT")
-	err = cmd.Run()
-	if err != nil {
-		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-m", "set", "--match-set", "epic-in", "dst,dst", "-j", "ACCEPT")
-		stdoutStderr, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
-			return err
-		}
-	}
-
-	return err
-}
-
-// addrFamily returns whether lbIP is an IPV4 or IPV6 address.  The
-// return value will be nl.FAMILY_V6 if the address is an IPV6
-// address, nl.FAMILY_V4 if it's IPV4, or 0 if the family can't be
-// determined.
-func addrFamily(lbIP net.IP) (lbIPFamily int) {
-	if nil != lbIP.To16() {
-		lbIPFamily = nl.FAMILY_V6
-	}
-
-	if nil != lbIP.To4() {
-		lbIPFamily = nl.FAMILY_V4
-	}
-
-	return
-}
-
-// addNetwork adds lbIPNet to link.
-func addNetwork(lbIPNet net.IPNet, link netlink.Link) error {
-	addr, _ := netlink.ParseAddr(lbIPNet.String())
-	err := netlink.AddrReplace(link, addr)
-	if err != nil {
-		return fmt.Errorf("could not add %v: to %v %w", addr, link, err)
-	}
-	return nil
-}
-
-func addVirtualInt(lbIPNet net.IPNet, link netlink.Link) error {
-	return addNetwork(lbIPNet, link)
-}
-
 // deleteAddr deletes lbIP from whichever interface has it.
 func delAddr(lbIP net.IP) error {
 	hostints, _ := net.Interfaces()
@@ -623,21 +430,8 @@ func (r *LoadBalancerReconciler) setup(l logr.Logger, publicAddr *net.IPNet, sub
 		return err
 	}
 
-	// configure the Multus bridge interface
-	bridge, err := r.configureBridge(bridgeName, gateway)
-	if err != nil {
-		l.Error(err, "Failed to configure multus bridge", "name", bridgeName)
-		return err
-	}
-
-	// Setup host routing
-	if err := addRt(*subnet, bridge); err != nil {
-		l.Error(err, "adding route to multus interface")
-		return err
-	}
-
 	// Open host ports by updating IPSET tables
-	if err := addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+	if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
 		l.Error(err, "adding ipset entry")
 		return err
 	}
@@ -648,17 +442,10 @@ func (r *LoadBalancerReconciler) setup(l logr.Logger, publicAddr *net.IPNet, sub
 // cleanup undoes the setup that we did for this lb.
 func (r *LoadBalancerReconciler) cleanup(l logr.Logger, publicAddr *net.IPNet, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string) error {
 	// remove IPSet entry
-	if err := delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-		l.Error(err, "deleting ipset entry")
-	}
+	network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
 
 	// remove route
-	br := netlink.Bridge{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: bridgeName,
-		},
-	}
-	if err := delRt(*publicAddr, &br); err != nil {
+	if err := network.DelRt(publicAddr); err != nil {
 		l.Error(err, "Failed to delete bridge route")
 	}
 

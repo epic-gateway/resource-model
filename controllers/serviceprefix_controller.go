@@ -18,6 +18,7 @@ import (
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
+	"gitlab.com/acnodal/epic/resource-model/internal/network"
 )
 
 // ServicePrefixReconciler reconciles a ServicePrefix object
@@ -67,9 +68,26 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 
 			r.Allocator.RemovePool(sp)
-
-			return done, nil
 		}
+
+		return done, nil
+	}
+
+	// configure the Multus bridge interface
+	bridge, err := network.ConfigureBridge(log, sp.Spec.MultusBridge, sp.Spec.GatewayAddr())
+	if err != nil {
+		log.Error(err, "Failed to configure multus bridge")
+		return done, err
+	}
+
+	// Setup host routing
+	subnet, err := sp.Spec.SubnetIPNet()
+	if err != nil {
+		return done, err
+	}
+	if err := network.AddRt(subnet, bridge); err != nil {
+		log.Error(err, "adding route to multus interface")
+		return done, err
 	}
 
 	// check if we've got a netattachdef for this SP

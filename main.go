@@ -140,6 +140,7 @@ func main() {
 		Client:        mgr.GetClient(),
 		Log:           ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
 		RuntimeScheme: mgr.GetScheme(),
+		Allocator:     alloc,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
 		os.Exit(1)
