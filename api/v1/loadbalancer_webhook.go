@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -53,7 +54,7 @@ func (r *LoadBalancer) Default() {
 
 	// Add the controller as a finalizer so we can clean up when this
 	// LoadBalancer is deleted.
-	r.Finalizers = append(r.Finalizers, LoadbalancerFinalizerName)
+	controllerutil.AddFinalizer(r, LoadbalancerFinalizerName)
 
 	// Fetch this LB's owning service group
 	sg, err := r.fetchLBServiceGroup()
