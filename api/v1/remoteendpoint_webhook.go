@@ -21,11 +21,15 @@ var (
 
 	// crtclient looks up objects related to the one we're defaulting.
 	crtclient client.Client
+
+	// epscheme is used when we set the LB endpoint owner.
+	epscheme *runtime.Scheme
 )
 
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
 func (r *RemoteEndpoint) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	crtclient = mgr.GetClient()
+	epscheme = mgr.GetScheme()
 
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
@@ -43,6 +47,16 @@ func (r *RemoteEndpoint) Default() {
 	// Add the controller as a finalizer so we can clean up when this
 	// RemoteEndpoint is deleted.
 	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, RemoteEndpointFinalizerName)
+
+	// Add the owning LB as a reference so this EP will be deleted if
+	// the LB is
+	lbname := types.NamespacedName{Namespace: r.ObjectMeta.Namespace, Name: r.ObjectMeta.Labels[OwningLoadBalancerLabel]}
+	lb := &LoadBalancer{}
+	if err := crtclient.Get(context.TODO(), lbname, lb); err == nil {
+		ctrl.SetControllerReference(lb, r, epscheme)
+	} else {
+		replog.Info("can't find owning load balancer", "name", lbname)
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.

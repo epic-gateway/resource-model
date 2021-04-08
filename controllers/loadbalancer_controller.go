@@ -135,15 +135,6 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				log.Error(err, "Failed to cleanup PFC")
 			}
 
-			// Delete the reps that belong to this LB
-			opts := []client.DeleteAllOfOption{
-				client.InNamespace(req.NamespacedName.Namespace),
-				client.MatchingLabels{epicv1.OwningLoadBalancerLabel: req.NamespacedName.Name},
-			}
-			if err := r.DeleteAllOf(ctx, &epicv1.RemoteEndpoint{}, opts...); err != nil {
-				log.Error(err, "Failed to delete endpoints")
-			}
-
 			// Delete the service's EnvoyConfig
 			ec := marin3r.EnvoyConfig{
 				ObjectMeta: metav1.ObjectMeta{
