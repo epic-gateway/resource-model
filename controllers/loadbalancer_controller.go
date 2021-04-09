@@ -14,6 +14,7 @@ import (
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,6 +97,25 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return done, err
 	}
 
+	// Calculate this LB's public address which we use both when we add
+	// and when we delete
+	subnet, err := prefix.Spec.SubnetIPNet()
+	if err != nil {
+		return done, err
+	}
+	_, publicAddr, err := net.ParseCIDR(lb.Spec.PublicAddress + "/32")
+	if err != nil {
+		return done, err
+	}
+	if prefix.Spec.Aggregation == "default" {
+		publicAddr.Mask = subnet.Mask
+	} else {
+		_, publicAddr, err = net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
+		if err != nil {
+			return done, err
+		}
+	}
+
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
 
@@ -122,16 +142,8 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				// wrong with this Unassign
 			}
 
-			// Close host ports by updating IPSET tables
-			if err := delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-				log.Error(err, "deleting ipset entry")
-			}
-
-			// Remove route to public address
-			delRt(lb.Spec.PublicAddress)
-
-			// Remove PFC configuration
-			if err := r.cleanupPFC(log, lb, account, prefix); err != nil {
+			// Remove network and PFC configuration
+			if err := r.cleanup(log, publicAddr, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
 				log.Error(err, "Failed to cleanup PFC")
 			}
 		}
@@ -161,35 +173,8 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	log.Info("LB status veth info", "ifindex", lb.Status.ProxyIfindex, "ifname", lb.Status.ProxyIfname)
 
-	// add the packet tagger to the Envoy pod veth
-	err = r.configureTagging(log, lb.Status.ProxyIfname)
-	if err != nil {
-		log.Error(err, "adding packet tagger", "if", lb.Status.ProxyIfname)
-		return done, err
-	}
-
-	// configure the Multus bridge interface
-	err = r.configureBridge(prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr())
-	if err != nil {
-		log.Error(err, "Failed to configure multus bridge", "name", prefixName)
-		return done, err
-	}
-
-	// Setup host routing
-	_, publicaddr, _ := net.ParseCIDR(prefix.Spec.Subnet)
-	if prefix.Spec.Aggregation != "default" {
-		_, publicaddr, _ = net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
-	}
-
-	err = addRt(publicaddr, prefix.Spec.MultusBridge)
-	if err != nil {
-		log.Error(err, "adding route to multus interface")
-	}
-
-	//Open host ports by updating IPSET tables
-	if err := addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-		log.Error(err, "adding ipset entry")
-	}
+	// Set up the network and PFC
+	err = r.setup(log, publicAddr, subnet, lb, account.Spec.GroupID, prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr())
 
 	// List the endpoints that belong to this LB in case this is an
 	// update to an LB that already has endpoints. The remoteendpoints
@@ -396,35 +381,25 @@ func washProtocol(proto corev1.Protocol) corev1.Protocol {
 	return corev1.Protocol(strings.ToUpper(string(proto)))
 }
 
-func addRt(publicaddr *net.IPNet, multusint string) error {
-
-	var rta netlink.Route
-
-	ifa, err := net.InterfaceByName(multusint)
-	if err != nil {
-		return err
+func addRt(dest net.IPNet, link netlink.Link) error {
+	rta := netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       &dest,
 	}
 
-	rta.LinkIndex = ifa.Index
+	fmt.Printf("bridge: %+v\n", link)
+	fmt.Printf("route: %+v\n", rta)
 
-	rta.Dst = publicaddr
-
-	//FIXME error handling, if route add fails should be retried, requeue?
-	netlink.RouteReplace(&rta)
-
-	return nil
+	return netlink.RouteReplace(&rta)
 }
 
-func delRt(publicaddr string) {
+func delRt(dest net.IPNet, link netlink.Link) error {
+	rta := netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       &dest,
+	}
 
-	var rta netlink.Route
-
-	_, rta.Dst, _ = net.ParseCIDR(publicaddr)
-
-	//FIXME error handling, if route add fails should be retried, requeue?
-
-	netlink.RouteDel(&rta)
-
+	return netlink.RouteDel(&rta)
 }
 
 // addIpsetEntry adds the provided address and ports to the "epic-in"
@@ -463,10 +438,10 @@ func ipsetAddress(publicaddr string, port corev1.ServicePort) string {
 // from the Envoy pods to the customer endpoints. It's called
 // "multus0" by default but that can be overridden in the
 // ServicePrefix CR.
-func (r *LoadBalancerReconciler) configureBridge(brname string, gateway *netlink.Addr) error {
+func (r *LoadBalancerReconciler) configureBridge(brname string, gateway *netlink.Addr) (*netlink.Bridge, error) {
 	var err error
 
-	_, err = r.ensureBridge(brname, gateway)
+	bridge, err := r.ensureBridge(brname, gateway)
 	if err != nil {
 		r.Log.Error(err, "Multus", "unable to setup", brname)
 	}
@@ -485,7 +460,7 @@ func (r *LoadBalancerReconciler) configureBridge(brname string, gateway *netlink
 		r.Log.Error(err, "iptables", "unable to setup", brname)
 	}
 
-	return err
+	return bridge, err
 }
 
 // ensureBridge creates the bridge if it's not there and configures it in either case.
@@ -569,6 +544,58 @@ func ipTablesCheck(brname string) error {
 	return err
 }
 
+// addrFamily returns whether lbIP is an IPV4 or IPV6 address.  The
+// return value will be nl.FAMILY_V6 if the address is an IPV6
+// address, nl.FAMILY_V4 if it's IPV4, or 0 if the family can't be
+// determined.
+func addrFamily(lbIP net.IP) (lbIPFamily int) {
+	if nil != lbIP.To16() {
+		lbIPFamily = nl.FAMILY_V6
+	}
+
+	if nil != lbIP.To4() {
+		lbIPFamily = nl.FAMILY_V4
+	}
+
+	return
+}
+
+// addNetwork adds lbIPNet to link.
+func addNetwork(lbIPNet net.IPNet, link netlink.Link) error {
+	addr, _ := netlink.ParseAddr(lbIPNet.String())
+	err := netlink.AddrReplace(link, addr)
+	if err != nil {
+		return fmt.Errorf("could not add %v: to %v %w", addr, link, err)
+	}
+	return nil
+}
+
+func addVirtualInt(lbIPNet net.IPNet, link netlink.Link) error {
+	return addNetwork(lbIPNet, link)
+}
+
+// deleteAddr deletes lbIP from whichever interface has it.
+func delAddr(lbIP net.IP) error {
+	hostints, _ := net.Interfaces()
+	for _, hostint := range hostints {
+		addrs, _ := hostint.Addrs()
+		for _, ipnet := range addrs {
+			ipaddr, _, _ := net.ParseCIDR(ipnet.String())
+
+			if lbIP.Equal(ipaddr) {
+				ifindex, _ := netlink.LinkByIndex(hostint.Index)
+				deladdr, _ := netlink.ParseAddr(ipnet.String())
+				if err := netlink.AddrDel(ifindex, deladdr); err != nil {
+					return fmt.Errorf("could not remove %v from %v: %w", deladdr, ifindex, err)
+				}
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("could not remove %v: not found on any interface", lbIP)
+}
+
 func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
 	return epicexec.RunScript(l, script)
@@ -587,20 +614,61 @@ func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) 
 	return pfc.AddFilter(ifname, "ingress", "tag_rx")
 }
 
-// cleanupPFC undoes the PFC setup that we did for this lb.
-func (r *LoadBalancerReconciler) cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer, acct *epicv1.Account, prefix *epicv1.ServicePrefix) error {
+// setup sets up the networky stuff that we need to do for lb.
+func (r *LoadBalancerReconciler) setup(l logr.Logger, publicAddr *net.IPNet, subnet *net.IPNet, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string, gateway *netlink.Addr) error {
+
+	// add the packet tagger to the Envoy pod veth
+	if err := r.configureTagging(l, lb.Status.ProxyIfname); err != nil {
+		l.Error(err, "adding packet tagger", "if", lb.Status.ProxyIfname)
+		return err
+	}
+
+	// configure the Multus bridge interface
+	bridge, err := r.configureBridge(bridgeName, gateway)
+	if err != nil {
+		l.Error(err, "Failed to configure multus bridge", "name", bridgeName)
+		return err
+	}
+
+	// Setup host routing
+	if err := addRt(*subnet, bridge); err != nil {
+		l.Error(err, "adding route to multus interface")
+		return err
+	}
+
+	// Open host ports by updating IPSET tables
+	if err := addIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+		l.Error(err, "adding ipset entry")
+		return err
+	}
+
+	return nil
+}
+
+// cleanup undoes the setup that we did for this lb.
+func (r *LoadBalancerReconciler) cleanup(l logr.Logger, publicAddr *net.IPNet, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string) error {
 	// remove IPSet entry
-	delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
+	if err := delIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+		l.Error(err, "deleting ipset entry")
+	}
 
 	// remove route
-	publicaddr := prefix.Spec.Subnet
-	if prefix.Spec.Aggregation == "default" {
-		publicaddr = lb.Spec.PublicAddress + prefix.Spec.Aggregation
+	br := netlink.Bridge{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: bridgeName,
+		},
 	}
-	delRt(publicaddr)
+	if err := delRt(*publicAddr, &br); err != nil {
+		l.Error(err, "Failed to delete bridge route")
+	}
+
+	// remove address
+	if err := delAddr(publicAddr.IP); err != nil {
+		l.Error(err, "Failed to remove address from bridge")
+	}
 
 	// remove the endpoint PFC "services"
-	r.deleteService(l, acct.Spec.GroupID, lb.Spec.ServiceID)
+	r.deleteService(l, groupID, lb.Spec.ServiceID)
 
 	// remove the PFC tunnels
 	for _, tunnel := range lb.Status.GUETunnelEndpoints {
