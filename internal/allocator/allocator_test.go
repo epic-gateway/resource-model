@@ -514,8 +514,8 @@ func TestPoolAllocation(t *testing.T) {
 func TestAllocation(t *testing.T) {
 	alloc := NewAllocator()
 	alloc.pools = map[string]Pool{
-		"default": mustLocalPool(t, "1.2.3.4/30"),
-		"test1V6": mustLocalPool(t, "1000::4/127"),
+		"unitTest": mustLocalPool(t, "1.2.3.4/30"),
+		"test1V6":  mustLocalPool(t, "1000::4/127"),
 	}
 
 	validIPs := map[string]bool{
@@ -671,7 +671,7 @@ func TestAllocation(t *testing.T) {
 			alloc.Unassign(test.svc)
 			continue
 		}
-		_, ip, err := alloc.Allocate(test.svc, test.ports, test.sharingKey)
+		ip, err := alloc.AllocateFromPool(test.svc, "unitTest", test.ports, test.sharingKey)
 		if test.wantErr {
 			if err == nil {
 				t.Errorf("%s: should have caused an error, but did not", test.desc)

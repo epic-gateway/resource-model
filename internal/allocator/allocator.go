@@ -180,21 +180,6 @@ func (a *Allocator) AllocateFromPool(svc string, poolName string, ports []corev1
 	return ip, nil
 }
 
-// Allocate assigns any available and assignable IP to service.
-func (a *Allocator) Allocate(svc string, ports []corev1.ServicePort, sharingKey string) (string, net.IP, error) {
-	var (
-		err error
-		ip  net.IP
-	)
-
-	// it's either the "default" pool or nothing
-	ip, err = a.AllocateFromPool(svc, "default", ports, sharingKey)
-	if err == nil {
-		return "default", ip, nil
-	}
-	return "", nil, err
-}
-
 // IP returns the IP address allocated to service, or nil if none are allocated.
 func (a *Allocator) IP(svc string) net.IP {
 	if alloc := a.allocated[svc]; alloc != nil {

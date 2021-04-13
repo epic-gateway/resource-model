@@ -29,7 +29,7 @@ var (
 //
 // +kubebuilder:object:generate=false
 type PoolAllocator interface {
-	Allocate(string, []corev1.ServicePort, string) (string, net.IP, error)
+	AllocateFromPool(string, string, []corev1.ServicePort, string) (net.IP, error)
 }
 
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
@@ -63,6 +63,10 @@ func (r *LoadBalancer) Default() {
 		return
 	}
 
+	// Get the name of the ServicePrefix - it's also the name of the
+	// address pool
+	poolName := sg.Labels[OwningServicePrefixLabel]
+
 	// Add a service id to this service
 	serviceID, err := allocateServiceID(ctx, crtclient, sg)
 	if err != nil {
@@ -84,9 +88,10 @@ func (r *LoadBalancer) Default() {
 
 	// Add an external address if needed
 	if r.Spec.PublicAddress == "" {
-		_, address, err := allocator.Allocate(r.NamespacedName().String(), r.Spec.PublicPorts, "")
+		address, err := allocator.AllocateFromPool(r.NamespacedName().String(), poolName, r.Spec.PublicPorts, "")
 		if err != nil {
 			loadbalancerlog.Error(err, "allocation failed")
+			return
 		}
 		r.Spec.PublicAddress = address.String()
 	}
@@ -105,6 +110,11 @@ func (r *LoadBalancer) ValidateCreate() error {
 	// Block create if there's no owning SG
 	if _, err := r.fetchLBServiceGroup(); err != nil {
 		return err
+	}
+
+	// Block create if the IP allocation failed
+	if r.Spec.PublicAddress == "" {
+		return fmt.Errorf("%s has no public address", r.Name)
 	}
 
 	return nil
