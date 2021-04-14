@@ -28,6 +28,7 @@ spec:
       - name: manager
         image: ${IMG}
         imagePullPolicy: Always
+        command: ["/usr/local/bin/manager", "controller-manager", "--debug"]
         securityContext:
           privileged: true
           allowPrivilegeEscalation: true
