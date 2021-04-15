@@ -16,12 +16,17 @@ namespace: epic
 namePrefix: ""
 
 # Labels to add to all resources and selectors.
-commonLabels: {}
+commonLabels:
+  app.kubernetes.io/name: epic
+
+resources:
+- namespace.yaml
 
 bases:
 - ../crd
 - ../rbac
 - ../manager
+- ../agent
 - ../webhook
 - ../certmanager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.

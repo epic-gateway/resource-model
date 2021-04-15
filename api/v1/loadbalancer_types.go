@@ -63,6 +63,23 @@ type GUETunnelEndpoint struct {
 	TunnelID uint32 `json:"tunnel-id,omitempty"`
 }
 
+// ProxyInterfaceInfo contains information about the Envoy proxy pod's
+// network interfaces.
+type ProxyInterfaceInfo struct {
+	// Port is the port on which this endpoint listens.
+	// +kubebuilder:default={"port":6080,"protocol":"UDP","appProtocol":"gue"}
+	Port corev1.EndpointPort `json:"epic-port,omitempty"`
+
+	// Index is the ifindex of the Envoy proxy pod's veth interface on
+	// the CRI side of this service's proxy pod. In other words, it's
+	// the end of the veth that's inside the container (i.e., on the
+	// other side from the end that's attached to the multus bridge).
+	Index int `json:"index,omitempty"`
+
+	// Name is the name of the interface whose index is ProxyIfindex.
+	Name string `json:"name,omitempty"`
+}
+
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
 	// GUETunnelEndpoints is a map from client node addresses to public
@@ -73,17 +90,11 @@ type LoadBalancerStatus struct {
 	// packets.
 	GUETunnelEndpoints map[string]GUETunnelEndpoint `json:"gue-tunnel-endpoints,omitempty"`
 
-	// ProxyIfindex is the ifindex of the Envoy proxy pod's veth
-	// interface on the docker side of this service's proxy pod. In
-	// other words, it's the end of the veth that's inside the container
-	// (i.e., on the other side from the end that's attached to the
-	// multus bridge). It's filled in by the python setup-network daemon
-	// and used by the loadbalancer controller.
-	ProxyIfindex int `json:"proxy-ifindex,omitempty"`
-
-	// ProxyIfname is the name of the interface whose index is
-	// ProxyIfindex.
-	ProxyIfname string `json:"proxy-ifname,omitempty"`
+	// ProxyInterfaces contains information about the Envoy proxy pods'
+	// network interfaces. The map key is the node IP address. It's
+	// filled in by the python setup-network daemon and used by the
+	// loadbalancer controller.
+	ProxyInterfaces map[string]ProxyInterfaceInfo `json:"proxy-if-info,omitempty"`
 }
 
 // +kubebuilder:object:root=true

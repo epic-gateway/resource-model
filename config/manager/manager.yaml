@@ -1,26 +1,19 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    control-plane: controller-manager
-  name: system
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller-manager
-  namespace: system
   labels:
-    control-plane: controller-manager
+    app.kubernetes.io/component: controller-manager
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app.kubernetes.io/component: controller-manager
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        app.kubernetes.io/component: controller-manager
     spec:
       imagePullSecrets:
       - name: gitlab
@@ -29,28 +22,4 @@ spec:
         image: ${IMG}
         imagePullPolicy: Always
         command: ["/usr/local/bin/manager", "controller-manager", "--debug"]
-        securityContext:
-          privileged: true
-          allowPrivilegeEscalation: true
-          readOnlyRootFilesystem: false
-          capabilities:
-            add:
-            - NET_ADMIN
-        volumeMounts:
-        - mountPath: /opt/acnodal/bin
-          name: pfctools
-        - mountPath: /sys/fs/bpf
-          name: bpf
-        - mountPath: /run
-          name: run
-      terminationGracePeriodSeconds: 10
-      hostNetwork: true
-      volumes:
-      - name: pfctools
-        hostPath:
-          path: /opt/acnodal/bin
-      - name: bpf
-        hostPath:
-          path: /sys/fs/bpf
-      - name: run
-        emptyDir: {}
+      terminationGracePeriodSeconds: 2

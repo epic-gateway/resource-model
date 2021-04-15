@@ -12,8 +12,8 @@ import (
 	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
 )
 
-// EPICReconciler reconciles a EPIC object
-type EPICReconciler struct {
+// EPICAgentReconciler reconciles a EPIC object
+type EPICAgentReconciler struct {
 	client.Client
 	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
@@ -23,8 +23,7 @@ type EPICReconciler struct {
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
-func (r *EPICReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	done := ctrl.Result{Requeue: false}
+func (r *EPICAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("EPIC", req.NamespacedName)
 
 	// read the object that caused the event
@@ -51,13 +50,13 @@ func (r *EPICReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 // SetupWithManager sets up this controller to work with the mgr.
-func (r *EPICReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *EPICAgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&epicv1.EPIC{}).
 		Complete(r)
 }
 
 // Scheme returns this reconciler's scheme.
-func (r *EPICReconciler) Scheme() *runtime.Scheme {
+func (r *EPICAgentReconciler) Scheme() *runtime.Scheme {
 	return r.RuntimeScheme
 }

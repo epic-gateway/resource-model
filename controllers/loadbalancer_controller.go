@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/go-logr/logr"
@@ -24,9 +23,6 @@ import (
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
 	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
-	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
-	"gitlab.com/acnodal/epic/resource-model/internal/network"
-	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
 )
 
 const (
@@ -52,9 +48,11 @@ type LoadBalancerReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	done := ctrl.Result{Requeue: false}
-	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
+	prefix := &epicv1.ServicePrefix{}
+	account := &epicv1.Account{}
+	sg := &epicv1.LBServiceGroup{}
+	epic := &epicv1.EPIC{}
 
 	log.Info("reconciling")
 
@@ -68,32 +66,27 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return done, client.IgnoreNotFound(err)
 	}
 
-	// read the LBServiceGroup that owns this LB
-	sg := &epicv1.LBServiceGroup{}
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
-	if err := r.Get(ctx, sgname, sg); err != nil {
-		log.Error(err, "Failed to find owning service group", "name", sgname)
+	// Get the "stack" of CRs to which this LB belongs: LBServiceGroup,
+	// ServicePrefix, Account, and EPIC singleton. They provide
+	// configuration data that we need but that isn't contained in the
+	// LB.
+	sgName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
+	if err := r.Get(ctx, sgName, sg); err != nil {
 		return done, err
 	}
 
-	// read the ServicePrefix that determines the interface that we'll use
-	prefix := &epicv1.ServicePrefix{}
 	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
 	if err := r.Get(ctx, prefixName, prefix); err != nil {
-		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
 		return done, err
 	}
 
-	// get the Account that owns this LB
-	account := &epicv1.Account{}
 	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
 	if err := r.Get(ctx, accountName, account); err != nil {
 		return done, err
 	}
 
-	// get the EPIC singleton
-	epic := &epicv1.EPIC{}
-	if err := r.Get(ctx, types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}, epic); err != nil {
+	epicName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}
+	if err := r.Get(ctx, epicName, epic); err != nil {
 		return done, err
 	}
 
@@ -141,11 +134,6 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				// Continue - we want to delete the CR even if something went
 				// wrong with this Unassign
 			}
-
-			// Remove network and PFC configuration
-			if err := r.cleanup(log, publicAddr, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
-				log.Error(err, "Failed to cleanup PFC")
-			}
 		}
 
 		// Stop reconciliation as the item is being deleted
@@ -169,19 +157,6 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		log.Info("deployment created previously", "namespace", dep.Namespace, "name", dep.Name)
 	} else {
 		log.Info("deployment created", "namespace", dep.Namespace, "name", dep.Name)
-	}
-
-	// We need this LB's veth info so if the python daemon hasn't filled
-	// it in yet then we'll back off and give it more time
-	if lb.Status.ProxyIfindex == 0 || lb.Status.ProxyIfname == "" {
-		log.Info("status has no ifindex")
-		return tryAgain, nil
-	}
-	log.Info("LB status veth info", "ifindex", lb.Status.ProxyIfindex, "ifname", lb.Status.ProxyIfname)
-
-	// Set up the network and PFC
-	if err := r.setup(log, publicAddr, subnet, lb, account.Spec.GroupID, prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr()); err != nil {
-		return done, err
 	}
 
 	// List the endpoints that belong to this LB in case this is an
@@ -386,88 +361,4 @@ func portsToPorts(sPorts []corev1.ServicePort) []corev1.ContainerPort {
 // washProtocol "washes" proto, optionally upcasing if necessary.
 func washProtocol(proto corev1.Protocol) corev1.Protocol {
 	return corev1.Protocol(strings.ToUpper(string(proto)))
-}
-
-// deleteAddr deletes lbIP from whichever interface has it.
-func delAddr(lbIP net.IP) error {
-	hostints, _ := net.Interfaces()
-	for _, hostint := range hostints {
-		addrs, _ := hostint.Addrs()
-		for _, ipnet := range addrs {
-			ipaddr, _, _ := net.ParseCIDR(ipnet.String())
-
-			if lbIP.Equal(ipaddr) {
-				ifindex, _ := netlink.LinkByIndex(hostint.Index)
-				deladdr, _ := netlink.ParseAddr(ipnet.String())
-				if err := netlink.AddrDel(ifindex, deladdr); err != nil {
-					return fmt.Errorf("could not remove %v from %v: %w", deladdr, ifindex, err)
-				}
-				return nil
-			}
-		}
-	}
-
-	return fmt.Errorf("could not remove %v: not found on any interface", lbIP)
-}
-
-func (r *LoadBalancerReconciler) deleteTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
-	return epicexec.RunScript(l, script)
-}
-
-func (r *LoadBalancerReconciler) deleteService(l logr.Logger, groupID uint16, serviceID uint16) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
-	return epicexec.RunScript(l, script)
-}
-
-func (r *LoadBalancerReconciler) configureTagging(l logr.Logger, ifname string) error {
-	err := pfc.AddQueueDiscipline(ifname)
-	if err != nil {
-		return err
-	}
-	return pfc.AddFilter(ifname, "ingress", "tag_rx")
-}
-
-// setup sets up the networky stuff that we need to do for lb.
-func (r *LoadBalancerReconciler) setup(l logr.Logger, publicAddr *net.IPNet, subnet *net.IPNet, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string, gateway *netlink.Addr) error {
-
-	// add the packet tagger to the Envoy pod veth
-	if err := r.configureTagging(l, lb.Status.ProxyIfname); err != nil {
-		l.Error(err, "adding packet tagger", "if", lb.Status.ProxyIfname)
-		return err
-	}
-
-	// Open host ports by updating IPSET tables
-	if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-		l.Error(err, "adding ipset entry")
-		return err
-	}
-
-	return nil
-}
-
-// cleanup undoes the setup that we did for this lb.
-func (r *LoadBalancerReconciler) cleanup(l logr.Logger, publicAddr *net.IPNet, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string) error {
-	// remove IPSet entry
-	network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
-
-	// remove route
-	if err := network.DelRt(publicAddr); err != nil {
-		l.Error(err, "Failed to delete bridge route")
-	}
-
-	// remove address
-	if err := delAddr(publicAddr.IP); err != nil {
-		l.Error(err, "Failed to remove address from bridge")
-	}
-
-	// remove the endpoint PFC "services"
-	r.deleteService(l, groupID, lb.Spec.ServiceID)
-
-	// remove the PFC tunnels
-	for _, tunnel := range lb.Status.GUETunnelEndpoints {
-		r.deleteTunnel(l, tunnel)
-	}
-
-	return nil
 }

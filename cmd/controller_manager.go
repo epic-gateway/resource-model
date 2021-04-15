@@ -21,7 +21,6 @@ import (
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/controllers"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
-	"gitlab.com/acnodal/epic/resource-model/internal/exec"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -83,14 +82,11 @@ func runControllers(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err = (&controllers.EPICReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("EPIC"),
-		RuntimeScheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (&epicv1.EPIC{}).SetupWebhookWithManager(mgr); err != nil {
 		return err
 	}
-	if err = (&epicv1.EPIC{}).SetupWebhookWithManager(mgr); err != nil {
+
+	if err = (&epicv1.Account{}).SetupWebhookWithManager(mgr); err != nil {
 		return err
 	}
 
@@ -103,25 +99,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if err = (&epicv1.ServicePrefix{}).SetupWebhookWithManager(mgr, alloc); err != nil {
-		return err
-	}
-
-	if err = (&controllers.LBServiceGroupReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("LBServiceGroup"),
-		RuntimeScheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err = (&controllers.AccountReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("Account"),
-		RuntimeScheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err = (&epicv1.Account{}).SetupWebhookWithManager(mgr); err != nil {
 		return err
 	}
 
@@ -149,15 +126,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 	}
 	// +kubebuilder:scaffold:builder
 
-	// See if the PFC is installed
-	ok, message := pfc.Check()
-	if ok {
-		// print the version
-		setupLog.Info("PFC", "version", message)
-	} else {
-		setupLog.Info("PFC Error", "message", message)
-	}
-
 	// Clean up data from before we rebooted
 	ctx := context.Background()
 	if err := prebootCleanup(ctx, setupLog); err != nil {
@@ -174,16 +142,8 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 // prebootCleanup cleans out leftover data that might be
 // invalid. Ifindex values, for example, can change after a reboot so
-// we want to zero them and wait until Python re-writes them. PFC
-// tables should be initialized so we don't send packets to the wrong
-// place during startup.
+// we zero them and "nudge" the Envoy pods so Python re-writes them.
 func prebootCleanup(ctx context.Context, log logr.Logger) error {
-
-	// Empty the PFC tables
-	err := exec.RunScript(log, "/opt/acnodal/bin/pfc_cli_go initialize")
-	if err != nil {
-		return err
-	}
 
 	// We use an ad-hoc client here because the mgr.GetClient() doesn't
 	// start until you call mgr.Start() but we want to do this cleanup
@@ -211,8 +171,7 @@ func prebootCleanup(ctx context.Context, log logr.Logger) error {
 
 		// Info relating to system network devices is unreliable at this
 		// point.
-		lb.Status.ProxyIfindex = 0
-		lb.Status.ProxyIfname = ""
+		lb.Status.ProxyInterfaces = map[string]epicv1.ProxyInterfaceInfo{}
 
 		// apply the update
 		if err = cl.Status().Update(ctx, &lb); err != nil {
