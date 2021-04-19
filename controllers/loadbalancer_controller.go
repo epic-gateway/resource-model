@@ -52,7 +52,6 @@ type LoadBalancerReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var err error
 	done := ctrl.Result{Requeue: false}
 	tryAgain := ctrl.Result{RequeueAfter: 10 * time.Second}
 	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
@@ -72,25 +71,29 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// read the LBServiceGroup that owns this LB
 	sg := &epicv1.LBServiceGroup{}
 	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
-	err = r.Get(ctx, sgname, sg)
-	if err != nil {
+	if err := r.Get(ctx, sgname, sg); err != nil {
 		log.Error(err, "Failed to find owning service group", "name", sgname)
 		return done, err
 	}
 
 	// read the ServicePrefix that determines the interface that we'll use
-	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
 	prefix := &epicv1.ServicePrefix{}
-	err = r.Get(ctx, prefixName, prefix)
-	if err != nil {
+	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
+	if err := r.Get(ctx, prefixName, prefix); err != nil {
 		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
 		return done, err
 	}
 
 	// get the Account that owns this LB
-	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
 	account := &epicv1.Account{}
+	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
 	if err := r.Get(ctx, accountName, account); err != nil {
+		return done, err
+	}
+
+	// get the EPIC singleton
+	epic := &epicv1.EPIC{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}, epic); err != nil {
 		return done, err
 	}
 
@@ -149,10 +152,16 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return done, nil
 	}
 
+	// Determine the Envoy Image to run. EPIC singleton is the default,
+	// and LBSG overrides.
+	envoyImage := epic.Spec.EnvoyImage
+	if sg.Spec.EnvoyImage != nil {
+		envoyImage = *sg.Spec.EnvoyImage
+	}
+
 	// Launch the Envoy deployment that will proxy this LB
-	dep := r.deploymentForLB(lb, prefix, sg.Spec.EnvoyImage)
-	err = r.Create(ctx, dep)
-	if err != nil {
+	dep := r.deploymentForLB(lb, prefix, envoyImage)
+	if err := r.Create(ctx, dep); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Info("Failed to create new Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
 			return done, err
@@ -171,8 +180,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log.Info("LB status veth info", "ifindex", lb.Status.ProxyIfindex, "ifname", lb.Status.ProxyIfname)
 
 	// Set up the network and PFC
-	err = r.setup(log, publicAddr, subnet, lb, account.Spec.GroupID, prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr())
-	if err != nil {
+	if err := r.setup(log, publicAddr, subnet, lb, account.Spec.GroupID, prefix.Spec.MultusBridge, prefix.Spec.GatewayAddr()); err != nil {
 		return done, err
 	}
 
@@ -197,8 +205,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// that's probably the most common case. If Create() fails then it
 	// might be an update, e.g., someone tweaking their Envoy config
 	// template.
-	err = r.Create(ctx, &envoyConfig)
-	if err != nil {
+	if err := r.Create(ctx, &envoyConfig); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Info("Failed to create new EnvoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 			return done, err

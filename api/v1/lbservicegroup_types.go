@@ -15,9 +15,10 @@ type LBServiceGroupSpec struct {
 	// +kubebuilder:default=false
 	CanBeShared bool `json:"can-be-shared"`
 
-	// EnvoyImage is the name of the Envoy Docker image to run.
-	// +kubebuilder:default="registry.gitlab.com/acnodal/epic/envoy:latest"
-	EnvoyImage string `json:"envoy-image,omitempty"`
+	// EnvoyImage is the Envoy Docker image name. If this is not set
+	// then the image specified in the EPIC config singleton EnvoyImage
+	// field will be used.
+	EnvoyImage *string `json:"envoy-image,omitempty"`
 
 	// EnvoyTemplate is the template that will be used to configure
 	// Envoy for the load balancers that belong to this LBServiceGroup.

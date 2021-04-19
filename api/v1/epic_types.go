@@ -29,6 +29,11 @@ type EPICSpec struct {
 	// +kubebuilder:default="registry.gitlab.com/acnodal/xds-operator:latest"
 	EDSImage string `json:"eds-image"`
 
+	// EnvoyImage is the default Envoy Docker image name. This value can
+	// be overridden by the EnvoyImage field in the lbservicegroup which
+	// allows customers to specify their own Envoy images.
+	EnvoyImage string `json:"envoy-image"`
+
 	// XDSImage, if set, specifies the Marin3r discovery service image
 	// to run.  If not set, the default will be the image specified in
 	// the marin3r deployment manifest.
