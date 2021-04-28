@@ -28,13 +28,6 @@ spec:
       - name: manager
         image: ${IMG}
         imagePullPolicy: Always
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
         securityContext:
           privileged: true
           allowPrivilegeEscalation: true
