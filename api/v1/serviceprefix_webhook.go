@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -40,26 +39,4 @@ func (r *ServicePrefix) Default() {
 	// Add the controller as a finalizer so we can clean up when this
 	// LoadBalancer is deleted.
 	r.Finalizers = append(r.Finalizers, ServicePrefixFinalizerName)
-}
-
-// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-epic-acnodal-io-v1-serviceprefix,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=serviceprefixes,versions=v1,name=vserviceprefix.kb.io,sideEffects=None,admissionReviewVersions=v1
-
-var _ webhook.Validator = &ServicePrefix{}
-
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *ServicePrefix) ValidateCreate() error {
-	spLog.Info("validate create", "name", r.Name)
-	return spValidator.ValidateCreate(r)
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *ServicePrefix) ValidateUpdate(old runtime.Object) error {
-	spLog.Info("validate update", "name", r.Name, "old", old)
-
-	return spValidator.ValidateUpdate(r)
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *ServicePrefix) ValidateDelete() error {
-	return spValidator.ValidateDelete(r)
 }

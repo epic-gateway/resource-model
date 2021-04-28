@@ -99,7 +99,7 @@ func (r *LoadBalancer) Default() {
 	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)
 }
 
-// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-epic-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=create;delete,path=/validate-epic-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Validator = &LoadBalancer{}
 
@@ -120,9 +120,8 @@ func (r *LoadBalancer) ValidateCreate() error {
 	return nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+// ValidateUpdate does nothing.
 func (r *LoadBalancer) ValidateUpdate(old runtime.Object) error {
-	loadbalancerlog.Info("validate update", "name", r.Name, "old", old, "new", r)
 	return nil
 }
 

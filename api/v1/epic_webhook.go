@@ -29,7 +29,7 @@ func (r *EPIC) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-epic-acnodal-io-v1-epic,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=epics,versions=v1,name=vepic.kb.io,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=create,path=/validate-epic-acnodal-io-v1-epic,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=epics,versions=v1,name=vepic.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Validator = &EPIC{}
 
@@ -52,18 +52,12 @@ func (r *EPIC) ValidateCreate() error {
 	return nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+// ValidateUpdate does nothing.
 func (r *EPIC) ValidateUpdate(old runtime.Object) error {
-	epiclog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// ValidateDelete does nothing.
 func (r *EPIC) ValidateDelete() error {
-	epiclog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }

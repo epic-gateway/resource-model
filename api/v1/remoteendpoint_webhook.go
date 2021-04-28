@@ -60,7 +60,7 @@ func (r *RemoteEndpoint) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-epic-acnodal-io-v1-remoteendpoint,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=remoteendpoints,versions=v1,name=vremoteendpoint.kb.io,sideEffects=None,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=create,path=/validate-epic-acnodal-io-v1-remoteendpoint,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=remoteendpoints,versions=v1,name=vremoteendpoint.kb.io,sideEffects=None,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Validator = &RemoteEndpoint{}
 
@@ -101,18 +101,12 @@ func (r *RemoteEndpoint) ValidateCreate() error {
 	return nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+// ValidateUpdate does nothing.
 func (r *RemoteEndpoint) ValidateUpdate(old runtime.Object) error {
-	replog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// ValidateDelete does nothing.
 func (r *RemoteEndpoint) ValidateDelete() error {
-	replog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
