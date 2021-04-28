@@ -42,7 +42,7 @@ filter_chains:
     - name: envoy.http_connection_manager
       typed_config:
         "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
-        stat_prefix: ingress_http
+        stat_prefix: {{ .ServiceName }}
         route_config:
           name: local_route
           virtual_hosts:
