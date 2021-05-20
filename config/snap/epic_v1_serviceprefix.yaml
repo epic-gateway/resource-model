@@ -1,0 +1,10 @@
+---
+apiVersion: epic.acnodal.io/v1
+kind: ServicePrefix
+metadata:
+  name: default
+  namespace: epic
+spec:
+  subnet: EPIC_LB_SUBNET
+  pool: EPIC_LB_ADDRESS_POOL
+  aggregation: default
