@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
@@ -166,6 +168,40 @@ func (lb *LoadBalancer) RemoveUpstream(clusterID string) error {
 	}
 
 	return fmt.Errorf("Upstream %s not found", clusterID)
+}
+
+// LoadBalancerName returns the name that we use in the LoadBalancer
+// custom resource. This is a combo of the ServicePrefix name and the
+// "raw" load balancer name. We need to smash them together because
+// one customer might have two or more LBs with the same name, but
+// belonging to different service prefixes, and a customer's LBs all
+// live in the same k8s namespace so we need to make the service group
+// name into an ersatz namespace.
+func LoadBalancerName(sgName string, lbName string, canBeShared bool) (name string) {
+
+	// The group name is a sorta-kinda "namespace" because two services
+	// with the same name in the same group will be shared but two
+	// services with the same name in different groups will be
+	// independent. Since the loadbalancer CRs for both services live in
+	// the same k8s namespace, to make this work we prepend the group
+	// name to the service name. This way two services with the same
+	// name won't collide if they belong to different groups.
+	name = sgName + "-" + lbName
+
+	// If this LB can not be shared then give it a random readable name
+	// so it doesn't collide with other LBs in the group that might be
+	// created by other services with the same name. If the LB can be
+	// shared then leave its name alone so other PureLB services with
+	// the same name can find it. When they try to create their services
+	// they'll get a 409 Conflict response that points them at this
+	// service.
+	if !canBeShared {
+		raw := make([]byte, 8, 8)
+		_, _ = rand.Read(raw)
+		name += "-" + hex.EncodeToString(raw)
+	}
+
+	return name
 }
 
 func init() {
