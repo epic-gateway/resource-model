@@ -22,6 +22,11 @@ const (
 
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
+	// DisplayName is the publicly-visible load balancer name (i.e.,
+	// what the user specified). The CR name has a prefix and suffix to
+	// disambiguate and we don't need to show those to the user.
+	DisplayName string `json:"display-name"`
+
 	// PublicAddress is the publicly-visible IP address for this LB.
 	PublicAddress string `json:"public-address"`
 
