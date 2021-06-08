@@ -2,8 +2,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: epic-sample
+  name: epic-root
   labels:
-    app.kubernetes.io/name: epic-sample
+    app.kubernetes.io/name: epic-root
     app.kubernetes.io/component: namespace
     app.kubernetes.io/part-of: epic

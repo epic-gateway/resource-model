@@ -99,13 +99,13 @@ We allocate a ServiceID for each LB in a similar way to how we
 allocate GroupIDs for accounts.
 
 ```
-$ kubectl get -n epic-sample loadbalancers.epic.acnodal.io sample-acnodal -o yaml
+$ kubectl get -n epic-root loadbalancers.epic.acnodal.io sample-acnodal -o yaml
 apiVersion: epic.acnodal.io/v1
 kind: LoadBalancer
 metadata:
   ... snip ...
   name: sample-acnodal
-  namespace: epic-sample
+  namespace: epic-root
   resourceVersion: "2584"
   uid: 1a8522b9-70a4-4a9c-bdd7-ba912a61170a
 spec:
@@ -144,13 +144,13 @@ We also cache some values in endpoint objects, mostly so we can use
 them to clean up when the parent load balancer is deleted.
 
 ```
-$ kubectl get -n epic-sample endpoints.epic.acnodal.io d2e08096-a3e4-4d1f-8555-d1641c7fa9ed -o yaml
+$ kubectl get -n epic-root endpoints.epic.acnodal.io d2e08096-a3e4-4d1f-8555-d1641c7fa9ed -o yaml
 apiVersion: epic.acnodal.io/v1
 kind: Endpoint
 metadata:
   ... snip ...
   name: d2e08096-a3e4-4d1f-8555-d1641c7fa9ed
-  namespace: epic-sample
+  namespace: epic-root
   resourceVersion: "22850"
   uid: 0c853955-2b5b-4f20-b67f-e56b9387766b
 spec:
