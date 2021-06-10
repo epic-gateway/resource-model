@@ -26,3 +26,9 @@ const (
 	// they belong.
 	OwningClusterLabel string = "owning-cluster"
 )
+
+var (
+	// UserNSLabels is the set of labels that indicate that a k8s
+	// namespace is an EPIC User Namespace.
+	UserNSLabels = map[string]string{"app.kubernetes.io/component": "user-namespace", "app.kubernetes.io/part-of": ProductName}
+)

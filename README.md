@@ -179,7 +179,7 @@ Update().
 
 ## Namespaces
 The core namespace is "epic" - our processes run there, and system-scoped objects like the EPIC config singleton and LBServiceGroup CRs also live there.
-Each account gets their own k8s namespace, so their configuration data is separate from all other customers' data.
+Users can create their own "user namespaces" using epicctl. Each user namespace is entirely independent of the others. User namespaces are prefixed with epicv1.ProductName + "-". See epicv1.ProductName, epicv1.AccountNamespace().
 
 ## Naming
 Because our data model is implemented using k8s custom resources, our objects' names have to live with the k8s rules for naming objects (whatever those are).
@@ -187,8 +187,7 @@ Because our data model is implemented using k8s custom resources, our objects' n
 ## Objects
 
 ### Account
-Each account has its own namespace: "epic-accountName".
-Account CRs are stored in their k8s namespaces.
+Each user namespace has one Account CR to store configuration that is relevant to that user namespace.
 The "acme-widgets" account's namespace, for example, would be "epic-acme-widgets".
 
 ### LBServiceGroup

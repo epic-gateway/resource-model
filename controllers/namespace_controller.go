@@ -18,10 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	orgLabels = map[string]string{"app.kubernetes.io/component": "organization", "app.kubernetes.io/part-of": "epic"}
-)
-
 // NamespaceReconciler reconciles a Namespace object
 type NamespaceReconciler struct {
 	client.Client
@@ -61,7 +57,7 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Check that the NS has the labels that indicate that it's an EPIC
 	// client NameSpace
-	if !nsHasLabels(ns, orgLabels) {
+	if !nsHasLabels(ns, epicv1.UserNSLabels) {
 		return result, nil
 	}
 

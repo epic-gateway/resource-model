@@ -51,5 +51,5 @@ func init() {
 // AccountNamespace returns the namespace for the provided account
 // name.
 func AccountNamespace(acctName string) string {
-	return "epic-" + acctName
+	return ProductName + "-" + acctName
 }

@@ -195,7 +195,7 @@ func prebootCleanup(ctx context.Context, log logr.Logger) error {
 // listProxyPods lists the pods that run our Envoy proxy.
 func listProxyPods(ctx context.Context, cl client.Client) (v1.PodList, error) {
 	listOps := client.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "epic", "role": "proxy"}),
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app": epicv1.ProductName, "role": "proxy"}),
 	}
 	list := v1.PodList{}
 	err := cl.List(ctx, &list, &listOps)
