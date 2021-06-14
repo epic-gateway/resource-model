@@ -46,19 +46,8 @@ func (r *ServicePrefixAgentReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// configure the Multus bridge interface
-	bridge, err := network.ConfigureBridge(log, sp.Spec.MultusBridge, sp.Spec.GatewayAddr())
-	if err != nil {
+	if _, err = network.ConfigureBridge(log, sp.Spec.MultusBridge, sp.Spec.GatewayAddr()); err != nil {
 		log.Error(err, "Failed to configure multus bridge")
-		return done, err
-	}
-
-	// Setup host routing
-	subnet, err := sp.Spec.SubnetIPNet()
-	if err != nil {
-		return done, err
-	}
-	if err := network.AddRt(subnet, bridge); err != nil {
-		log.Error(err, "adding route to multus interface")
 		return done, err
 	}
 

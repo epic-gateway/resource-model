@@ -1,10 +1,15 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"net"
 
+	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Important: Run "make" to regenerate code after modifying this file
@@ -63,6 +68,29 @@ func (sps *ServicePrefixSpec) GatewayAddr() *netlink.Addr {
 	return addr
 }
 
+// aggregateRoute determines the aggregated IP network for lbIP, given
+// this SP's subnet and aggregation. Aggregation determines whether to
+// use default aggregation or an override. If aggregation is "default"
+// then the mask from subnet will be used. Otherwise aggregation must
+// be the netmask part of a CIDR address, e.g., "/32".
+func (sps *ServicePrefixSpec) aggregateRoute(lbIP net.IP) (network net.IPNet, err error) {
+	// Assume that the aggregation is "default"
+	rawCIDR := sps.Subnet
+
+	// If aggregation is not "default" then use it instead of the
+	// default
+	if sps.Aggregation != "default" {
+		rawCIDR = fmt.Sprintf("%s%s", lbIP.String(), sps.Aggregation)
+	}
+
+	// Parse the CIDR into a net.IPNet to return to the caller
+	_, lbIPNet, err := net.ParseCIDR(rawCIDR)
+	if err != nil {
+		return net.IPNet{}, err
+	}
+	return *lbIPNet, err
+}
+
 // ServicePrefixStatus defines the observed state of ServicePrefix
 type ServicePrefixStatus struct {
 }
@@ -79,6 +107,94 @@ type ServicePrefix struct {
 
 	Spec   ServicePrefixSpec   `json:"spec,omitempty"`
 	Status ServicePrefixStatus `json:"status,omitempty"`
+}
+
+// AddMultusRoute adds a route to dest to this SP's multus bridge.
+func (sp *ServicePrefix) AddMultusRoute(lbIP net.IP) error {
+	var (
+		dest net.IPNet
+		link netlink.Link
+		err  error
+	)
+
+	// Find our Multus bridge Link
+	if link, err = netlink.LinkByName(sp.Spec.MultusBridge); err != nil {
+		return err
+	}
+
+	// Aggregate the IP address
+	if dest, err = sp.Spec.aggregateRoute(lbIP); err != nil {
+		return err
+	}
+
+	// Add the route
+	if err := netlink.RouteReplace(&netlink.Route{LinkIndex: link.Attrs().Index, Dst: &dest}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemoveMultusRoute removes the multus bridge route for lbIP only if
+// no other LB is using it. Because we can aggregate addresses, one
+// route might attract traffic for more than one IP address. We don't
+// want to remove a route until *all* of the IPs that depend on it are
+// gone.
+func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader, l logr.Logger, lbName string, lbIP net.IP) error {
+	var (
+		dest       net.IPNet
+		lbs        LoadBalancerList
+		routeInUse bool = false
+		err        error
+	)
+
+	// Aggregate the IP address
+	if dest, err = sp.Spec.aggregateRoute(lbIP); err != nil {
+		return err
+	}
+
+	// List the set of LBs that belong to this SP
+	listOps := client.ListOptions{
+		Namespace:     "", // all namespaces (since SPs live in "epic")
+		LabelSelector: labels.SelectorFromSet(map[string]string{OwningServicePrefixLabel: sp.Name}),
+	}
+	if err := r.List(ctx, &lbs, &listOps); err != nil {
+		return err
+	}
+
+	// Check to see if any other LBs are using the same aggregated route
+	for _, otherLB := range lbs.Items {
+		// Only check *other* LBs, not this one
+		if otherLB.Name == lbName {
+			continue
+		}
+
+		// Only check LBs that aren't being deleted
+		if !otherLB.ObjectMeta.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		// If the aggregated route is the same (i.e., if another LB is
+		// using it) then mark the route as "in use"
+		otherAddr := net.ParseIP(otherLB.Spec.PublicAddress)
+		if otherAddr == nil {
+			continue
+		}
+		otherDest, err := sp.Spec.aggregateRoute(otherAddr)
+		if err == nil && otherDest.String() == dest.String() {
+			l.Info("route in use, not removing", "route", dest.String())
+			routeInUse = true
+			break
+		}
+	}
+
+	// If the route is not in use by any other LB then we can delete it
+	if !routeInUse {
+		l.Info("removing route", "route", dest.String())
+		netlink.RouteDel(&netlink.Route{Dst: &dest})
+	}
+
+	return nil
 }
 
 // +kubebuilder:object:root=true

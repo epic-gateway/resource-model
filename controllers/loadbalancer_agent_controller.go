@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
-	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -94,36 +93,34 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Calculate this LB's public address which we use both when we add
 	// and when we delete
-	subnet, err := prefix.Spec.SubnetIPNet()
-	if err != nil {
-		return done, err
-	}
-	_, publicAddr, err := net.ParseCIDR(lb.Spec.PublicAddress + "/32")
-	if err != nil {
-		return done, err
-	}
-	if prefix.Spec.Aggregation == "default" {
-		publicAddr.Mask = subnet.Mask
-	} else {
-		_, publicAddr, err = net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
-		if err != nil {
-			return done, err
-		}
+	publicAddr := net.ParseIP(lb.Spec.PublicAddress)
+	if publicAddr == nil {
+		return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
 	}
 
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Remove network and PFC configuration
-		if err := r.cleanup(log, publicAddr, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
+		if err := r.cleanup(log, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
 			log.Error(err, "Failed to cleanup PFC")
+		}
+
+		// remove route
+		if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
+			log.Error(err, "Failed to delete bridge route")
 		}
 
 		return done, nil // stop reconciliation as the item is being deleted
 	}
 
-	// Set up the network and PFC
+	// Setup host routing
+	log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
+	if err := prefix.AddMultusRoute(publicAddr); err != nil {
+		return done, err
+	}
 
-	if err = r.setup(log, lb, proxyInfo); err != nil {
+	// Set up the network and PFC
+	if err := r.setup(log, lb, proxyInfo); err != nil {
 		return done, err
 	}
 
@@ -140,28 +137,6 @@ func (r *LoadBalancerAgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Scheme returns this reconciler's scheme.
 func (r *LoadBalancerAgentReconciler) Scheme() *runtime.Scheme {
 	return r.RuntimeScheme
-}
-
-// deleteAddr deletes lbIP from whichever interface has it.
-func delAddr(lbIP net.IP) error {
-	hostints, _ := net.Interfaces()
-	for _, hostint := range hostints {
-		addrs, _ := hostint.Addrs()
-		for _, ipnet := range addrs {
-			ipaddr, _, _ := net.ParseCIDR(ipnet.String())
-
-			if lbIP.Equal(ipaddr) {
-				ifindex, _ := netlink.LinkByIndex(hostint.Index)
-				deladdr, _ := netlink.ParseAddr(ipnet.String())
-				if err := netlink.AddrDel(ifindex, deladdr); err != nil {
-					return fmt.Errorf("could not remove %v from %v: %w", deladdr, ifindex, err)
-				}
-				return nil
-			}
-		}
-	}
-
-	return fmt.Errorf("could not remove %v: not found on any interface", lbIP)
 }
 
 func (r *LoadBalancerAgentReconciler) deleteTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
@@ -201,19 +176,9 @@ func (r *LoadBalancerAgentReconciler) setup(l logr.Logger, lb *epicv1.LoadBalanc
 }
 
 // cleanup undoes the setup that we did for this lb.
-func (r *LoadBalancerAgentReconciler) cleanup(l logr.Logger, publicAddr *net.IPNet, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string) error {
+func (r *LoadBalancerAgentReconciler) cleanup(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string) error {
 	// remove IPSet entry
 	network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
-
-	// remove route
-	if err := network.DelRt(publicAddr); err != nil {
-		l.Error(err, "Failed to delete bridge route")
-	}
-
-	// remove address
-	if err := delAddr(publicAddr.IP); err != nil {
-		l.Error(err, "Failed to remove address from bridge")
-	}
 
 	// remove the endpoint PFC "services"
 	r.deleteService(l, groupID, lb.Spec.ServiceID)

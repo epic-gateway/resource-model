@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strings"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
@@ -88,25 +87,6 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	epicName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}
 	if err := r.Get(ctx, epicName, epic); err != nil {
 		return done, err
-	}
-
-	// Calculate this LB's public address which we use both when we add
-	// and when we delete
-	subnet, err := prefix.Spec.SubnetIPNet()
-	if err != nil {
-		return done, err
-	}
-	_, publicAddr, err := net.ParseCIDR(lb.Spec.PublicAddress + "/32")
-	if err != nil {
-		return done, err
-	}
-	if prefix.Spec.Aggregation == "default" {
-		publicAddr.Mask = subnet.Mask
-	} else {
-		_, publicAddr, err = net.ParseCIDR(lb.Spec.PublicAddress + prefix.Spec.Aggregation)
-		if err != nil {
-			return done, err
-		}
 	}
 
 	// Check if k8s wants to delete this object

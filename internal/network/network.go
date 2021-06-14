@@ -10,7 +10,6 @@ import (
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netlink/nl"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -50,97 +49,6 @@ func ipsetAddress(publicaddr string, port corev1.ServicePort) string {
 func IpsetSetCheck() error {
 	cmd := exec.Command("/usr/sbin/ipset", "create", "epic-in", "hash:ip,port")
 	return cmd.Run()
-}
-
-// AddVirtualInt adds `lbIP` to `link`. `aggregation` determines
-// whether to use default aggregation or an override. This will
-// typically be "default". In that case, the mask from `subnet` will
-// be used. Otherwise `aggregation` must be the netmask part of a CIDR
-// address, e.g., "/32".
-func AddVirtualInt(lbIP net.IP, link netlink.Link, subnet, aggregation string) error {
-
-	lbIPNet := net.IPNet{IP: lbIP}
-
-	if aggregation == "default" {
-
-		switch addrFamily(lbIP) {
-		case (nl.FAMILY_V4):
-
-			_, poolipnet, _ := net.ParseCIDR(subnet)
-
-			lbIPNet.Mask = poolipnet.Mask
-
-			err := addNetwork(lbIPNet, link)
-			if err != nil {
-				return fmt.Errorf("could not add %v: to %v %w", lbIPNet, link, err)
-			}
-
-		case (nl.FAMILY_V6):
-
-			_, poolipnet, _ := net.ParseCIDR(subnet)
-
-			lbIPNet.Mask = poolipnet.Mask
-
-			err := addNetwork(lbIPNet, link)
-			if err != nil {
-				return fmt.Errorf("could not add %v: to %v %w", lbIPNet, link, err)
-			}
-		}
-
-	} else {
-
-		switch addrFamily(lbIP) {
-		case (nl.FAMILY_V4):
-
-			_, poolaggr, _ := net.ParseCIDR("0.0.0.0" + aggregation)
-
-			lbIPNet.Mask = poolaggr.Mask
-
-			err := addNetwork(lbIPNet, link)
-			if err != nil {
-				return fmt.Errorf("could not add %v: to %v %w", lbIPNet, link, err)
-			}
-
-		case (nl.FAMILY_V6):
-
-			_, poolaggr, _ := net.ParseCIDR("0.0.0.0" + aggregation)
-
-			lbIPNet.Mask = poolaggr.Mask
-
-			err := addNetwork(lbIPNet, link)
-			if err != nil {
-				return fmt.Errorf("could not add %v: to %v %w", lbIPNet, link, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// addrFamily returns whether lbIP is an IPV4 or IPV6 address.  The
-// return value will be nl.FAMILY_V6 if the address is an IPV6
-// address, nl.FAMILY_V4 if it's IPV4, or 0 if the family can't be
-// determined.
-func addrFamily(lbIP net.IP) (lbIPFamily int) {
-	if nil != lbIP.To16() {
-		lbIPFamily = nl.FAMILY_V6
-	}
-
-	if nil != lbIP.To4() {
-		lbIPFamily = nl.FAMILY_V4
-	}
-
-	return
-}
-
-// addNetwork adds lbIPNet to link.
-func addNetwork(lbIPNet net.IPNet, link netlink.Link) error {
-	addr, _ := netlink.ParseAddr(lbIPNet.String())
-	err := netlink.AddrReplace(link, addr)
-	if err != nil {
-		return fmt.Errorf("could not add %v: to %v %w", addr, link, err)
-	}
-	return nil
 }
 
 // IPTablesCheck sets up the iptables rules.
