@@ -67,8 +67,14 @@ func (r *LoadBalancer) Default() {
 	// address pool
 	poolName := sg.Labels[OwningServicePrefixLabel]
 
+	account := &Account{}
+	accountName := types.NamespacedName{Namespace: sg.Namespace, Name: sg.Labels[OwningAccountLabel]}
+	if err := crtclient.Get(ctx, accountName, account); err != nil {
+		return
+	}
+
 	// Add a service id to this service
-	serviceID, err := allocateServiceID(ctx, crtclient, sg)
+	serviceID, err := allocateServiceID(ctx, crtclient, account)
 	if err != nil {
 		loadbalancerlog.Info("failed to allocate serviceID", "error", err)
 	}
@@ -156,10 +162,10 @@ func (r *LoadBalancer) fetchLBServiceGroup() (*LBServiceGroup, error) {
 // allocateServiceID allocates a service id from the Account that owns
 // this LB. If this call succeeds (i.e., error is nil) then the
 // returned service id will be unique.
-func allocateServiceID(ctx context.Context, cl client.Client, sg *LBServiceGroup) (serviceID uint16, err error) {
+func allocateServiceID(ctx context.Context, cl client.Client, acct *Account) (serviceID uint16, err error) {
 	tries := 3
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
-		serviceID, err = nextServiceID(ctx, cl, sg)
+		serviceID, err = nextServiceID(ctx, cl, acct)
 		if err != nil {
 			accountlog.Info("problem allocating account serviceID", "error", err)
 		}
@@ -175,12 +181,12 @@ func allocateServiceID(ctx context.Context, cl client.Client, sg *LBServiceGroup
 //
 // This function doesn't retry so if there's a collision with some
 // other process the caller needs to retry.
-func nextServiceID(ctx context.Context, cl client.Client, sg *LBServiceGroup) (serviceID uint16, err error) {
+func nextServiceID(ctx context.Context, cl client.Client, acct *Account) (serviceID uint16, err error) {
 
 	// increment the SGs service ID counter
-	sg.Status.CurrentServiceID++
+	acct.Status.CurrentServiceID++
 
-	return sg.Status.CurrentServiceID, cl.Status().Update(ctx, sg)
+	return acct.Status.CurrentServiceID, cl.Status().Update(ctx, acct)
 }
 
 // generateTunnelKey generates a 128-bit tunnel key and returns it as

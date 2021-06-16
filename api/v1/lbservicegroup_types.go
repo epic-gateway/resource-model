@@ -33,11 +33,6 @@ type LBServiceGroupStatus struct {
 	// store them here because they need to survive pod restarts.
 	// +kubebuilder:default={}
 	ProxySnapshotVersions map[string]int `json:"proxy-snapshot-versions"`
-
-	// CurrentServiceID stores the most-recently-allocated GUE Service
-	// ID for services in this group. See the comments on CurrentGroupID
-	// in the EPIC CR for notes on how to use this field.
-	CurrentServiceID uint16 `json:"current-service-id"`
 }
 
 // +kubebuilder:object:root=true

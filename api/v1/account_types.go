@@ -18,6 +18,10 @@ type AccountSpec struct {
 
 // AccountStatus defines the observed state of Account
 type AccountStatus struct {
+	// CurrentServiceID stores the most-recently-allocated GUE Service
+	// ID for services in this group. See the comments on CurrentGroupID
+	// in the EPIC CR for notes on how to use this field.
+	CurrentServiceID uint16 `json:"current-service-id"`
 }
 
 // +kubebuilder:object:root=true
