@@ -45,6 +45,12 @@ func (r *RemoteEndpointAgentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return done, client.IgnoreNotFound(err)
 	}
 
+	// If the NodeAddress is "" then this is an ad-hoc endpoint, i.e., it doesn't use GUE.
+	if rep.Spec.NodeAddress == "" {
+		log.Info("ad-hoc, no per-node setup needed")
+		return done, nil
+	}
+
 	// Check if k8s wants to delete this RemoteEndpoint
 	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
 		log.Info("object to be deleted")

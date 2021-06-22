@@ -72,7 +72,7 @@ func (r *RemoteEndpoint) ValidateCreate() error {
 	if net.ParseIP(r.Spec.Address) == nil {
 		return fmt.Errorf("bad input: can't parse address \"%s\"", r.Spec.Address)
 	}
-	if net.ParseIP(r.Spec.NodeAddress) == nil {
+	if r.Spec.NodeAddress != "" && net.ParseIP(r.Spec.NodeAddress) == nil {
 		return fmt.Errorf("bad input: can't parse node-address \"%s\"", r.Spec.NodeAddress)
 	}
 

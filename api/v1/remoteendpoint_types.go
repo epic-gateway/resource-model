@@ -41,8 +41,9 @@ type RemoteEndpointSpec struct {
 
 	// NodeAddress is the IP address of the node on which this endpoint
 	// is running. We use it to set up a GUE tunnel from the EPIC to the
-	// node.
-	NodeAddress string `json:"node-address"`
+	// node. If it is not set then this endpoint will be ad-hoc, i.e.,
+	// it won't use GUE.
+	NodeAddress string `json:"node-address,omitempty"`
 
 	// Port is the port on which this endpoint listens.
 	Port corev1.EndpointPort `json:"port"`
