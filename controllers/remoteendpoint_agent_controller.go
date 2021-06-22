@@ -49,9 +49,9 @@ func (r *RemoteEndpointAgentReconciler) Reconcile(ctx context.Context, req ctrl.
 	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
 		log.Info("object to be deleted")
 
-		if controllerutil.ContainsFinalizer(rep, epicv1.RemoteEndpointFinalizerName) {
+		if controllerutil.ContainsFinalizer(rep, epicv1.RemoteEndpointAgentFinalizerName) {
 			// remove our finalizer from the list and update the object
-			controllerutil.RemoveFinalizer(rep, epicv1.RemoteEndpointFinalizerName)
+			controllerutil.RemoveFinalizer(rep, epicv1.RemoteEndpointAgentFinalizerName)
 			if err := r.Update(ctx, rep); err != nil {
 				return done, err
 			}
