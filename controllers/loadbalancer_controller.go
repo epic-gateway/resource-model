@@ -309,6 +309,15 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 		},
 	}
 
+	// If this is *not* a TrueIngress LB then set the env var that tells
+	// our Envoy docker-entrypoint to *not* set it up.
+	if !lb.Spec.TrueIngress {
+		dep.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{{
+			Name:  "TRUEINGRESS",
+			Value: "disabled",
+		}}
+	}
+
 	// Set LB instance as the owner and controller
 	ctrl.SetControllerReference(lb, dep, r.Scheme())
 	return dep

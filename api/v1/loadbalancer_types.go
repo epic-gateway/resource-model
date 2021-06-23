@@ -55,6 +55,12 @@ type LoadBalancerSpec struct {
 	// this LB serves. The string must be the cluster-id that is passed
 	// in the announce and withdraw web service methods.
 	UpstreamClusters []string `json:"upstream-clusters,omitempty"`
+
+	// TrueIngress indicates that this LB will use TrueIngress to talk
+	// to its upstream cluster endpoints. The default is true since that
+	// will likely be the most common case.
+	// +kubebuilder:default=true
+	TrueIngress bool `json:"true-ingress"`
 }
 
 // GUETunnelEndpoint is an Endpoint on the EPIC.
