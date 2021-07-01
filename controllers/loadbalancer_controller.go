@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	gitlabSecret  = "gitlab"
-	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+	gitlabSecret     = "gitlab"
+	cniAnnotation    = "k8s.v1.cni.cncf.io/networks"
+	envoyPodReplicas = 2
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -241,7 +242,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 			Namespace: lb.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32Ptr(1),
+			Replicas: pointer.Int32Ptr(envoyPodReplicas),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -277,6 +278,14 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 									ReadOnly:  true,
 								},
 							},
+						},
+					},
+					TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+						{
+							// Spread pods across nodes as much as possible
+							TopologyKey:       "kubernetes.io/hostname",
+							MaxSkew:           1,
+							WhenUnsatisfiable: "ScheduleAnyway",
 						},
 					},
 					ImagePullSecrets: []corev1.LocalObjectReference{
