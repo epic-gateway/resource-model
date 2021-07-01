@@ -188,12 +188,12 @@ func maybeCreateRole(ctx context.Context, cl client.Client, l logr.Logger, names
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{"epic.acnodal.io"},
+				APIGroups: []string{epicv1.GroupName},
 				Resources: []string{"loadbalancers", "remoteendpoints", "lbservicegroups"},
 				Verbs:     []string{"get", "list", "watch", "update", "patch"},
 			},
 			{
-				APIGroups: []string{"epic.acnodal.io"},
+				APIGroups: []string{epicv1.GroupName},
 				Resources: []string{"lbservicegroups/status"},
 				Verbs:     []string{"get", "update", "patch"},
 			},
