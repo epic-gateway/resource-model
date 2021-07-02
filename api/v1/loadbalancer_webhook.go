@@ -70,6 +70,7 @@ func (r *LoadBalancer) Default() {
 	account := &Account{}
 	accountName := types.NamespacedName{Namespace: sg.Namespace, Name: sg.Labels[OwningAccountLabel]}
 	if err := crtclient.Get(ctx, accountName, account); err != nil {
+		loadbalancerlog.Info("failed to fetch owning service group", "error", err)
 		return
 	}
 

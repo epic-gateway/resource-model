@@ -201,7 +201,7 @@ func envoyPodName(lb *epicv1.LoadBalancer) string {
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
 func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *epicv1.ServicePrefix, envoyImage string) *appsv1.Deployment {
-	labels := labelsForLB(lb.Name)
+	labels := epicv1.LabelsForEnvoy(lb.Name)
 
 	// Format the pod's IP address by parsing the raw address and adding
 	// the netmask from the service prefix Subnet
@@ -339,12 +339,6 @@ func splitNSName(name string) (*types.NamespacedName, error) {
 	}
 
 	return &types.NamespacedName{Namespace: parts[0], Name: parts[1]}, nil
-}
-
-// labelsForLB returns the labels for selecting the resources
-// belonging to the given CR name.
-func labelsForLB(name string) map[string]string {
-	return map[string]string{"app": epicv1.ProductName, "role": "proxy", "loadbalancer_cr": name}
 }
 
 // portsToPorts converts from ServicePorts to ContainerPorts.
