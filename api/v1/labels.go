@@ -4,27 +4,27 @@ const (
 	// OwningAccountLabel is the name of the label that we apply to
 	// service groups and load balancers to indicate in a query-friendly
 	// way to which Account they belong.
-	OwningAccountLabel string = "owning-account"
+	OwningAccountLabel string = GroupName + "/owning-account"
 
 	// OwningLBServiceGroupLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which
 	// LBServiceGroup they belong.
-	OwningLBServiceGroupLabel string = "owning-lbservicegroup"
+	OwningLBServiceGroupLabel string = GroupName + "/owning-lbservicegroup"
 
 	// OwningServicePrefixLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which
 	// ServicePrefix they belong.
-	OwningServicePrefixLabel string = "owning-serviceprefix"
+	OwningServicePrefixLabel string = GroupName + "/owning-serviceprefix"
 
 	// OwningLoadBalancerLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which
 	// LoadBalancer they belong.
-	OwningLoadBalancerLabel string = "owning-loadbalancer"
+	OwningLoadBalancerLabel string = GroupName + "/owning-loadbalancer"
 
 	// OwningClusterLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which Cluster
 	// they belong.
-	OwningClusterLabel string = "owning-cluster"
+	OwningClusterLabel string = GroupName + "/owning-cluster"
 )
 
 var (

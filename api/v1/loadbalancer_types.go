@@ -114,8 +114,8 @@ type LoadBalancerStatus struct {
 // +kubebuilder:resource:shortName=lb;lbs
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:JSONPath=".spec.public-address",name=Public Address,type=string
-// +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-lbservicegroup",name=Service Group,type=string
-// +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-serviceprefix",name=Service Prefix,type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.labels.['epic.acnodal.io/owning-lbservicegroup']",name=Service Group,type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.labels.['epic.acnodal.io/owning-serviceprefix']",name=Service Prefix,type=string
 
 // LoadBalancer is the Schema for the loadbalancers API
 type LoadBalancer struct {
