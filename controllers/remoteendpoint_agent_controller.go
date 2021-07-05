@@ -51,6 +51,8 @@ func (r *RemoteEndpointAgentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return done, nil
 	}
 
+	log.Info("reconciling")
+
 	// Check if k8s wants to delete this RemoteEndpoint
 	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
 		log.Info("object to be deleted")
@@ -67,84 +69,93 @@ func (r *RemoteEndpointAgentReconciler) Reconcile(ctx context.Context, req ctrl.
 		if err := cleanup(log, rep.Spec, rep.Status.ProxyIfindex, rep.Status.TunnelID, rep.Status.GroupID, rep.Status.ServiceID); err != nil {
 			log.Error(err, "Failed to cleanup PFC")
 		}
-	}
 
-	// Get the "stack" of CRs to which this rep belongs: LoadBalancer,
-	// LBServiceGroup, ServicePrefix, and Account. They provide
-	// configuration data that we need but that isn't contained in the
-	// rep.
-	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Labels[epicv1.OwningLoadBalancerLabel]}
-	if err := r.Get(ctx, lbname, lb); err != nil {
-		return done, err
-	}
+	} else {
 
-	sgName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
-	if err := r.Get(ctx, sgName, sg); err != nil {
-		return done, err
-	}
+		// Get the "stack" of CRs to which this rep belongs: LoadBalancer,
+		// LBServiceGroup, and Account. They provide configuration data
+		// that we need but that isn't contained in the rep.
+		lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Labels[epicv1.OwningLoadBalancerLabel]}
+		if err := r.Get(ctx, lbname, lb); err != nil {
+			return done, err
+		}
 
-	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
-	if err := r.Get(ctx, accountName, account); err != nil {
-		return done, err
-	}
+		sgName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
+		if err := r.Get(ctx, sgName, sg); err != nil {
+			return done, err
+		}
 
-	// Check if k8s wants to delete this object
-	if rep.ObjectMeta.DeletionTimestamp.IsZero() {
+		accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
+		if err := r.Get(ctx, accountName, account); err != nil {
+			return done, err
+		}
 
-		// The endpoint isn't being deleted, so set up a tunnel to it
+		log.Info("setting up tunnels")
 
-		// We need this LB's veth info so if the python daemon hasn't filled
-		// it in yet then we'll back off and give it more time
-		if lb.Status.ProxyInterfaces == nil || len(lb.Status.ProxyInterfaces) == 0 {
-			log.Info("status has no proxy interfaces info")
+		// If any of the Envoy proxy pods need to have their interface
+		// data set by the Python daemon then back off and retry later
+		if len(lb.Status.ProxyInterfaces) < 1 {
+			log.Info("proxy interface info missing")
 			return tryAgain, nil
 		}
-
-		// Return if the relevant Envoy isn't running on this host. This
-		// is the case when there is an entry in the ProxyInterfaces map
-		// but it's not for this host.
-		proxyInfo, haveProxyInfo := lb.Status.ProxyInterfaces[os.Getenv("EPIC_HOST")]
-		if !haveProxyInfo {
-			log.Info("Not me: status has no proxy interface info for this host", "host", os.Getenv("EPIC_HOST"))
-			return done, nil
-		}
-		log.Info("LB status veth info", "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
-
-		// Add GUE ingress address/port to the endpoint
-		gueEp, err := r.setGUEIngressAddress(ctx, log, lb, &rep.Spec)
-		if err != nil {
-			log.Error(err, "Patching LB status")
-			return done, err
+		for proxyName, proxyInfo := range lb.Status.ProxyInterfaces {
+			if proxyInfo.Name == "" {
+				log.Info("proxy interface info incomplete", "name", proxyName)
+				return tryAgain, nil
+			}
 		}
 
-		// configure the GUE tunnel
-		if err := configureTunnel(log, gueEp); err != nil {
-			log.Error(err, "configuring GUE tunnel")
-			return done, err
-		}
+		// The endpoint isn't being deleted, so set up a tunnel to it from
+		// each proxy pod.
+		for proxyName, proxyInfo := range lb.Status.ProxyInterfaces {
 
-		// configure the GUE "service"
-		if err := configureService(log, rep.Spec, proxyInfo.Index, account.Spec.GroupID, lb.Spec.ServiceID, gueEp.TunnelID, lb.Spec.TunnelKey); err != nil {
-			log.Error(err, "configuring GUE service")
-			return done, err
-		}
+			log = r.Log.WithValues("proxy", proxyName)
 
-		// Cache some values that we might need later if we need to delete
-		// the endpoint
-		patchBytes, err := json.Marshal(
-			epicv1.RemoteEndpoint{
-				Status: epicv1.RemoteEndpointStatus{
-					GroupID:      account.Spec.GroupID,
-					ServiceID:    lb.Spec.ServiceID,
-					ProxyIfindex: proxyInfo.Index,
-					TunnelID:     gueEp.TunnelID}})
-		if err != nil {
-			log.Error(err, "marshaling EP patch", "ep", rep)
-			return done, err
-		}
-		if err := r.Status().Patch(ctx, rep, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
-			log.Error(err, "patching EP status", "ep", rep)
-			return done, err
+			// Skip if the relevant Envoy isn't running on this host. We can
+			// tell because there's an entry in the ProxyInterfaces map but
+			// it's not for this host.
+			if proxyInfo.EPICNodeAddress != os.Getenv("EPIC_HOST") {
+				log.Info("Not me: status has no proxy interface info for this host")
+				continue
+			}
+			log.Info("LB status veth info", "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
+
+			// Add GUE ingress address/port to the endpoint
+			gueEp, err := r.setGUEIngressAddress(ctx, log, lb, &rep.Spec)
+			if err != nil {
+				log.Error(err, "Patching LB status")
+				return done, err
+			}
+
+			// configure the GUE tunnel
+			if err := configureTunnel(log, gueEp); err != nil {
+				log.Error(err, "configuring GUE tunnel")
+				return done, err
+			}
+
+			// configure the GUE "service"
+			if err := configureService(log, rep.Spec, proxyInfo.Index, account.Spec.GroupID, lb.Spec.ServiceID, gueEp.TunnelID, lb.Spec.TunnelKey); err != nil {
+				log.Error(err, "configuring GUE service")
+				return done, err
+			}
+
+			// Cache some values that we might need later if we need to delete
+			// the endpoint
+			patchBytes, err := json.Marshal(
+				epicv1.RemoteEndpoint{
+					Status: epicv1.RemoteEndpointStatus{
+						GroupID:      account.Spec.GroupID,
+						ServiceID:    lb.Spec.ServiceID,
+						ProxyIfindex: proxyInfo.Index,
+						TunnelID:     gueEp.TunnelID}})
+			if err != nil {
+				log.Error(err, "marshaling EP patch", "ep", rep)
+				return done, err
+			}
+			if err := r.Status().Patch(ctx, rep, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
+				log.Error(err, "patching EP status", "ep", rep)
+				return done, err
+			}
 		}
 	}
 
@@ -203,9 +214,7 @@ func (r *RemoteEndpointAgentReconciler) setGUEIngressAddress(ctx context.Context
 			Status: epicv1.LoadBalancerStatus{
 				GUETunnelEndpoints: map[string]epicv1.GUETunnelEndpoint{
 					ep.NodeAddress: gueEndpoint,
-				},
-				ProxyInterfaces: map[string]epicv1.ProxyInterfaceInfo{
-					os.Getenv("EPIC_HOST"): {Port: config.Spec.NodeBase.GUEEndpoint.Port}}}})
+				}}})
 	if err != nil {
 		return gueEndpoint, err
 	}

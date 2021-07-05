@@ -54,22 +54,18 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, client.IgnoreNotFound(err)
 	}
 
-	// We need this LB's veth info so if the python daemon hasn't filled
-	// it in yet then we'll back off and give it more time
-	if lb.Status.ProxyInterfaces == nil || len(lb.Status.ProxyInterfaces) == 0 {
-		log.Info("status has no proxy interfaces info")
+	// If any of this LB's Envoy proxy pods need to have their interface
+	// data set by the Python daemon then back off and retry later
+	if len(lb.Status.ProxyInterfaces) < 1 {
+		log.Info("proxy interface info missing")
 		return tryAgain, nil
 	}
-
-	// Return if the relevant Envoy isn't running on this host. We can
-	// tell because there will be an entry in the ProxyInterfaces map
-	// but it's not for this host.
-	proxyInfo, haveProxyInfo := lb.Status.ProxyInterfaces[os.Getenv("EPIC_HOST")]
-	if !haveProxyInfo {
-		log.Info("Not me: status has no proxy interface info for this host")
-		return done, nil
+	for proxyName, proxyInfo := range lb.Status.ProxyInterfaces {
+		if proxyInfo.Name == "" {
+			log.Info("proxy interface info incomplete", "name", proxyName)
+			return tryAgain, nil
+		}
 	}
-	log.Info("LB status veth info", "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
 	// Get the "stack" of CRs to which this LB belongs: LBServiceGroup,
 	// ServicePrefix, and Account. They provide configuration data that
@@ -98,30 +94,45 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
 	}
 
-	// Check if k8s wants to delete this object
-	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Remove network and PFC configuration
-		if err := r.cleanup(log, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
-			log.Error(err, "Failed to cleanup PFC")
+	// Attempt to set up each proxy pod belonging to this LB
+	for proxyName, proxyInfo := range lb.Status.ProxyInterfaces {
+
+		log = r.Log.WithValues("proxy", proxyName)
+
+		// Skip if the relevant Envoy isn't running on this host. We can
+		// tell because there's an entry in the ProxyInterfaces map but
+		// it's not for this host.
+		if proxyInfo.EPICNodeAddress != os.Getenv("EPIC_HOST") {
+			log.Info("Not me: status has no proxy interface info for this host")
+			continue
 		}
+		log.Info("LB status veth info", "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
-		// remove route
-		if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
-			log.Error(err, "Failed to delete bridge route")
+		// Check if k8s wants to delete this object
+		if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
+			// Remove network and PFC configuration
+			if err := r.cleanup(log, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
+				log.Error(err, "Failed to cleanup PFC")
+			}
+
+			// remove route
+			if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
+				log.Error(err, "Failed to delete bridge route")
+			}
+
+		} else {
+
+			// Setup host routing
+			log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
+			if err := prefix.AddMultusRoute(publicAddr); err != nil {
+				return done, err
+			}
+
+			// Set up the network and PFC
+			if err := r.setup(log, lb, proxyInfo); err != nil {
+				return done, err
+			}
 		}
-
-		return done, nil // stop reconciliation as the item is being deleted
-	}
-
-	// Setup host routing
-	log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
-	if err := prefix.AddMultusRoute(publicAddr); err != nil {
-		return done, err
-	}
-
-	// Set up the network and PFC
-	if err := r.setup(log, lb, proxyInfo); err != nil {
-		return done, err
 	}
 
 	return done, nil

@@ -79,6 +79,10 @@ type GUETunnelEndpoint struct {
 // ProxyInterfaceInfo contains information about the Envoy proxy pod's
 // network interfaces.
 type ProxyInterfaceInfo struct {
+	// EPICNodeAddress is the IP address of the EPIC node that hosts
+	// this proxy pod.
+	EPICNodeAddress string `json:"epic-node-address,omitempty"`
+
 	// Port is the port on which this endpoint listens.
 	// +kubebuilder:default={"port":6080,"protocol":"UDP","appProtocol":"gue"}
 	Port corev1.EndpointPort `json:"epic-port,omitempty"`
@@ -104,7 +108,7 @@ type LoadBalancerStatus struct {
 	GUETunnelEndpoints map[string]GUETunnelEndpoint `json:"gue-tunnel-endpoints,omitempty"`
 
 	// ProxyInterfaces contains information about the Envoy proxy pods'
-	// network interfaces. The map key is the node IP address. It's
+	// network interfaces. The map key is the proxy pod name. It's
 	// filled in by the python setup-network daemon and used by the
 	// loadbalancer controller.
 	ProxyInterfaces map[string]ProxyInterfaceInfo `json:"proxy-if-info,omitempty"`
