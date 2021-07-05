@@ -252,6 +252,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 					Labels:      labels,
 				},
 				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: pointer.Int64Ptr(0),
 					Containers: []corev1.Container{
 						{Image: envoyImage,
 							ImagePullPolicy: corev1.PullAlways,
