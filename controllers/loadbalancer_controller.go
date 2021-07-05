@@ -27,7 +27,7 @@ import (
 const (
 	gitlabSecret     = "gitlab"
 	cniAnnotation    = "k8s.v1.cni.cncf.io/networks"
-	envoyPodReplicas = 2
+	envoyPodReplicas = 1
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
