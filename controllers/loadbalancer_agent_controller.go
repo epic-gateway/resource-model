@@ -15,7 +15,6 @@ import (
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
 	"gitlab.com/acnodal/epic/resource-model/internal/network"
-	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
 )
 
 // LoadBalancerAgentReconciler reconciles a LoadBalancer object by
@@ -160,22 +159,8 @@ func (r *LoadBalancerAgentReconciler) deleteService(l logr.Logger, groupID uint1
 	return epicexec.RunScript(l, script)
 }
 
-func (r *LoadBalancerAgentReconciler) configureTagging(l logr.Logger, ifname string) error {
-	err := pfc.AddQueueDiscipline(ifname)
-	if err != nil {
-		return err
-	}
-	return pfc.AddFilter(ifname, "ingress", "tag_rx")
-}
-
 // setup sets up the networky stuff that we need to do for lb.
 func (r *LoadBalancerAgentReconciler) setup(l logr.Logger, lb *epicv1.LoadBalancer, ifInfo epicv1.ProxyInterfaceInfo) error {
-
-	// add the packet tagger to the Envoy pod veth
-	if err := r.configureTagging(l, ifInfo.Name); err != nil {
-		l.Error(err, "adding packet tagger", "if", ifInfo.Name)
-		return err
-	}
 
 	// Open host ports by updating IPSET tables
 	if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {

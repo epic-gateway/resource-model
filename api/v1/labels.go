@@ -1,5 +1,7 @@
 package v1
 
+import v1 "k8s.io/api/core/v1"
+
 const (
 	// OwningAccountLabel is the name of the label that we apply to
 	// service groups and load balancers to indicate in a query-friendly
@@ -55,4 +57,39 @@ func LabelsForEnvoy(name string) map[string]string {
 	labels[OwningLoadBalancerLabel] = name
 
 	return labels
+}
+
+// HasEnvoyLabels indicates whether a Pod has the LabelsForEnvoy,
+// i.e., whether the Pod is an Envoy proxy pod.
+func HasEnvoyLabels(pod v1.Pod) bool {
+	partOf, hasPartOf := pod.ObjectMeta.Labels["app.kubernetes.io/part-of"]
+	if !hasPartOf {
+		return false
+	}
+	if partOf != ProductName {
+		return false
+	}
+
+	name, hasName := pod.ObjectMeta.Labels["app.kubernetes.io/name"]
+	if !hasName {
+		return false
+	}
+	if name != "envoy" {
+		return false
+	}
+
+	component, hasComponent := pod.ObjectMeta.Labels["app.kubernetes.io/component"]
+	if !hasComponent {
+		return false
+	}
+	if component != "proxy" {
+		return false
+	}
+
+	_, hasOwner := pod.ObjectMeta.Labels[OwningLoadBalancerLabel]
+	if !hasOwner {
+		return false
+	}
+
+	return true
 }

@@ -70,6 +70,14 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err = (&controllers.PodAgentReconciler{
+		Client:        mgr.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("PodAgent"),
+		RuntimeScheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
 	if err = (&controllers.RemoteEndpointAgentReconciler{
 		Client:        mgr.GetClient(),
 		Log:           ctrl.Log.WithName("controllers").WithName("RemoteEndpointAgent"),
