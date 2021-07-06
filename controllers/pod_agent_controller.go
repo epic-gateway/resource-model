@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"os"
 
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -27,7 +28,7 @@ type PodAgentReconciler struct {
 func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	pod := v1.Pod{}
 	result := ctrl.Result{}
-	log := r.Log.WithValues("pod", req.NamespacedName.Name)
+	log := r.Log.WithValues("node", os.Getenv("EPIC_HOST"), "pod", req.NamespacedName.Name)
 
 	log.Info("Reconciling")
 

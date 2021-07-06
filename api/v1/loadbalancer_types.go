@@ -63,6 +63,12 @@ type LoadBalancerSpec struct {
 	TrueIngress bool `json:"true-ingress"`
 }
 
+// EPICEndpointMap contains a map of the EPIC endpoints that connect
+// to one PureLB endpoint, keyed by Node IP address.
+type EPICEndpointMap struct {
+	EPICEndpoints map[string]GUETunnelEndpoint `json:"epic-endpoints,omitempty"`
+}
+
 // GUETunnelEndpoint is an Endpoint on the EPIC.
 type GUETunnelEndpoint struct {
 	// Address is the IP address on the EPIC for this endpoint.
@@ -99,13 +105,15 @@ type ProxyInterfaceInfo struct {
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
-	// GUETunnelEndpoints is a map from client node addresses to public
-	// GUE tunnel endpoints on the EPIC. The map key is a client node
-	// address and must be one of the node addresses in the Spec
-	// Endpoints slice. The value is a GUETunnelEndpoint that describes
-	// the public IP and port to which the client can send tunnel ping
-	// packets.
-	GUETunnelEndpoints map[string]GUETunnelEndpoint `json:"gue-tunnel-endpoints,omitempty"`
+	// GUETunnelEndpoints is a map of maps. The outer map is from client
+	// node addresses to public GUE tunnel endpoints on the EPIC. The
+	// map key is a client node address and must be one of the node
+	// addresses in the Spec Endpoints slice. The value is a map
+	// containing TunnelEndpoints that describes the public IPs and
+	// ports to which the client can send tunnel ping packets. The key
+	// is the IP address of the EPIC node and the value is a
+	// TunnelEndpoint.
+	GUETunnelMaps map[string]EPICEndpointMap `json:"gue-tunnel-endpoints,omitempty"`
 
 	// ProxyInterfaces contains information about the Envoy proxy pods'
 	// network interfaces. The map key is the proxy pod name. It's

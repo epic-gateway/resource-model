@@ -106,7 +106,7 @@ func (r *RemoteEndpointAgentReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 
 		// The endpoint isn't being deleted, so set up a tunnel to it from
-		// each proxy pod.
+		// each proxy pod on this node.
 		for proxyName, proxyInfo := range lb.Status.ProxyInterfaces {
 
 			log = r.Log.WithValues("proxy", proxyName)
@@ -181,42 +181,52 @@ func (r *RemoteEndpointAgentReconciler) Scheme() *runtime.Scheme {
 // GUETunnelRemoteEndpoint is invalid.
 func (r *RemoteEndpointAgentReconciler) setGUEIngressAddress(ctx context.Context, l logr.Logger, lb *epicv1.LoadBalancer, ep *epicv1.RemoteEndpointSpec) (epicv1.GUETunnelEndpoint, error) {
 	var (
-		err         error
-		gueEndpoint epicv1.GUETunnelEndpoint
+		err           error
+		purelbEPMap   epicv1.EPICEndpointMap
+		envoyEndpoint epicv1.GUETunnelEndpoint
+		exists        bool
 	)
 
 	// We set up a tunnel to each client node that has an endpoint that
 	// belongs to this service. If we already have a tunnel to this
 	// endpoint's node (i.e., two endpoints in the same service on the
 	// same node) then we don't need to do anything
-	if gueEndpoint, exists := lb.Status.GUETunnelEndpoints[ep.NodeAddress]; exists {
-		l.Info("EP node already has a tunnel", "endpoint", ep)
-		return gueEndpoint, nil
+	if purelbEPMap, exists = lb.Status.GUETunnelMaps[ep.NodeAddress]; exists {
+		if envoyEndpoint, exists = purelbEPMap.EPICEndpoints[os.Getenv("EPIC_HOST")]; exists {
+			l.Info("Envoy/PureLB node pair already has a tunnel", "endpoint", ep)
+			return envoyEndpoint, nil
+		}
 	}
 
 	// fetch the node config; it tells us the GUEEndpoint for this node
 	config := &epicv1.EPIC{}
 	err = r.Get(ctx, types.NamespacedName{Name: epicv1.ConfigName, Namespace: epicv1.ConfigNamespace}, config)
 	if err != nil {
-		return gueEndpoint, err
+		return envoyEndpoint, err
 	}
 
-	config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&gueEndpoint)
-	gueEndpoint.Address = os.Getenv("EPIC_HOST")
-	gueEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client)
+	config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
+	envoyEndpoint.Address = os.Getenv("EPIC_HOST")
+	envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client)
 	if err != nil {
-		return gueEndpoint, err
+		return envoyEndpoint, err
 	}
 
 	// prepare a patch to set this node's tunnel endpoint in the LB status
-	patchBytes, err := json.Marshal(
-		epicv1.LoadBalancer{
-			Status: epicv1.LoadBalancerStatus{
-				GUETunnelEndpoints: map[string]epicv1.GUETunnelEndpoint{
-					ep.NodeAddress: gueEndpoint,
-				}}})
+	patch := epicv1.LoadBalancer{
+		Status: epicv1.LoadBalancerStatus{
+			GUETunnelMaps: map[string]epicv1.EPICEndpointMap{
+				ep.NodeAddress: {
+					EPICEndpoints: map[string]epicv1.GUETunnelEndpoint{
+						os.Getenv("EPIC_HOST"): envoyEndpoint,
+					},
+				},
+			},
+		},
+	}
+	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		return gueEndpoint, err
+		return envoyEndpoint, err
 	}
 	l.Info(string(patchBytes))
 
@@ -224,11 +234,11 @@ func (r *RemoteEndpointAgentReconciler) setGUEIngressAddress(ctx context.Context
 	err = r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes))
 	if err != nil {
 		l.Info("patching LB status", "lb", lb, "error", err)
-		return gueEndpoint, err
+		return envoyEndpoint, err
 	}
 
 	l.Info("LB status patched", "lb", lb)
-	return gueEndpoint, err
+	return envoyEndpoint, err
 }
 
 // allocateTunnelID allocates a tunnel ID from the EPIC singleton. If

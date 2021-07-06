@@ -180,8 +180,10 @@ func (r *LoadBalancerAgentReconciler) cleanup(l logr.Logger, lb *epicv1.LoadBala
 	r.deleteService(l, groupID, lb.Spec.ServiceID)
 
 	// remove the PFC tunnels
-	for _, tunnel := range lb.Status.GUETunnelEndpoints {
-		r.deleteTunnel(l, tunnel)
+	for _, epicEPMap := range lb.Status.GUETunnelMaps {
+		for _, tunnel := range epicEPMap.EPICEndpoints {
+			r.deleteTunnel(l, tunnel)
+		}
 	}
 
 	return nil
