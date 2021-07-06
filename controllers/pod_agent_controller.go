@@ -28,13 +28,11 @@ type PodAgentReconciler struct {
 func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	pod := v1.Pod{}
 	result := ctrl.Result{}
-	log := r.Log.WithValues("node", os.Getenv("EPIC_HOST"), "pod", req.NamespacedName.Name)
+	log := r.Log.WithValues("agent-running-on", os.Getenv("EPIC_NODE_NAME"), "pod", req.NamespacedName.Name)
 
-	log.Info("Reconciling")
-
-	// read the object that caused the event
+	// read the Pod that caused the event
 	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {
-		log.Info("can't get resource, probably deleted")
+		log.Info("can't get pod resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -43,7 +41,13 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// If it's not an Envoy Pod then do nothing
 	if !epicv1.HasEnvoyLabels(pod) {
-		log.Info("is not a proxy pod")
+		log.Info("pod is not a proxy pod")
+		return done, nil
+	}
+
+	// If it's not running on this node then do nothing
+	if os.Getenv("EPIC_NODE_NAME") != pod.Spec.NodeName {
+		log.Info("pod is not running on this node", "pod-running-on", pod.Spec.NodeName)
 		return done, nil
 	}
 
@@ -56,7 +60,7 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return tryAgain, nil
 	}
 
-	log.Info("proxy interface info", "ifindex", ifIndex, "ifname", ifName)
+	log.Info("Reconciling", "ifindex", ifIndex, "ifname", ifName)
 
 	// If this object is *not* being deleted then set up the TrueIngress
 	// tagger.
