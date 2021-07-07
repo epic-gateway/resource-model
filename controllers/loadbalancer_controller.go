@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
@@ -354,4 +355,23 @@ func portsToPorts(sPorts []corev1.ServicePort) []corev1.ContainerPort {
 // washProtocol "washes" proto, optionally upcasing if necessary.
 func washProtocol(proto corev1.Protocol) corev1.Protocol {
 	return corev1.Protocol(strings.ToUpper(string(proto)))
+}
+
+// listActiveLBEndpoints lists the endpoints that belong to lb that
+// are active, i.e., not in the process of being deleted.
+func listActiveLBEndpoints(ctx context.Context, cl client.Client, lb *epicv1.LoadBalancer) ([]epicv1.RemoteEndpoint, error) {
+	labelSelector := labels.SelectorFromSet(map[string]string{epicv1.OwningLoadBalancerLabel: lb.Name})
+	listOps := client.ListOptions{Namespace: lb.Namespace, LabelSelector: labelSelector}
+	list := epicv1.RemoteEndpointList{}
+	err := cl.List(ctx, &list, &listOps)
+
+	activeEPs := []epicv1.RemoteEndpoint{}
+	// build a new list with no "in deletion" endpoints
+	for _, endpoint := range list.Items {
+		if endpoint.ObjectMeta.DeletionTimestamp.IsZero() {
+			activeEPs = append(activeEPs, endpoint)
+		}
+	}
+
+	return activeEPs, err
 }

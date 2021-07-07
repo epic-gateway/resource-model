@@ -78,14 +78,6 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err = (&controllers.RemoteEndpointAgentReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("RemoteEndpointAgent"),
-		RuntimeScheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
 	// See if the PFC is installed
 	ok, message := pfc.Check()
 	if ok {

@@ -15,11 +15,7 @@ import (
 const (
 	// RemoteEndpointFinalizerName is the name of the finalizer that
 	// does the per-cluster cleanup when a RemoteEndpoint CR is deleted.
-	RemoteEndpointFinalizerName string = "remoteendpoint-finalizer.controller-manager.acnodal.io"
-	// RemoteEndpointAgentFinalizerName is the name of the finalizer
-	// that does the per-node cleanup when a RemoteEndpoint CR is
-	// deleted.
-	RemoteEndpointAgentFinalizerName string = "remoteendpoint-agent-finalizer.controller-manager.acnodal.io"
+	RemoteEndpointFinalizerName string = "remoteendpoint.controller-manager.epic.acnodal.io/finalizer"
 )
 
 var (

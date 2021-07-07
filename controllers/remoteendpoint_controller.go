@@ -2,18 +2,17 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
-	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
 )
 
 // RemoteEndpointReconciler reconciles RemoteEndpoint objects.
@@ -27,15 +26,14 @@ type RemoteEndpointReconciler struct {
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=remoteendpoints/status,verbs=get;update;patch
 
 // Reconcile takes a Request and makes the system reflect what the
-// Request is asking for.
+// Request is asking for. In this case the request indicates that an
+// endpoint has changed so we need to update the LB's tunnel map.
 func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("rep", req.NamespacedName)
-	rep := &epicv1.RemoteEndpoint{}
-	lb := &epicv1.LoadBalancer{}
-	ec := &marin3r.EnvoyConfig{}
+	rep := epicv1.RemoteEndpoint{}
 
 	// Get the RemoteEndpoint that caused the event
-	if err := r.Get(ctx, req.NamespacedName, rep); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &rep); err != nil {
 		log.Info("can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
@@ -43,52 +41,51 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return done, client.IgnoreNotFound(err)
 	}
 
-	// Check if k8s wants to delete this RemoteEndpoint
+	// If the NodeAddress is "" then this is an ad-hoc endpoint, i.e., it doesn't use GUE.
+	if rep.Spec.NodeAddress == "" {
+		log.Info("ad-hoc, no tunnel setup needed")
+		return done, nil
+	}
+
 	if !rep.ObjectMeta.DeletionTimestamp.IsZero() {
+		// This rep is marked for deletion. We need to clean up where
+		// possible, but also be careful to handle edge cases like the LB
+		// being "not found" because it was deleted first.
+
 		log.Info("object to be deleted")
 
-		if controllerutil.ContainsFinalizer(rep, epicv1.RemoteEndpointFinalizerName) {
-			// remove our finalizer from the list and update the object
-			controllerutil.RemoveFinalizer(rep, epicv1.RemoteEndpointFinalizerName)
-			if err := r.Update(ctx, rep); err != nil {
-				return done, err
-			}
+		// Remove the rep's info from the LB but continue even if there's
+		// an error because we want to *always* remove our finalizer.
+		repInfoErr := removeRepInfo(ctx, r.Client, log, req.NamespacedName.Namespace, rep.Labels[epicv1.OwningLoadBalancerLabel], rep.Spec.NodeAddress)
+
+		// Remove our finalizer to ensure that we don't block it from
+		// being deleted.
+		if err := RemoveFinalizer(ctx, r.Client, &rep, epicv1.RemoteEndpointFinalizerName); err != nil {
+			return done, err
 		}
+
+		// Now that we've removed our finalizer we can return and report
+		// on any errors that happened during cleanup.
+		return done, repInfoErr
 	}
 
-	// Get the LoadBalancer that owns this RemoteEndpoint
-	lbName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Labels[epicv1.OwningLoadBalancerLabel]}
-	if err := r.Get(ctx, lbName, lb); err != nil {
+	log.Info("reconciling")
+
+	// Get the LB to which this rep belongs.
+	lb := epicv1.LoadBalancer{}
+	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: rep.Labels[epicv1.OwningLoadBalancerLabel]}
+	if err := r.Get(ctx, lbname, &lb); err != nil {
 		return done, err
 	}
 
-	// Update the Marin3r EnvoyConfig with the current set of active
-	// endpoints
-
-	// list the endpoints that belong to the parent LB
-	reps, err := listActiveLBEndpoints(ctx, r, lb)
-	if err != nil {
+	// The pod is not being deleted, so if it does not have our
+	// finalizer, then add it and update the object.
+	if err := AddFinalizer(ctx, r.Client, &rep, epicv1.RemoteEndpointFinalizerName); err != nil {
 		return done, err
 	}
 
-	// Get the EnvoyConfig
-	ecName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Name}
-	if err := r.Get(ctx, ecName, ec); err != nil {
-		return done, err
-	}
-
-	log.Info("updating endpoints", "endpoints", reps)
-
-	// FIXME: instead of updating the cluster can we just "nudge" the LB
-	// CR which will trigger the LBController to to the same thing?
-
-	// Update the EnvoyConfig's Cluster which contains the endpoints
-	cluster, err := envoy.ServiceToCluster(*lb, reps)
-	if err != nil {
-		return done, err
-	}
-	ec.Spec.EnvoyResources.Clusters = cluster
-	if err = r.Update(ctx, ec); err != nil {
+	// Allocate tunnels for this endpoint
+	if err := r.addProxyTunnels(ctx, log, &lb, &rep.Spec); err != nil {
 		return done, err
 	}
 
@@ -107,21 +104,129 @@ func (r *RemoteEndpointReconciler) Scheme() *runtime.Scheme {
 	return r.RuntimeScheme
 }
 
-// listActiveLBEndpoints lists the endpoints that belong to lb that
-// are active, i.e., not in the process of being deleted.
-func listActiveLBEndpoints(ctx context.Context, cl client.Client, lb *epicv1.LoadBalancer) ([]epicv1.RemoteEndpoint, error) {
-	labelSelector := labels.SelectorFromSet(map[string]string{epicv1.OwningLoadBalancerLabel: lb.Name})
-	listOps := client.ListOptions{Namespace: lb.Namespace, LabelSelector: labelSelector}
-	list := epicv1.RemoteEndpointList{}
-	err := cl.List(ctx, &list, &listOps)
+// addProxyTunnels adds a tunnel from ep to each node running an Envoy
+// proxy and patches lb with the tunnel info.
+func (r *RemoteEndpointReconciler) addProxyTunnels(ctx context.Context, l logr.Logger, lb *epicv1.LoadBalancer, ep *epicv1.RemoteEndpointSpec) error {
+	var (
+		err            error
+		envoyEndpoints map[string]epicv1.GUETunnelEndpoint = map[string]epicv1.GUETunnelEndpoint{}
+		patchBytes     []byte
+	)
 
-	activeEPs := []epicv1.RemoteEndpoint{}
-	// build a new list with no "in deletion" endpoints
-	for _, endpoint := range list.Items {
-		if endpoint.ObjectMeta.DeletionTimestamp.IsZero() {
-			activeEPs = append(activeEPs, endpoint)
+	// prepare a patch to set this rep's tunnel endpoints in the LB
+	// status
+	patch := epicv1.LoadBalancer{
+		Status: epicv1.LoadBalancerStatus{
+			GUETunnelMaps: map[string]epicv1.EPICEndpointMap{
+				ep.NodeAddress: {
+					EPICEndpoints: envoyEndpoints,
+				},
+			},
+		},
+	}
+
+	// fetch the node config; it tells us the GUEEndpoint for this node
+	config := &epicv1.EPIC{}
+	if err := r.Get(ctx, types.NamespacedName{Name: epicv1.ConfigName, Namespace: epicv1.ConfigNamespace}, config); err != nil {
+		return err
+	}
+
+	// We set up a tunnel from each proxy to this endpoint's node.
+	for _, proxy := range lb.Status.ProxyInterfaces {
+
+		// If the tunnel already exists (i.e., two endpoints in the same
+		// service on the same node) then we don't need to do anything
+		if _, exists := lb.Status.GUETunnelMaps[ep.NodeAddress].EPICEndpoints[proxy.EPICNodeAddress]; exists {
+			envoyEndpoints[proxy.EPICNodeAddress] =
+				lb.Status.GUETunnelMaps[ep.NodeAddress].EPICEndpoints[proxy.EPICNodeAddress]
+		} else {
+			// This is a new proxyNode/endpointNode pair, so allocate a new
+			// tunnel ID for it
+			envoyEndpoint := epicv1.GUETunnelEndpoint{}
+			config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
+			envoyEndpoint.Address = proxy.EPICNodeAddress
+			if envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client); err != nil {
+				return err
+			}
+			envoyEndpoints[proxy.EPICNodeAddress] = envoyEndpoint
 		}
 	}
 
-	return activeEPs, err
+	// apply the patch
+	if patchBytes, err = json.Marshal(patch); err != nil {
+		return err
+	}
+	l.Info(string(patchBytes))
+	if err := r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
+		l.Info("patching LB status", "lb", lb, "error", err)
+		return err
+	}
+	l.Info("LB status patched", "lb", lb)
+
+	return nil
+}
+
+// allocateTunnelID allocates a tunnel ID from the EPIC singleton. If
+// this call succeeds (i.e., error is nil) then the returned ID will
+// be unique.
+func allocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelID uint32, err error) {
+	tries := 3
+	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
+		tunnelID, err = nextTunnelID(ctx, l, cl)
+		if err != nil {
+			l.Info("problem allocating tunnel ID", "error", err)
+		}
+	}
+	return tunnelID, err
+}
+
+// nextTunnelID gets the next tunnel ID from the EPIC CR by doing a
+// read-modify-write cycle. It might be inefficient in terms of not
+// using all of the values that it allocates but it's safe because the
+// Update() will only succeed if the EPIC hasn't been modified since
+// the Get().
+//
+// This function doesn't retry so if there's a collision with some
+// other process the caller needs to retry.
+func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelID uint32, err error) {
+
+	// get the EPIC singleton
+	epic := epicv1.EPIC{}
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}, &epic); err != nil {
+		l.Info("EPIC get failed", "error", err)
+		return 0, err
+	}
+
+	// increment the EPIC's tunnelID counter
+	epic.Status.CurrentTunnelID++
+
+	l.Info("allocating tunnelID", "epic", epic, "tunnelID", epic.Status.CurrentTunnelID)
+
+	return epic.Status.CurrentTunnelID, cl.Status().Update(ctx, &epic)
+}
+
+// removePodInfo removes ep's tunnel info from lbName's GUETunnelMaps.
+func removeRepInfo(ctx context.Context, cl client.Client, l logr.Logger, lbNS string, lbName string, epNodeAddr string) error {
+	var lb epicv1.LoadBalancer
+
+	key := client.ObjectKey{Namespace: lbNS, Name: lbName}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Fetch the resource here; you need to refetch it on every try,
+		// since if you got a conflict on the last update attempt then
+		// you need to get the current version before making your own
+		// changes.
+		if err := cl.Get(ctx, key, &lb); err != nil {
+			return err
+		}
+
+		if _, hasRep := lb.Status.GUETunnelMaps[epNodeAddr]; hasRep {
+			delete(lb.Status.GUETunnelMaps, epNodeAddr)
+
+			// Try to update
+			return cl.Status().Update(ctx, &lb)
+		}
+
+		return nil
+	})
 }
