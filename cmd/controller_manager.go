@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	marin3roperator "github.com/3scale/marin3r/apis/operator/v1alpha1"
@@ -15,6 +13,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -167,43 +166,28 @@ func prebootCleanup(ctx context.Context, log logr.Logger) error {
 		return err
 	}
 
-	// List all of the LBs
-	list := epicv1.LoadBalancerList{}
-	if err = cl.List(ctx, &list); err != nil {
-		return err
-	}
-
-	// For each LB, wipe out the Status
-	for _, lb := range list.Items {
-		log.Info("cleanup", "name", lb.Namespace+"/"+lb.Name, "status", lb.Status)
-
-		// Info relating to system network devices is unreliable at this
-		// point.
-		lb.Status.ProxyInterfaces = map[string]epicv1.ProxyInterfaceInfo{}
-
-		// apply the update
-		if err = cl.Status().Update(ctx, &lb); err != nil {
-			log.Info("updating LB status", "lb", lb, "error", err)
-		}
-	}
-
-	// "Nudge" the proxy pods to trigger the python daemon to re-populate the
-	// ifindex and veth fields
+	// "Nudge" the proxy pods to trigger the python daemon to
+	// re-populate the ifindex and ifname annotations
 	proxies, err := listProxyPods(ctx, cl)
 	if err != nil {
 		return err
 	}
 	for _, proxyPod := range proxies.Items {
-		log.Info("nudge", "name", proxyPod.Namespace+"/"+proxyPod.Name)
-		nudgePod(ctx, cl, proxyPod)
+		log.Info("clean", "name", proxyPod.Namespace+"/"+proxyPod.Name)
+		cleanIntfAnnotations(ctx, cl, proxyPod.Namespace, proxyPod.Name)
 	}
 	return nil
 }
 
 // listProxyPods lists the pods that run our Envoy proxy.
 func listProxyPods(ctx context.Context, cl client.Client) (v1.PodList, error) {
+	// We want to find *all* of the Envoy proxy pods so we use the
+	// standard set of labels but delete the owning load balancer.
+	envoyLabels := epicv1.LabelsForEnvoy("placeholder")
+	delete(envoyLabels, epicv1.OwningLoadBalancerLabel)
+
 	listOps := client.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{"app": epicv1.ProductName, "role": "proxy"}),
+		LabelSelector: labels.SelectorFromSet(envoyLabels),
 	}
 	list := v1.PodList{}
 	err := cl.List(ctx, &list, &listOps)
@@ -211,19 +195,35 @@ func listProxyPods(ctx context.Context, cl client.Client) (v1.PodList, error) {
 	return list, err
 }
 
-// nudgePod "nudges" a pod, i.e., triggers an update event by
-// adding/modifying an annotation. This causes the setup-network
-// daemon to re-scan for the pod's veth and ifindex.
-func nudgePod(ctx context.Context, cl client.Client, pod v1.Pod) error {
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
-	}
-	pod.Annotations["nudge"] = fmt.Sprintf("%x", time.Now().UnixNano())
+// cleanIntfAnnotations removes the pod's ifindex and ifname
+// annotations. This causes the setup-network daemon to re-scan the
+// pod. We do this once when the controller-manager first boots up
+// because the interfaces might have changed while the
+// controller-manager wasn't running, for example, if the system
+// rebooted.
+func cleanIntfAnnotations(ctx context.Context, cl client.Client, podNS string, podName string) error {
+	var pod v1.Pod
 
-	// apply the update
-	if err := cl.Update(ctx, &pod); err != nil {
-		return err
-	}
+	key := client.ObjectKey{Namespace: podNS, Name: podName}
 
-	return nil
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := cl.Get(ctx, key, &pod); err != nil {
+			return err
+		}
+
+		if pod.Annotations == nil {
+			pod.Annotations = map[string]string{}
+		}
+
+		// Wipe out the old interface info, which might be incorrect
+		delete(pod.Annotations, epicv1.IfIndexAnnotation)
+		delete(pod.Annotations, epicv1.IfNameAnnotation)
+
+		// apply the update
+		if err := cl.Update(ctx, &pod); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
