@@ -8,6 +8,7 @@ import (
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/common/log"
 	"github.com/vishvananda/netlink"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,6 @@ import (
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
@@ -49,22 +49,47 @@ type LoadBalancerReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
 	sg := &epicv1.LBServiceGroup{}
 	epic := &epicv1.EPIC{}
 
-	log.Info("reconciling")
-
 	// read the object that caused the event
 	lb := &epicv1.LoadBalancer{}
 	if err := r.Get(ctx, req.NamespacedName, lb); err != nil {
-		log.Info("can't get resource, probably deleted")
+		log.Info("can't get resource, probably deleted", "loadbalancer", req.NamespacedName)
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
 		return done, client.IgnoreNotFound(err)
+	}
+
+	log := r.Log.WithValues("loadbalancer", req.NamespacedName, "version", lb.ResourceVersion)
+	log.Info("reconciling")
+
+	// Check if k8s wants to delete this object
+	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
+
+		// From here until we return at the end of this "if", everything
+		// is "best-effort", i.e., we try but if something fails we keep
+		// going to ensure that we try everything
+
+		// Return the LB's address to its pool
+		if !r.Allocator.Unassign(req.NamespacedName.String()) {
+			fmt.Printf("ERROR freeing address from %s\n", req.NamespacedName.String())
+			// Continue - we want to delete the CR even if something went
+			// wrong with this Unassign
+		}
+
+		// Remove our finalizer from the list and update the lb. If
+		// anything goes wrong below we don't want to block the deletion
+		// of the CR
+		if err := RemoveFinalizer(ctx, r.Client, lb, epicv1.LoadbalancerFinalizerName); err != nil {
+			return done, err
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return done, nil
 	}
 
 	// Get the "stack" of CRs to which this LB belongs: LBServiceGroup,
@@ -89,37 +114,6 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	epicName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}
 	if err := r.Get(ctx, epicName, epic); err != nil {
 		return done, err
-	}
-
-	// Check if k8s wants to delete this object
-	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
-
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(lb, epicv1.LoadbalancerFinalizerName) {
-			log.Info("to be deleted")
-
-			// First, remove our finalizer from the list and update the
-			// lb. If anything goes wrong below we don't want to block the
-			// deletion of the CR
-			controllerutil.RemoveFinalizer(lb, epicv1.LoadbalancerFinalizerName)
-			if err := r.Update(ctx, lb); err != nil {
-				return done, err
-			}
-
-			// From here until we return at the end of this "if", everything
-			// is "best-effort", i.e., we try but if something fails we keep
-			// going to ensure that we try everything
-
-			// Return the LB's address to its pool
-			if !r.Allocator.Unassign(req.NamespacedName.String()) {
-				fmt.Printf("ERROR freeing address from %s\n", req.NamespacedName.String())
-				// Continue - we want to delete the CR even if something went
-				// wrong with this Unassign
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return done, nil
 	}
 
 	// Determine the Envoy Image to run. EPIC singleton is the default,
