@@ -55,11 +55,11 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// If any of this LB's Envoy proxy pods need to have their interface
 	// data set by the Python daemon then back off and retry later
-	if len(lb.Status.ProxyInterfaces) < 1 {
+	if len(lb.Spec.ProxyInterfaces) < 1 {
 		log.Info("proxy interface info missing")
 		return tryAgain, nil
 	}
-	for proxyName, proxyInfo := range lb.Status.ProxyInterfaces {
+	for proxyName, proxyInfo := range lb.Spec.ProxyInterfaces {
 		if proxyInfo.Name == "" {
 			log.Info("proxy interface info incomplete", "name", proxyName)
 			return tryAgain, nil
@@ -93,8 +93,14 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
 	}
 
+	// List the endpoints that belong to this LB.
+	reps, err := listActiveLBEndpoints(ctx, r, lb)
+	if err != nil {
+		return done, err
+	}
+
 	// Attempt to set up each proxy pod belonging to this LB
-	for proxyName, proxyInfo := range lb.Status.ProxyInterfaces {
+	for proxyName, proxyInfo := range lb.Spec.ProxyInterfaces {
 
 		log = r.Log.WithValues("proxy", proxyName)
 
@@ -105,31 +111,52 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			log.Info("Not me: status has no proxy interface info for this host")
 			continue
 		}
-		log.Info("LB status veth info", "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
+		log.Info("LB status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
-		// Check if k8s wants to delete this object
-		if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
-			// Remove network and PFC configuration
-			if err := r.cleanup(log, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
-				log.Error(err, "Failed to cleanup PFC")
-			}
+		// 	// Check if k8s wants to delete this object
+		// 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
+		// 		// Remove network and PFC configuration
+		// 		if err := r.cleanup(log, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
+		// 			log.Error(err, "Failed to cleanup PFC")
+		// 		}
 
-			// remove route
-			if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
-				log.Error(err, "Failed to delete bridge route")
-			}
+		// 		// remove route
+		// 		if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
+		// 			log.Error(err, "Failed to delete bridge route")
+		// 		}
 
-		} else {
+		// 	} else {
 
-			// Setup host routing
-			log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
-			if err := prefix.AddMultusRoute(publicAddr); err != nil {
-				return done, err
-			}
+		// Setup host routing
+		log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
+		if err := prefix.AddMultusRoute(publicAddr); err != nil {
+			return done, err
+		}
 
-			// Set up the network and PFC
-			if err := r.setup(log, lb, proxyInfo); err != nil {
-				return done, err
+		// Set up the network and PFC
+		if err := r.setup(log, lb, proxyInfo); err != nil {
+			return done, err
+		}
+
+		// For each client-cluster node that hosts an endpoint we need to
+		// set up a tunnel
+		for _, clNodeInfo := range lb.Spec.GUETunnelMaps {
+			tunnelInfo, hasTunnelInfo := clNodeInfo.EPICEndpoints[os.Getenv("EPIC_HOST")]
+			if hasTunnelInfo {
+
+				// Configure the tunnel, which connects an EPIC node to a
+				// client-cluster node
+				if err := configureTunnel(log, tunnelInfo); err != nil {
+					log.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
+				}
+
+				// Set up a service gateway to each client-cluster endpoint on
+				// this client-cluster node
+				for _, epInfo := range reps {
+					if err := configureService(log, epInfo.Spec, proxyInfo.Index, account.Spec.GroupID, lb.Spec.ServiceID, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
+						log.Error(err, "setting up service gateway")
+					}
+				}
 			}
 		}
 	}
@@ -147,6 +174,31 @@ func (r *LoadBalancerAgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Scheme returns this reconciler's scheme.
 func (r *LoadBalancerAgentReconciler) Scheme() *runtime.Scheme {
 	return r.RuntimeScheme
+}
+
+func configureTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel get %[1]d || /opt/acnodal/bin/cli_tunnel set %[1]d %[2]s %[3]d 0 0", ep.TunnelID, ep.Address, ep.Port.Port)
+	return epicexec.RunScript(l, script)
+}
+
+func configureService(l logr.Logger, ep epicv1.RemoteEndpointSpec, ifindex int, groupID uint16, serviceID uint16, tunnelID uint32, tunnelAuth string) error {
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
+	return epicexec.RunScript(l, script)
+}
+
+// cleanup undoes the PFC setup that we did for this RemoteEndpoint.
+func cleanup(l logr.Logger, ep epicv1.RemoteEndpointSpec, ifindex int, tunnelID uint32, groupID uint16, serviceID uint16) error {
+	script1 := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, "unused", tunnelID, ep.Address, ep.Port.Port, ifindex)
+	script2 := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", tunnelID)
+	err1 := epicexec.RunScript(l, script1)
+	err2 := epicexec.RunScript(l, script2)
+	if err1 != nil {
+		return err1
+	}
+	if err2 != nil {
+		return err2
+	}
+	return nil
 }
 
 func (r *LoadBalancerAgentReconciler) deleteTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
@@ -180,7 +232,7 @@ func (r *LoadBalancerAgentReconciler) cleanup(l logr.Logger, lb *epicv1.LoadBala
 	r.deleteService(l, groupID, lb.Spec.ServiceID)
 
 	// remove the PFC tunnels
-	for _, epicEPMap := range lb.Status.GUETunnelMaps {
+	for _, epicEPMap := range lb.Spec.GUETunnelMaps {
 		for _, tunnel := range epicEPMap.EPICEndpoints {
 			r.deleteTunnel(l, tunnel)
 		}

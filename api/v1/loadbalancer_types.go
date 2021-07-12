@@ -17,21 +17,25 @@ const (
 	LoadbalancerFinalizerName string = "loadbalancer-finalizer.controller-manager.acnodal.io"
 )
 
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
+
+// Important: We use the LoadBalancerSpec to generate patches (e.g.,
+// build an object and then marshal it to json) so *every* field must
+// be "omitempty" or the resulting patch might wipe out some existing
+// fields in the CR when the patch is applied.
 
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
 	// DisplayName is the publicly-visible load balancer name (i.e.,
 	// what the user specified). The CR name has a prefix and suffix to
 	// disambiguate and we don't need to show those to the user.
-	DisplayName string `json:"display-name"`
+	DisplayName string `json:"display-name,omitempty"`
 
 	// PublicAddress is the publicly-visible IP address for this LB.
-	PublicAddress string `json:"public-address"`
+	PublicAddress string `json:"public-address,omitempty"`
 
 	// PublicPorts is the set of ports on which this LB will listen.
-	PublicPorts []corev1.ServicePort `json:"public-ports"`
+	PublicPorts []corev1.ServicePort `json:"public-ports,omitempty"`
 
 	// ServiceID is used with the account-level GroupID to set up this
 	// service's GUE tunnels between the EPIC and the client cluster. It
@@ -60,7 +64,23 @@ type LoadBalancerSpec struct {
 	// to its upstream cluster endpoints. The default is true since that
 	// will likely be the most common case.
 	// +kubebuilder:default=true
-	TrueIngress bool `json:"true-ingress"`
+	TrueIngress bool `json:"true-ingress,omitempty"`
+
+	// GUETunnelEndpoints is a map of maps. The outer map is from client
+	// node addresses to public GUE tunnel endpoints on the EPIC. The
+	// map key is a client node address and must be one of the node
+	// addresses in the Spec Endpoints slice. The value is a map
+	// containing TunnelEndpoints that describes the public IPs and
+	// ports to which the client can send tunnel ping packets. The key
+	// is the IP address of the EPIC node and the value is a
+	// TunnelEndpoint.
+	GUETunnelMaps map[string]EPICEndpointMap `json:"gue-tunnel-endpoints,omitempty"`
+
+	// ProxyInterfaces contains information about the Envoy proxy pods'
+	// network interfaces. The map key is the proxy pod name. It's
+	// filled in by the python setup-network daemon and used by the
+	// loadbalancer controller.
+	ProxyInterfaces map[string]ProxyInterfaceInfo `json:"proxy-if-info,omitempty"`
 }
 
 // EPICEndpointMap contains a map of the EPIC endpoints that connect
@@ -105,21 +125,6 @@ type ProxyInterfaceInfo struct {
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
-	// GUETunnelEndpoints is a map of maps. The outer map is from client
-	// node addresses to public GUE tunnel endpoints on the EPIC. The
-	// map key is a client node address and must be one of the node
-	// addresses in the Spec Endpoints slice. The value is a map
-	// containing TunnelEndpoints that describes the public IPs and
-	// ports to which the client can send tunnel ping packets. The key
-	// is the IP address of the EPIC node and the value is a
-	// TunnelEndpoint.
-	GUETunnelMaps map[string]EPICEndpointMap `json:"gue-tunnel-endpoints,omitempty"`
-
-	// ProxyInterfaces contains information about the Envoy proxy pods'
-	// network interfaces. The map key is the proxy pod name. It's
-	// filled in by the python setup-network daemon and used by the
-	// loadbalancer controller.
-	ProxyInterfaces map[string]ProxyInterfaceInfo `json:"proxy-if-info,omitempty"`
 }
 
 // +kubebuilder:object:root=true

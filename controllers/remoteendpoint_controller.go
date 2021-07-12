@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -111,12 +114,25 @@ func (r *RemoteEndpointReconciler) addProxyTunnels(ctx context.Context, l logr.L
 		err            error
 		envoyEndpoints map[string]epicv1.GUETunnelEndpoint = map[string]epicv1.GUETunnelEndpoint{}
 		patchBytes     []byte
+		raw            []byte = make([]byte, 8, 8)
 	)
 
 	// prepare a patch to set this rep's tunnel endpoints in the LB
 	// status
+	_, _ = rand.Read(raw)
 	patch := epicv1.LoadBalancer{
-		Status: epicv1.LoadBalancerStatus{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				// Sometimes we get a new endpoint that is hosted on a client
+				// node that hosts other endpoints that we already knew
+				// about. In that case this patch doesn't add anything to the
+				// tunnel map so the LB CR doesn't change so the LB agent
+				// controller doesn't fire. We add this "nudge" to ensure that
+				// the LB agent controller always fires.
+				"nudge": hex.EncodeToString(raw),
+			},
+		},
+		Spec: epicv1.LoadBalancerSpec{
 			GUETunnelMaps: map[string]epicv1.EPICEndpointMap{
 				ep.NodeAddress: {
 					EPICEndpoints: envoyEndpoints,
@@ -132,13 +148,13 @@ func (r *RemoteEndpointReconciler) addProxyTunnels(ctx context.Context, l logr.L
 	}
 
 	// We set up a tunnel from each proxy to this endpoint's node.
-	for _, proxy := range lb.Status.ProxyInterfaces {
+	for _, proxy := range lb.Spec.ProxyInterfaces {
 
 		// If the tunnel already exists (i.e., two endpoints in the same
 		// service on the same node) then we don't need to do anything
-		if _, exists := lb.Status.GUETunnelMaps[ep.NodeAddress].EPICEndpoints[proxy.EPICNodeAddress]; exists {
+		if _, exists := lb.Spec.GUETunnelMaps[ep.NodeAddress].EPICEndpoints[proxy.EPICNodeAddress]; exists {
 			envoyEndpoints[proxy.EPICNodeAddress] =
-				lb.Status.GUETunnelMaps[ep.NodeAddress].EPICEndpoints[proxy.EPICNodeAddress]
+				lb.Spec.GUETunnelMaps[ep.NodeAddress].EPICEndpoints[proxy.EPICNodeAddress]
 		} else {
 			// This is a new proxyNode/endpointNode pair, so allocate a new
 			// tunnel ID for it
@@ -157,7 +173,7 @@ func (r *RemoteEndpointReconciler) addProxyTunnels(ctx context.Context, l logr.L
 		return err
 	}
 	l.Info(string(patchBytes))
-	if err := r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
+	if err := r.Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
 		l.Info("patching LB status", "lb", lb, "error", err)
 		return err
 	}
@@ -220,11 +236,11 @@ func removeRepInfo(ctx context.Context, cl client.Client, l logr.Logger, lbNS st
 			return err
 		}
 
-		if _, hasRep := lb.Status.GUETunnelMaps[epNodeAddr]; hasRep {
-			delete(lb.Status.GUETunnelMaps, epNodeAddr)
+		if _, hasRep := lb.Spec.GUETunnelMaps[epNodeAddr]; hasRep {
+			delete(lb.Spec.GUETunnelMaps, epNodeAddr)
 
 			// Try to update
-			return cl.Status().Update(ctx, &lb)
+			return cl.Update(ctx, &lb)
 		}
 
 		return nil

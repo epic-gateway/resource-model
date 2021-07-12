@@ -126,7 +126,7 @@ func (r *PodReconciler) addPodTunnels(ctx context.Context, l logr.Logger, lb *ep
 	// prepare a patch to set this rep's tunnel endpoints in the LB
 	// status
 	patch := epicv1.LoadBalancer{
-		Status: epicv1.LoadBalancerStatus{
+		Spec: epicv1.LoadBalancerSpec{
 			GUETunnelMaps: tunnelMaps,
 		},
 	}
@@ -138,7 +138,7 @@ func (r *PodReconciler) addPodTunnels(ctx context.Context, l logr.Logger, lb *ep
 	}
 
 	// We set up a tunnel from each endpoint to this proxy's node.
-	for epAddr, epTunnels := range lb.Status.GUETunnelMaps {
+	for epAddr, epTunnels := range lb.Spec.GUETunnelMaps {
 
 		// If the tunnel doesn't exist (i.e., we haven't seen this
 		// epicNode/clientNode pair before) then allocate a new tunnel and
@@ -166,7 +166,7 @@ func (r *PodReconciler) addPodTunnels(ctx context.Context, l logr.Logger, lb *ep
 		return err
 	}
 	l.Info(string(patchBytes))
-	if err := r.Status().Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
+	if err := r.Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
 		l.Info("patching LB status", "lb", lb, "error", err)
 		return err
 	}
@@ -191,14 +191,14 @@ func removePodInfo(ctx context.Context, cl client.Client, lbNS string, lbName st
 			return err
 		}
 
-		if podInfo, hasPod := lb.Status.ProxyInterfaces[podName]; hasPod {
+		if podInfo, hasPod := lb.Spec.ProxyInterfaces[podName]; hasPod {
 			// Remove this pod's entry from the ProxyInterfaces map
-			delete(lb.Status.ProxyInterfaces, podName)
+			delete(lb.Spec.ProxyInterfaces, podName)
 
 			// Find out if any remaining Envoy pods are running on the same
 			// node as the one we've deleted.
 			hasPods := false
-			for _, nodeInfo := range lb.Status.ProxyInterfaces {
+			for _, nodeInfo := range lb.Spec.ProxyInterfaces {
 				if podInfo.EPICNodeAddress == nodeInfo.EPICNodeAddress {
 					hasPods = true
 				}
@@ -207,15 +207,15 @@ func removePodInfo(ctx context.Context, cl client.Client, lbNS string, lbName st
 			// If this node has no more Envoy pods then remove this node's
 			// entry from any of the EPICEndpointMaps that have it.
 			if !hasPods {
-				for _, epTunnelMap := range lb.Status.GUETunnelMaps {
+				for _, epTunnelMap := range lb.Spec.GUETunnelMaps {
 					delete(epTunnelMap.EPICEndpoints, podInfo.EPICNodeAddress)
 				}
 			}
 
-			fmt.Printf("updating %+v\n", lb.Status)
+			fmt.Printf("updating %+v\n", lb.Spec)
 
 			// Try to update
-			return cl.Status().Update(ctx, &lb)
+			return cl.Update(ctx, &lb)
 		}
 
 		return nil
