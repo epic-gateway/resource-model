@@ -128,6 +128,7 @@ func (r *PodReconciler) addPodTunnels(ctx context.Context, l logr.Logger, lb *ep
 	patch := epicv1.LoadBalancer{
 		Spec: epicv1.LoadBalancerSpec{
 			GUETunnelMaps: tunnelMaps,
+			TrueIngress:   lb.Spec.TrueIngress,
 		},
 	}
 

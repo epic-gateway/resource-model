@@ -20,9 +20,9 @@ const (
 // Important: Run "make" to regenerate code after modifying this file
 
 // Important: We use the LoadBalancerSpec to generate patches (e.g.,
-// build an object and then marshal it to json) so *every* field must
-// be "omitempty" or the resulting patch might wipe out some existing
-// fields in the CR when the patch is applied.
+// build an object and then marshal it to json) so *every* field
+// except bool values must be "omitempty" or the resulting patch might
+// wipe out some existing fields in the CR when the patch is applied.
 
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
@@ -64,7 +64,7 @@ type LoadBalancerSpec struct {
 	// to its upstream cluster endpoints. The default is true since that
 	// will likely be the most common case.
 	// +kubebuilder:default=true
-	TrueIngress bool `json:"true-ingress,omitempty"`
+	TrueIngress bool `json:"true-ingress"`
 
 	// GUETunnelEndpoints is a map of maps. The outer map is from client
 	// node addresses to public GUE tunnel endpoints on the EPIC. The

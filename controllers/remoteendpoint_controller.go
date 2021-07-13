@@ -138,6 +138,7 @@ func (r *RemoteEndpointReconciler) addProxyTunnels(ctx context.Context, l logr.L
 					EPICEndpoints: envoyEndpoints,
 				},
 			},
+			TrueIngress: lb.Spec.TrueIngress,
 		},
 	}
 
