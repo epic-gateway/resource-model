@@ -36,7 +36,7 @@ type LoadBalancerAgentReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
+	log := r.Log.WithValues("loadbalancer", req.NamespacedName, "agent-running-on", os.Getenv("EPIC_NODE_NAME"))
 	lb := &epicv1.LoadBalancer{}
 	sg := &epicv1.LBServiceGroup{}
 	prefix := &epicv1.ServicePrefix{}
@@ -118,7 +118,27 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, err
 	}
 
-	// Attempt to set up each proxy pod belonging to this LB
+	// Open host ports by updating IPSET tables
+	if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+		log.Error(err, "adding ipset entry")
+		return done, err
+	}
+
+	// Setup host routing
+	log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
+	if err := prefix.AddMultusRoute(publicAddr); err != nil {
+		return done, err
+	}
+
+	// We rebuild this LB's PFC service config from scratch every time
+	// because it's more robust than trying to add and remove bits and
+	// pieces incrementally. Tunnels are different - each tunnel entry
+	// includes data from the PureLB side so we can't delete that.
+	if err := deleteService(log, lb, account.Spec.GroupID); err != nil {
+		log.Error(err, "Failed to cleanup service")
+	}
+
+	// Set up each proxy pod belonging to this LB
 	for proxyName, proxyInfo := range lb.Spec.ProxyInterfaces {
 
 		log = r.Log.WithValues("proxy", proxyName)
@@ -132,50 +152,35 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 		log.Info("LB status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
-		// 	// Check if k8s wants to delete this object
-		// 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
-		// 		// Remove network and PFC configuration
-		// 		if err := r.cleanup(log, lb, account.Spec.GroupID, prefix.Spec.MultusBridge); err != nil {
-		// 			log.Error(err, "Failed to cleanup PFC")
-		// 		}
+		// Set up a service gateway to each client-cluster endpoint on
+		// this client-cluster node
+		for _, epInfo := range reps {
+			log.Info("setting up rep", "ip", epInfo.Spec)
 
-		// 		// remove route
-		// 		if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
-		// 			log.Error(err, "Failed to delete bridge route")
-		// 		}
+			// For each client-cluster node that hosts an endpoint we need to
+			// set up a tunnel
+			clientTunnelMap, hasClientMap := lb.Spec.GUETunnelMaps[epInfo.Spec.NodeAddress]
+			if !hasClientMap {
+				log.Error(fmt.Errorf("no client-side tunnel info for node %s", epInfo.Spec.NodeAddress), "setting up tunnels")
+			}
 
-		// 	} else {
+			tunnelInfo, hasTunnelInfo := clientTunnelMap.EPICEndpoints[proxyInfo.EPICNodeAddress]
+			if !hasTunnelInfo {
+				continue
+			}
 
-		// Setup host routing
-		log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
-		if err := prefix.AddMultusRoute(publicAddr); err != nil {
-			return done, err
-		}
+			log = r.Log.WithValues("tunnel", tunnelInfo.TunnelID)
 
-		// Set up the network and PFC
-		if err := r.setup(log, lb, proxyInfo); err != nil {
-			return done, err
-		}
+			// Configure the tunnel, which connects an EPIC node to a
+			// client-cluster node
+			if err := configureTunnel(log, tunnelInfo); err != nil {
+				log.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
+			}
 
-		// For each client-cluster node that hosts an endpoint we need to
-		// set up a tunnel
-		for _, clNodeInfo := range lb.Spec.GUETunnelMaps {
-			tunnelInfo, hasTunnelInfo := clNodeInfo.EPICEndpoints[os.Getenv("EPIC_HOST")]
-			if hasTunnelInfo {
-
-				// Configure the tunnel, which connects an EPIC node to a
-				// client-cluster node
-				if err := configureTunnel(log, tunnelInfo); err != nil {
-					log.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
-				}
-
-				// Set up a service gateway to each client-cluster endpoint on
-				// this client-cluster node
-				for _, epInfo := range reps {
-					if err := configureService(log, epInfo.Spec, proxyInfo.Index, account.Spec.GroupID, lb.Spec.ServiceID, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
-						log.Error(err, "setting up service gateway")
-					}
-				}
+			// Set up a service gateway from this proxy to this rep
+			log.Info("setting up rep", "rep", epInfo)
+			if err := configureService(log, epInfo.Spec, proxyInfo.Index, account.Spec.GroupID, lb.Spec.ServiceID, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
+				log.Error(err, "setting up service gateway")
 			}
 		}
 	}
@@ -205,57 +210,25 @@ func configureService(l logr.Logger, ep epicv1.RemoteEndpointSpec, ifindex int, 
 	return epicexec.RunScript(l, script)
 }
 
-// cleanup undoes the PFC setup that we did for this RemoteEndpoint.
-func cleanup(l logr.Logger, ep epicv1.RemoteEndpointSpec, ifindex int, tunnelID uint32, groupID uint16, serviceID uint16) error {
-	script1 := fmt.Sprintf("/opt/acnodal/bin/cli_service del-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, "unused", tunnelID, ep.Address, ep.Port.Port, ifindex)
-	script2 := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", tunnelID)
-	err1 := epicexec.RunScript(l, script1)
-	err2 := epicexec.RunScript(l, script2)
-	if err1 != nil {
-		return err1
-	}
-	if err2 != nil {
-		return err2
-	}
-	return nil
+func deleteService(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16) error {
+	return epicexec.RunScript(l, fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, lb.Spec.ServiceID))
 }
 
-func (r *LoadBalancerAgentReconciler) deleteTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", ep.TunnelID)
-	return epicexec.RunScript(l, script)
-}
-
-func (r *LoadBalancerAgentReconciler) deleteService(l logr.Logger, groupID uint16, serviceID uint16) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, serviceID)
-	return epicexec.RunScript(l, script)
-}
-
-// setup sets up the networky stuff that we need to do for lb.
-func (r *LoadBalancerAgentReconciler) setup(l logr.Logger, lb *epicv1.LoadBalancer, ifInfo epicv1.ProxyInterfaceInfo) error {
-
-	// Open host ports by updating IPSET tables
-	if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-		l.Error(err, "adding ipset entry")
-		return err
-	}
-
-	return nil
-}
-
-// cleanup undoes the setup that we did for this lb.
-func (r *LoadBalancerAgentReconciler) cleanup(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16, bridgeName string) error {
-	// remove IPSet entry
-	network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts)
+// cleanupPFC undoes the PFC setup that we did for this lb.
+func cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16) error {
 
 	// remove the endpoint PFC "services"
-	r.deleteService(l, groupID, lb.Spec.ServiceID)
+	serviceRet := deleteService(l, lb, groupID)
 
 	// remove the PFC tunnels
 	for _, epicEPMap := range lb.Spec.GUETunnelMaps {
-		for _, tunnel := range epicEPMap.EPICEndpoints {
-			r.deleteTunnel(l, tunnel)
+		if tunnelInfo, hasTunnelInfo := epicEPMap.EPICEndpoints[os.Getenv("EPIC_HOST")]; hasTunnelInfo {
+			if err := epicexec.RunScript(l, fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", tunnelInfo.TunnelID)); err != nil {
+				serviceRet = err
+			}
 		}
 	}
 
-	return nil
+	// If anything went wrong, return that
+	return serviceRet
 }
