@@ -59,7 +59,7 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		// Remove the rep's info from the LB but continue even if there's
 		// an error because we want to *always* remove our finalizer.
-		repInfoErr := removeRepInfo(ctx, r.Client, log, req.NamespacedName.Namespace, rep.Labels[epicv1.OwningLoadBalancerLabel], rep.Spec.NodeAddress)
+		repInfoErr := removeRepInfo(ctx, r.Client, log, req.NamespacedName.Namespace, rep.Labels[epicv1.OwningLoadBalancerLabel], rep)
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
@@ -223,12 +223,17 @@ func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelI
 }
 
 // removePodInfo removes ep's tunnel info from lbName's GUETunnelMaps.
-func removeRepInfo(ctx context.Context, cl client.Client, l logr.Logger, lbNS string, lbName string, epNodeAddr string) error {
-	var lb epicv1.LoadBalancer
+func removeRepInfo(ctx context.Context, cl client.Client, l logr.Logger, lbNS string, lbName string, ep epicv1.RemoteEndpoint) error {
+	var (
+		lb  epicv1.LoadBalancer
+		raw []byte = make([]byte, 8, 8)
+	)
 
 	key := client.ObjectKey{Namespace: lbNS, Name: lbName}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var lastRepOnNode bool
+
 		// Fetch the resource here; you need to refetch it on every try,
 		// since if you got a conflict on the last update attempt then
 		// you need to get the current version before making your own
@@ -237,13 +242,31 @@ func removeRepInfo(ctx context.Context, cl client.Client, l logr.Logger, lbNS st
 			return err
 		}
 
-		if _, hasRep := lb.Spec.GUETunnelMaps[epNodeAddr]; hasRep {
-			delete(lb.Spec.GUETunnelMaps, epNodeAddr)
-
-			// Try to update
-			return cl.Update(ctx, &lb)
+		// Find out if this is the last endpoint on this node
+		reps, err := listActiveLBEndpoints(ctx, cl, &lb)
+		if err != nil {
+			return err
+		}
+		lastRepOnNode = true
+		for _, otherRep := range reps {
+			if otherRep.Name != ep.Name && otherRep.Spec.NodeAddress == ep.Spec.NodeAddress {
+				lastRepOnNode = false
+			}
 		}
 
-		return nil
+		// If this is the last endpoint on this node then delete the node
+		// from the tunnel map
+		if _, hasRep := lb.Spec.GUETunnelMaps[ep.Spec.NodeAddress]; hasRep && lastRepOnNode {
+			delete(lb.Spec.GUETunnelMaps, ep.Spec.NodeAddress)
+		}
+
+		// Whether the rep is the last one on that node or not, we want
+		// the LB agent controllers to fire so they remove that rep's PFC
+		// service gateway entries. We "nudge" the LB to trigger this.
+		_, _ = rand.Read(raw)
+		lb.ObjectMeta.Labels["nudge"] = hex.EncodeToString(raw)
+
+		// Try to update
+		return cl.Update(ctx, &lb)
 	})
 }
