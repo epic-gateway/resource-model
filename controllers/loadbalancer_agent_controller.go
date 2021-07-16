@@ -66,6 +66,32 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}
 
+	// Calculate this LB's public address which we use both when we add
+	// and when we delete
+	publicAddr := net.ParseIP(lb.Spec.PublicAddress)
+	if publicAddr == nil {
+		return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
+	}
+
+	// Check if k8s wants to delete this object
+	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
+		if err := cleanupPFC(log, lb, account.Spec.GroupID); err != nil {
+			log.Error(err, "Failed to cleanup PFC")
+		}
+
+		// remove route
+		if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
+			log.Error(err, "Failed to delete bridge route")
+		}
+
+		// remove IPSet entry
+		if err := network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+			log.Error(err, "Failed to delete ipset entry")
+		}
+
+		return done, nil
+	}
+
 	// Get the "stack" of CRs to which this LB belongs: LBServiceGroup,
 	// ServicePrefix, and Account. They provide configuration data that
 	// we need but that isn't contained in the LB.
@@ -84,13 +110,6 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
 	if err := r.Get(ctx, accountName, account); err != nil {
 		return done, err
-	}
-
-	// Calculate this LB's public address which we use both when we add
-	// and when we delete
-	publicAddr := net.ParseIP(lb.Spec.PublicAddress)
-	if publicAddr == nil {
-		return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
 	}
 
 	// List the endpoints that belong to this LB.
