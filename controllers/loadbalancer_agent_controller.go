@@ -53,6 +53,26 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, client.IgnoreNotFound(err)
 	}
 
+	// Get the "stack" of CRs to which this LB belongs: LBServiceGroup,
+	// ServicePrefix, and Account. They provide configuration data that
+	// we need but that isn't contained in the LB.
+	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
+	if err := r.Get(ctx, sgname, sg); err != nil {
+		log.Error(err, "Failed to find owning service group", "name", sgname)
+		return done, err
+	}
+
+	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
+	if err := r.Get(ctx, prefixName, prefix); err != nil {
+		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
+		return done, err
+	}
+
+	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
+	if err := r.Get(ctx, accountName, account); err != nil {
+		return done, err
+	}
+
 	// If any of this LB's Envoy proxy pods need to have their interface
 	// data set by the Python daemon then back off and retry later
 	if len(lb.Spec.ProxyInterfaces) < 1 {
@@ -89,26 +109,20 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			log.Error(err, "Failed to delete ipset entry")
 		}
 
+		// Remove our finalizer to ensure that we don't block it from
+		// being deleted.
+		log.Info("removing finalizer")
+		if err := RemoveFinalizer(ctx, r.Client, lb, lb.AgentFinalizerName(os.Getenv("EPIC_NODE_NAME"))); err != nil {
+			return done, err
+		}
+
 		return done, nil
 	}
 
-	// Get the "stack" of CRs to which this LB belongs: LBServiceGroup,
-	// ServicePrefix, and Account. They provide configuration data that
-	// we need but that isn't contained in the LB.
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
-	if err := r.Get(ctx, sgname, sg); err != nil {
-		log.Error(err, "Failed to find owning service group", "name", sgname)
-		return done, err
-	}
-
-	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
-	if err := r.Get(ctx, prefixName, prefix); err != nil {
-		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
-		return done, err
-	}
-
-	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
-	if err := r.Get(ctx, accountName, account); err != nil {
+	// The lb is not being deleted, so if it does not have our
+	// finalizer, then add it and update the object.
+	log.Info("adding finalizer")
+	if err := AddFinalizer(ctx, r.Client, lb, lb.AgentFinalizerName(os.Getenv("EPIC_NODE_NAME"))); err != nil {
 		return done, err
 	}
 

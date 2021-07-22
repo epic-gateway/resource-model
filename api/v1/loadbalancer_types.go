@@ -14,7 +14,13 @@ import (
 const (
 	// LoadbalancerFinalizerName is the name of the finalizer that
 	// cleans up when a LoadBalancer CR is deleted.
-	LoadbalancerFinalizerName string = "loadbalancer-finalizer.controller-manager.acnodal.io"
+	LoadbalancerFinalizerName string = "lb.controller-manager.acnodal.io/finalizer"
+
+	// loadbalancerAgentFinalizerName is the name of the finalizer that
+	// cleans up on each node when a LoadBalancer CR is deleted. It's
+	// used by the AgentFinalizerName function below so this const isn't
+	// exported.
+	loadbalancerAgentFinalizerName string = "lb.controller-manager.acnodal.io/finalizer"
 )
 
 // Important: Run "make" to regenerate code after modifying this file
@@ -230,6 +236,12 @@ func LoadBalancerName(sgName string, lbName string, canBeShared bool) (name stri
 	}
 
 	return name
+}
+
+// AgentFinalizerName returns the finalizer name for the given
+// nodeName.
+func (lb *LoadBalancer) AgentFinalizerName(nodeName string) string {
+	return nodeName + "." + loadbalancerAgentFinalizerName
 }
 
 func init() {
