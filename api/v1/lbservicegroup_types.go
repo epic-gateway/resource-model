@@ -20,6 +20,12 @@ type LBServiceGroupSpec struct {
 	// field will be used.
 	EnvoyImage *string `json:"envoy-image,omitempty"`
 
+	// EnvoyReplicaCount determines the number of Envoy proxy pod
+	// replicas that will be launched for each LoadBalancer. It can be
+	// overridden by the LoadBalancer CR.
+	// +kubebuilder:default=1
+	EnvoyReplicaCount int32 `json:"envoy-replica-count"`
+
 	// EnvoyTemplate is the template that will be used to configure
 	// Envoy for the load balancers that belong to this LBServiceGroup.
 	EnvoyTemplate marin3r.EnvoyConfigSpec `json:"envoy-template"`

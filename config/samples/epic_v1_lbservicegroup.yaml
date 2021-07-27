@@ -9,6 +9,7 @@ metadata:
     owning-serviceprefix: default
 spec:
   can-be-shared: yes
+  envoy-replica-count: 1
   envoy-template:
     envoyAPI: v3
     serialization: yaml

@@ -408,6 +408,11 @@ func (in *LoadBalancerSpec) DeepCopyInto(out *LoadBalancerSpec) {
 		*out = new(v1alpha1.EnvoyConfigSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnvoyReplicaCount != nil {
+		in, out := &in.EnvoyReplicaCount, &out.EnvoyReplicaCount
+		*out = new(int32)
+		**out = **in
+	}
 	if in.UpstreamClusters != nil {
 		in, out := &in.UpstreamClusters, &out.UpstreamClusters
 		*out = make([]string, len(*in))

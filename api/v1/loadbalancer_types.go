@@ -60,6 +60,12 @@ type LoadBalancerSpec struct {
 	// the owning LBServiceGroup.
 	EnvoyTemplate *marin3r.EnvoyConfigSpec `json:"envoy-template,omitempty"`
 
+	// EnvoyReplicaCount determines the number of Envoy proxy pod
+	// replicas that will be launched for this LoadBalancer. If it's not
+	// set then the controller will copy the value from the owning
+	// LBServiceGroup.
+	EnvoyReplicaCount *int32 `json:"envoy-replica-count,omitempty"`
+
 	// UpstreamClusters is a list of the names of the upstream clusters
 	// (currently only PureLB but maybe other types in the future) that
 	// this LB serves. The string must be the cluster-id that is passed

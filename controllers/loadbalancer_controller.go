@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,9 +27,8 @@ import (
 )
 
 const (
-	gitlabSecret     = "gitlab"
-	cniAnnotation    = "k8s.v1.cni.cncf.io/networks"
-	envoyPodReplicas = 1
+	gitlabSecret  = "gitlab"
+	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -130,7 +130,11 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			log.Info("Failed to create new Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
 			return done, err
 		}
-		log.Info("deployment created previously", "namespace", dep.Namespace, "name", dep.Name)
+		log.Info("deployment created previously, will update", "namespace", dep.Namespace, "name", dep.Name, "replicas", dep.Spec.Replicas)
+		if err := updateDeployment(ctx, r.Client, dep); err != nil {
+			log.Info("Failed to update Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
+			return done, err
+		}
 	} else {
 		log.Info("deployment created", "namespace", dep.Namespace, "name", dep.Name)
 	}
@@ -237,7 +241,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 			Namespace: lb.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32Ptr(envoyPodReplicas),
+			Replicas: lb.Spec.EnvoyReplicaCount,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -368,4 +372,24 @@ func listActiveLBEndpoints(ctx context.Context, cl client.Client, lb *epicv1.Loa
 	}
 
 	return activeEPs, err
+}
+
+func updateDeployment(ctx context.Context, cl client.Client, updated *appsv1.Deployment) error {
+	key := client.ObjectKey{Namespace: updated.GetNamespace(), Name: updated.GetName()}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		existing := appsv1.Deployment{}
+
+		// Fetch the resource here; you need to refetch it on every try,
+		// since if you got a conflict on the last update attempt then
+		// you need to get the current version before making your own
+		// changes.
+		if err := cl.Get(ctx, key, &existing); err != nil {
+			return err
+		}
+		updated.Spec.DeepCopyInto(&existing.Spec)
+
+		// Try to update
+		return cl.Update(ctx, &existing)
+	})
 }

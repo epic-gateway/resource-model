@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -81,10 +82,13 @@ func (r *LoadBalancer) Default() {
 	}
 	r.Spec.ServiceID = serviceID
 
-	// If the user hasn't provided an Envoy config template, copy it
-	// from the owning LBServiceGroup
+	// If the user hasn't provided an Envoy config template or replica
+	// count, then copy them from the owning LBServiceGroup
 	if r.Spec.EnvoyTemplate == (*marin3r.EnvoyConfigSpec)(nil) {
 		r.Spec.EnvoyTemplate = &sg.Spec.EnvoyTemplate
+	}
+	if r.Spec.EnvoyReplicaCount == nil || *r.Spec.EnvoyReplicaCount < 1 {
+		r.Spec.EnvoyReplicaCount = pointer.Int32Ptr(sg.Spec.EnvoyReplicaCount)
 	}
 
 	// Generate the random tunnel key that we'll use to authenticate the
