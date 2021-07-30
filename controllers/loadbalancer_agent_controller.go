@@ -73,19 +73,6 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, err
 	}
 
-	// If any of this LB's Envoy proxy pods need to have their interface
-	// data set by the Python daemon then back off and retry later
-	if len(lb.Spec.ProxyInterfaces) < 1 {
-		log.Info("proxy interface info missing")
-		return tryAgain, nil
-	}
-	for proxyName, proxyInfo := range lb.Spec.ProxyInterfaces {
-		if proxyInfo.Name == "" {
-			log.Info("proxy interface info incomplete", "name", proxyName)
-			return tryAgain, nil
-		}
-	}
-
 	// Calculate this LB's public address which we use both when we add
 	// and when we delete
 	publicAddr := net.ParseIP(lb.Spec.PublicAddress)
@@ -99,14 +86,8 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			log.Error(err, "Failed to cleanup PFC")
 		}
 
-		// remove route
-		if err := prefix.RemoveMultusRoute(ctx, r, log, lb.Name, publicAddr); err != nil {
-			log.Error(err, "Failed to delete bridge route")
-		}
-
-		// remove IPSet entry
-		if err := network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-			log.Error(err, "Failed to delete ipset entry")
+		if err := cleanupLinux(ctx, log, r, prefix, lb, publicAddr); err != nil {
+			log.Error(err, "Failed to cleanup Linux")
 		}
 
 		// Remove our finalizer to ensure that we don't block it from
@@ -132,18 +113,6 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, err
 	}
 
-	// Open host ports by updating IPSET tables
-	if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-		log.Error(err, "adding ipset entry")
-		return done, err
-	}
-
-	// Setup host routing
-	log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
-	if err := prefix.AddMultusRoute(publicAddr); err != nil {
-		return done, err
-	}
-
 	// We rebuild this LB's PFC service config from scratch every time
 	// because it's more robust than trying to add and remove bits and
 	// pieces incrementally. Tunnels are different - each tunnel entry
@@ -151,6 +120,8 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if err := deleteService(log, lb, account.Spec.GroupID); err != nil {
 		log.Error(err, "Failed to cleanup service")
 	}
+
+	hasProxy := false
 
 	// Set up each proxy pod belonging to this LB
 	for proxyName, proxyInfo := range lb.Spec.ProxyInterfaces {
@@ -164,6 +135,15 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			log.Info("Not me: status has no proxy interface info for this host")
 			continue
 		}
+
+		// Skip if the relevant Envoy needs to have its interface data set
+		// by the Python daemon.
+		if proxyInfo.Name == "" {
+			log.Info("proxy interface info incomplete", "name", proxyName)
+			continue
+		}
+
+		hasProxy = true
 		log.Info("LB status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
 		// Set up a service gateway to each client-cluster endpoint on
@@ -196,6 +176,29 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			if err := configureService(log, epInfo.Spec, proxyInfo.Index, account.Spec.GroupID, lb.Spec.ServiceID, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
 				log.Error(err, "setting up service gateway")
 			}
+		}
+	}
+
+	// We don't want to advertise routes unless this host is running an
+	// Envoy proxy. We might have been running one before and set up the
+	// routes, but if we're not running one now then we need to clean
+	// up.
+	if hasProxy {
+		// Open host ports by updating IPSET tables
+		if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+			log.Error(err, "adding ipset entry")
+			return done, err
+		}
+
+		// Setup host routing
+		log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
+		if err := prefix.AddMultusRoute(publicAddr); err != nil {
+			return done, err
+		}
+	} else {
+		log.Info("noProxy")
+		if err := cleanupLinux(ctx, log, r, prefix, lb, publicAddr); err != nil {
+			log.Error(err, "Failed to cleanup Linux")
 		}
 	}
 
@@ -245,4 +248,18 @@ func cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16) error {
 
 	// If anything went wrong, return that
 	return serviceRet
+}
+
+func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefix *epicv1.ServicePrefix, lb *epicv1.LoadBalancer, publicAddr net.IP) error {
+	// remove route
+	if err := prefix.RemoveMultusRoute(ctx, r, l, lb.Name, publicAddr); err != nil {
+		l.Error(err, "Failed to delete bridge route")
+	}
+
+	// remove IPSet entry
+	if err := network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+		l.Error(err, "Failed to delete ipset entry")
+	}
+
+	return nil
 }
