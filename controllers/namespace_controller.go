@@ -32,6 +32,7 @@ type NamespaceReconciler struct {
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=list;get;watch;create;update
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=list;get;watch;create;update
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=list;get;watch;create;update
 
 // +kubebuilder:rbac:groups=operator.marin3r.3scale.net,resources=discoveryservices,verbs=create
 
@@ -81,7 +82,10 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := maybeCreateRole(ctx, r, l, ns.Name); err != nil {
 		return result, err
 	}
-	if err := maybeCreateRoleBinding(ctx, r, l, ns.Name); err != nil {
+	if err := maybeCreateEDSRoleBinding(ctx, r, l, ns.Name); err != nil {
+		return result, err
+	}
+	if err := maybeCreateDefaultClusterRoleBinding(ctx, r, l, ns.Name); err != nil {
 		return result, err
 	}
 	if err := maybeCreateService(ctx, r, l, ns.Name); err != nil {
@@ -209,10 +213,10 @@ func maybeCreateRole(ctx context.Context, cl client.Client, l logr.Logger, names
 	return nil
 }
 
-// maybeCreateRoleBinding creates a new RoleBinding (that binds the
-// Role to the ServiceAccount) if one doesn't exist, or does nothing
-// if one already exists.
-func maybeCreateRoleBinding(ctx context.Context, cl client.Client, l logr.Logger, namespace string) error {
+// maybeCreateEDSRoleBinding creates a new RoleBinding (that binds the
+// Role to the eds-server ServiceAccount) if one doesn't exist, or
+// does nothing if one already exists.
+func maybeCreateEDSRoleBinding(ctx context.Context, cl client.Client, l logr.Logger, namespace string) error {
 	binding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "eds-server",
@@ -241,6 +245,40 @@ func maybeCreateRoleBinding(ctx context.Context, cl client.Client, l logr.Logger
 	}
 
 	l.Info("RoleBinding created", "name", binding.Name)
+	return nil
+}
+
+// maybeCreateDefaultRoleBinding creates a new ClusterRoleBinding
+// (that binds the Role to the default ServiceAccount) if one doesn't
+// exist, or does nothing if one already exists.
+func maybeCreateDefaultClusterRoleBinding(ctx context.Context, cl client.Client, l logr.Logger, namespace string) error {
+	binding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-epic",
+			Labels: map[string]string{
+				"app.kubernetes.io/name": "epic",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "manager-role",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "default",
+				Namespace: namespace,
+			},
+		},
+	}
+
+	if err := maybeCreate(ctx, cl, &binding); err != nil {
+		l.Info("Failed to create new ClusterRoleBinding", "message", err.Error(), "name", binding.Name)
+		return err
+	}
+
+	l.Info("ClusterRoleBinding created", "name", binding.Name)
 	return nil
 }
 

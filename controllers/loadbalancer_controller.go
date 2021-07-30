@@ -45,6 +45,7 @@ type LoadBalancerReconciler struct {
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marin3r.3scale.net,resources=envoyconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=crd.projectcalico.org,resources=ippools,verbs=get;list
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
