@@ -191,7 +191,7 @@ func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader,
 	// If the route is not in use by any other LB then we can delete it
 	if !routeInUse {
 		l.Info("removing route", "route", dest.String())
-		netlink.RouteDel(&netlink.Route{Dst: &dest})
+		return netlink.RouteDel(&netlink.Route{Dst: &dest})
 	}
 
 	return nil
