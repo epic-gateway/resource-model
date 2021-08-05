@@ -54,7 +54,7 @@ spec:
       volumes:
       - name: pfctools
         hostPath:
-          path: /snap/microk8s/current/opt/acnodal/bin
+          path: /opt/acnodal/bin
       - name: bpf
         hostPath:
           path: /sys/fs/bpf
