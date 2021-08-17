@@ -113,14 +113,6 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return done, err
 	}
 
-	// We rebuild this LB's PFC service config from scratch every time
-	// because it's more robust than trying to add and remove bits and
-	// pieces incrementally. Tunnels are different - each tunnel entry
-	// includes data from the PureLB side so we can't delete that.
-	if err := deleteService(log, lb, account.Spec.GroupID); err != nil {
-		log.Error(err, "Failed to cleanup service")
-	}
-
 	hasProxy := false
 
 	// Set up each proxy pod belonging to this LB
@@ -173,7 +165,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 			// Set up a service gateway from this proxy to this rep
 			log.Info("setting up rep", "rep", epInfo)
-			if err := configureService(log, epInfo.Spec, proxyInfo.Index, account.Spec.GroupID, lb.Spec.ServiceID, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
+			if err := configureService(log, epInfo.Spec, proxyInfo.Index, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
 				log.Error(err, "setting up service gateway")
 			}
 		}
@@ -222,24 +214,27 @@ func configureTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
 	return epicexec.RunScript(l, script)
 }
 
-func configureService(l logr.Logger, ep epicv1.RemoteEndpointSpec, ifindex int, groupID uint16, serviceID uint16, tunnelID uint32, tunnelAuth string) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", groupID, serviceID, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
+func configureService(l logr.Logger, ep epicv1.RemoteEndpointSpec, ifindex int, tunnelID uint32, tunnelAuth string) error {
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]s %[4]d tcp %[5]s %[6]d %[7]d", tunnelID>>16, tunnelID&0xffff, tunnelAuth, tunnelID, ep.Address, ep.Port.Port, ifindex)
 	return epicexec.RunScript(l, script)
 }
 
-func deleteService(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16) error {
-	return epicexec.RunScript(l, fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", groupID, lb.Spec.ServiceID))
+func deleteService(l logr.Logger, tunnelID uint32) error {
+	return epicexec.RunScript(l, fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", tunnelID>>16, tunnelID&0xffff))
 }
 
 // cleanupPFC undoes the PFC setup that we did for this lb.
 func cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16) error {
-
-	// remove the endpoint PFC "services"
-	serviceRet := deleteService(l, lb, groupID)
+	var serviceRet error = nil
 
 	// remove the PFC tunnels
 	for _, epicEPMap := range lb.Spec.GUETunnelMaps {
 		if tunnelInfo, hasTunnelInfo := epicEPMap.EPICEndpoints[os.Getenv("EPIC_HOST")]; hasTunnelInfo {
+			// remove the endpoint PFC "services"
+			if err := deleteService(l, tunnelInfo.TunnelID); err != nil {
+				serviceRet = err
+			}
+
 			if err := epicexec.RunScript(l, fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del %[1]d", tunnelInfo.TunnelID)); err != nil {
 				serviceRet = err
 			}
