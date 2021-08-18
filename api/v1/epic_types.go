@@ -49,16 +49,14 @@ type EPICSpec struct {
 
 // EPICStatus defines the observed state of EPIC
 type EPICStatus struct {
-	// CurrentGroupID stores the most-recently-allocated value of the
-	// account-level GUE group id. Clients should read the CR, calculate
-	// the next value and then write that back using Update() and not
-	// Patch(). If the write succeeds then they own that value. If not
-	// then they need to try again.
+	// CurrentGroupID is no longer used.
 	CurrentGroupID uint16 `json:"current-group-id"`
 
-	// CurrentTunnelID stores the most-recently-allocated tunnel ID. See
-	// the comments on CurrentGroupID for notes on how to use this
-	// field.
+	// CurrentTunnelID stores the most-recently-allocated tunnel
+	// ID. Clients should read the CR, calculate the next value and then
+	// write that back using Update() and not Patch(). If the write
+	// succeeds then they own that value. If not then they need to try
+	// again.
 	CurrentTunnelID uint32 `json:"current-tunnel-id"`
 }
 

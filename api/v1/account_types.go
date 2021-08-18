@@ -9,18 +9,13 @@ import (
 
 // AccountSpec defines the desired state of Account
 type AccountSpec struct {
-	// GroupID is used with a service's ServiceID to set up GUE tunnels
-	// for that service between the EPIC and the client cluster. It
-	// should not be set by the client - the controller manager will
-	// fill in the value when the object is created.
+	// GroupID is no longer used.
 	GroupID uint16 `json:"group-id,omitempty"`
 }
 
 // AccountStatus defines the observed state of Account
 type AccountStatus struct {
-	// CurrentServiceID stores the most-recently-allocated GUE Service
-	// ID for services in this group. See the comments on CurrentGroupID
-	// in the EPIC CR for notes on how to use this field.
+	// CurrentServiceID is no longer used.
 	CurrentServiceID uint16 `json:"current-service-id"`
 }
 
