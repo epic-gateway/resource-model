@@ -29,6 +29,9 @@ import (
 const (
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+
+	// configured in epic-config.yaml in the envoy docker image
+	envoyManagementPort = 9901
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -342,11 +345,17 @@ func splitNSName(name string) (*types.NamespacedName, error) {
 	return &types.NamespacedName{Namespace: parts[0], Name: parts[1]}, nil
 }
 
-// portsToPorts converts from ServicePorts to ContainerPorts.
+// portsToPorts converts from ServicePorts to ContainerPorts,
+// implicitly adding Envoy's management port.
 func portsToPorts(sPorts []corev1.ServicePort) []corev1.ContainerPort {
-	cPorts := make([]corev1.ContainerPort, len(sPorts))
+	cPorts := make([]corev1.ContainerPort, len(sPorts)+1)
+
+	// Implicitly expose the management port.
+	cPorts[0] = corev1.ContainerPort{Protocol: corev1.ProtocolTCP, ContainerPort: envoyManagementPort}
+
+	// Expose the configured ports
 	for i, port := range sPorts {
-		cPorts[i] = corev1.ContainerPort{Protocol: washProtocol(port.Protocol), ContainerPort: port.Port}
+		cPorts[i+1] = corev1.ContainerPort{Protocol: washProtocol(port.Protocol), ContainerPort: port.Port}
 	}
 	return cPorts
 }
