@@ -70,7 +70,7 @@ type RemoteEndpointStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=rep;reps
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:JSONPath=".metadata.labels.owning-loadbalancer",name=Load Balancer,type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.labels.epic\\.acnodal\\.io/owning-loadbalancer",name=Load Balancer,type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.address",name=Address,type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.node-address",name=Node Address,type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port.port",name=Port,type=integer
