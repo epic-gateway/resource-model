@@ -42,6 +42,15 @@ type EPICSpec struct {
 	// the marin3r deployment manifest.
 	XDSImage *string `json:"xds-image,omitempty"`
 
+	// ServiceCIDR is the pool from which internal service addresses
+	// are allocated. In microk8s it's hard-coded and passed on the
+	// kubeapiserver command line (see
+	// epicmgr-resources/default-args/kube-apiserver). We need a way to
+	// discover this value so we can configure routes in the Envoy pod.
+	// The snap package will set this value when it installs the epic
+	// singleton custom resource.
+	ServiceCIDR string `json:"service-cidr"`
+
 	// NodeBase is the "base" configuration for all nodes in the
 	// cluster.
 	NodeBase Node `json:"base"`

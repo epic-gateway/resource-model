@@ -30,6 +30,11 @@ const (
 	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 
+	// serviceCIDREnv is the name of the env var that tells the Envoy
+	// pod the CIDR that contains internal service addresses. The Envoy
+	// image uses this to set up routing between its two interfaces.
+	serviceCIDREnv = "SERVICE_CIDR"
+
 	// configured in epic-config.yaml in the envoy docker image
 	envoyManagementPort = 9901
 )
@@ -128,7 +133,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Launch the Envoy deployment that will proxy this LB
-	dep := r.deploymentForLB(lb, prefix, envoyImage)
+	dep := r.deploymentForLB(lb, prefix, envoyImage, epic.Spec.ServiceCIDR)
 	if err := r.Create(ctx, dep); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Info("Failed to create new Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
@@ -203,7 +208,7 @@ func envoyPodName(lb *epicv1.LoadBalancer) string {
 
 // deploymentForLB returns a Deployment object that will launch an
 // Envoy pod
-func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *epicv1.ServicePrefix, envoyImage string) *appsv1.Deployment {
+func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *epicv1.ServicePrefix, envoyImage string, serviceCIDR string) *appsv1.Deployment {
 	labels := epicv1.LabelsForEnvoy(lb.Name)
 
 	// Format the pod's IP address by parsing the raw address and adding
@@ -263,6 +268,10 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 							Ports:           portsToPorts(lb.Spec.PublicPorts),
 							Command:         []string{"/docker-entrypoint.sh"},
 							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides, "--log-level", "debug"},
+							Env: []corev1.EnvVar{{
+								Name:  serviceCIDREnv,
+								Value: serviceCIDR,
+							}},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged:               pointer.BoolPtr(true),
 								AllowPrivilegeEscalation: pointer.BoolPtr(true),
