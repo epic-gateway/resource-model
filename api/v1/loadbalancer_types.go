@@ -93,6 +93,8 @@ type LoadBalancerSpec struct {
 	// filled in by the python setup-network daemon and used by the
 	// loadbalancer controller.
 	ProxyInterfaces map[string]ProxyInterfaceInfo `json:"proxy-if-info,omitempty"`
+
+	Endpoints []*Endpoint `json:"endpoints,omitempty"`
 }
 
 // EPICEndpointMap contains a map of the EPIC endpoints that connect
@@ -137,6 +139,9 @@ type ProxyInterfaceInfo struct {
 
 // LoadBalancerStatus defines the observed state of LoadBalancer
 type LoadBalancerStatus struct {
+	// The generation observed by the external-dns controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true

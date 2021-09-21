@@ -29,6 +29,12 @@ type LBServiceGroupSpec struct {
 	// EnvoyTemplate is the template that will be used to configure
 	// Envoy for the load balancers that belong to this LBServiceGroup.
 	EnvoyTemplate marin3r.EnvoyConfigSpec `json:"envoy-template"`
+
+	// EndpointTemplate is the template that will be used to fill in the
+	// Spec.Endpoints field in load balancers that belong to this
+	// LBServiceGroup.
+	// +kubebuilder:default={"recordType":"A","recordTTL":180,"dnsName":"{{.LBName}}.{{.LBSGName}}.client.acnodal.io"}
+	EndpointTemplate Endpoint `json:"endpoint-template"`
 }
 
 // LBServiceGroupStatus defines the observed state of LBServiceGroup
