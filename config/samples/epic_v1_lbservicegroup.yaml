@@ -9,6 +9,10 @@ metadata:
     owning-serviceprefix: default
 spec:
   can-be-shared: yes
+  endpoint-template:
+    dnsName: "{{.PureLBServiceName}}.{{.LBSGName}}.client.acnodal.io"
+    recordTTL: 180
+    recordType: A
   envoy-replica-count: 1
   envoy-template:
     envoyAPI: v3

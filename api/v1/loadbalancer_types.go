@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -253,6 +255,47 @@ func LoadBalancerName(sgName string, lbName string, canBeShared bool) (name stri
 // nodeName.
 func (lb *LoadBalancer) AgentFinalizerName(nodeName string) string {
 	return nodeName + "." + loadbalancerAgentFinalizerName
+}
+
+// AddDNSEndpoint adds an external-dns Endpoint struct to the LB's
+// Spec.Endpoints. The Endpoint is based on the LBSG's template and
+// the DNS name is generated from a template. Two parameters are
+// provided to the template: .LBName and .LBSGName.
+func (lb *LoadBalancer) AddDNSEndpoint(lbsg LBServiceGroup) error {
+	var (
+		tmpl *template.Template
+		err  error
+		doc  bytes.Buffer
+	)
+
+	// Execute the template from the LBSG to format the LB's DNS name.
+	if tmpl, err = template.New("DNSName").Parse(lbsg.Spec.EndpointTemplate.DNSName); err != nil {
+		return err
+	}
+	params := struct {
+		LBName            string
+		LBSGName          string
+		PureLBServiceName string
+	}{
+		lb.Name,
+		lbsg.Name,
+		lb.Spec.DisplayName,
+	}
+	err = tmpl.Execute(&doc, params)
+	if err != nil {
+		return err
+	}
+
+	// Fill in the Endpoint
+	ep := Endpoint{}
+	lbsg.Spec.EndpointTemplate.DeepCopyInto(&ep)
+	ep.DNSName = doc.String()
+	ep.Targets = append(ep.Targets, lb.Spec.PublicAddress)
+
+	// Add the Endpoint to the list
+	lb.Spec.Endpoints = append(lb.Spec.Endpoints, &ep)
+
+	return nil
 }
 
 func init() {

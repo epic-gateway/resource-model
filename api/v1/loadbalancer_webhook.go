@@ -105,6 +105,9 @@ func (r *LoadBalancer) Default() {
 			return
 		}
 		r.Spec.PublicAddress = address.String()
+
+		// add an Endpoint struct for external-dns
+		r.AddDNSEndpoint(*sg)
 	}
 
 	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)

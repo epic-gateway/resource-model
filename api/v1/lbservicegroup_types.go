@@ -33,7 +33,7 @@ type LBServiceGroupSpec struct {
 	// EndpointTemplate is the template that will be used to fill in the
 	// Spec.Endpoints field in load balancers that belong to this
 	// LBServiceGroup.
-	// +kubebuilder:default={"recordType":"A","recordTTL":180,"dnsName":"{{.LBName}}.{{.LBSGName}}.client.acnodal.io"}
+	// +kubebuilder:default={"recordType":"A","recordTTL":180,"dnsName":"{{.PureLBServiceName}}.{{.LBSGName}}.client.acnodal.io"}
 	EndpointTemplate Endpoint `json:"endpoint-template"`
 }
 
