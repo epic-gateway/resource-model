@@ -35,15 +35,20 @@ var (
 
 type clusterParams struct {
 	ClusterName string
-	ServiceName string
 	Endpoints   []epicv1.RemoteEndpoint
+
+	// PureLBServiceName is the name of the service on the PureLB side,
+	// which is the LB "spec.display-name".
+	PureLBServiceName string
+	// ServiceName is the name of the LoadBalancer object, i.e., a the
+	// PureLB service prefixed with the owning LBSG.
+	ServiceName string
 }
 type listenerParams struct {
-	Clusters    []string
-	ServiceName string
-	PortName    string
-	Port        int32
-	Protocol    v1.Protocol
+	Clusters []string
+	PortName string
+	Port     int32
+	Protocol v1.Protocol
 
 	// These make it easier to assign even weights to sets of more than
 	// one cluster. By default the weights need to add up to 100 which
@@ -51,6 +56,13 @@ type listenerParams struct {
 	// the total_weight and the per-cluster weight.
 	TotalWeight   int
 	ClusterWeight int
+
+	// PureLBServiceName is the name of the service on the PureLB side,
+	// which is the LB "spec.display-name".
+	PureLBServiceName string
+	// ServiceName is the name of the LoadBalancer object, i.e., a the
+	// PureLB service prefixed with the owning LBSG.
+	ServiceName string
 }
 
 // ServiceToCluster translates from our RemoteEndpoint objects to a
@@ -73,9 +85,10 @@ func ServiceToCluster(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndp
 		for _, clusterName := range service.Spec.UpstreamClusters {
 			doc.Reset()
 			err = tmpl.Execute(&doc, clusterParams{
-				ClusterName: clusterName,
-				ServiceName: service.Name,
-				Endpoints:   endpoints,
+				ClusterName:       clusterName,
+				ServiceName:       service.Name,
+				PureLBServiceName: service.Spec.DisplayName,
+				Endpoints:         endpoints,
 			})
 
 			clusters = append(clusters, marin3r.EnvoyResource{Name: clusterName, Value: doc.String()})
@@ -124,13 +137,14 @@ func makeHTTPListener(listenerConfigFragment string, service epicv1.LoadBalancer
 	}
 
 	params := listenerParams{
-		ServiceName:   service.Name,
-		Clusters:      clusters,
-		PortName:      fmt.Sprintf("%s-%d", port.Protocol, port.Port),
-		Port:          port.Port,
-		Protocol:      port.Protocol,
-		TotalWeight:   (100 / len(clusters)) * len(clusters),
-		ClusterWeight: 100 / len(clusters),
+		ServiceName:       service.Name,
+		PureLBServiceName: service.Spec.DisplayName,
+		Clusters:          clusters,
+		PortName:          fmt.Sprintf("%s-%d", port.Protocol, port.Port),
+		Port:              port.Port,
+		Protocol:          port.Protocol,
+		TotalWeight:       (100 / len(clusters)) * len(clusters),
+		ClusterWeight:     100 / len(clusters),
 	}
 	if tmpl, err = template.New("listener").Funcs(funcMap).Parse(listenerConfigFragment); err != nil {
 		return marin3r.EnvoyResource{}, err
