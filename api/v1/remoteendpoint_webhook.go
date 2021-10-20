@@ -84,6 +84,11 @@ func (r *RemoteEndpoint) ValidateCreate() error {
 		return err
 	}
 
+	// Block create if the owning LB doesn't have this rep's cluster
+	if !owner.ContainsUpstream(r.Spec.Cluster) {
+		return fmt.Errorf("bad input: service \"%+v\" has no cluster \"%s\"", ownerName, r.Spec.Cluster)
+	}
+
 	// Block create if this loadbalancer has a duplicate endpoint
 	labelSelector := labels.SelectorFromSet(map[string]string{OwningLoadBalancerLabel: ownerName.Name})
 	listOps := client.ListOptions{Namespace: r.ObjectMeta.Namespace, LabelSelector: labelSelector}
