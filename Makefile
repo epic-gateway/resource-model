@@ -58,10 +58,9 @@ manifests: kustomize
 fmt:
 	go fmt ./...
 
-# Vet code using "go vet" and golint
+# Vet code using "go vet"
 vet:
 	go vet ./...
-	golint -set_exit_status ./...
 
 # Generate code
 .PHONY: generate
