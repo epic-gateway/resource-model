@@ -15,7 +15,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "manager",
-		Short: "EPIC - Hyperscaler ingress technology for everyone",
+		Short: "EPIC - Simplifying k8s Edge Access",
 	}
 )
 
