@@ -1,13 +1,17 @@
 package cmd
 
 import (
+	"context"
+	"os"
+
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
-
+	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/controllers"
 	"gitlab.com/acnodal/epic/resource-model/internal/exec"
+	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -92,11 +96,53 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Clean up data from before we rebooted
+	ctx := context.Background()
+	if err := prebootNodeCleanup(ctx, setupLog); err != nil {
+		return err
+	}
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		return err
 	}
 	setupLog.Info("manager returned, will exit")
 
+	return nil
+}
+
+// prebootNodeCleanup cleans out leftover data (relevant to this node)
+// that might be invalid. Ifindex values, for example, can change
+// after a reboot so we zero them and "nudge" the Envoy pods so Python
+// re-writes them. See also prebootCleanup() in controller_manager.go
+// for the system-wide preboot cleanup.
+func prebootNodeCleanup(ctx context.Context, log logr.Logger) error {
+
+	// We use an ad-hoc client here because the mgr.GetClient() doesn't
+	// start until you call mgr.Start() but we want to do this cleanup
+	// before the controllers start
+	cl, err := adHocClient(scheme)
+	if err != nil {
+		return err
+	}
+
+	// "Nudge" the proxy pods to trigger the python daemon to
+	// re-populate the ifindex and ifname annotations
+	proxies, err := listProxyPods(ctx, cl)
+	if err != nil {
+		return err
+	}
+	for _, proxyPod := range proxies.Items {
+		// If it's not running on this node then do nothing
+		if os.Getenv("EPIC_NODE_NAME") != proxyPod.Spec.NodeName {
+			continue
+		}
+
+		log.Info("clean", "name", proxyPod.Namespace+"/"+proxyPod.Name)
+		cleanIntfAnnotations(ctx, cl, proxyPod.Namespace, proxyPod.Name)
+		// Remove the pod's info from the LB but continue even if there's
+		// an error.
+		epicv1.RemovePodInfo(ctx, cl, proxyPod.Namespace, proxyPod.Labels[epicv1.OwningLoadBalancerLabel], proxyPod.Name)
+	}
 	return nil
 }

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -296,6 +299,51 @@ func (lb *LoadBalancer) AddDNSEndpoint(lbsg LBServiceGroup) error {
 	lb.Spec.Endpoints = append(lb.Spec.Endpoints, &ep)
 
 	return nil
+}
+
+// RemovePodInfo removes podName's info from lbName's ProxyInterfaces
+// map.
+func RemovePodInfo(ctx context.Context, cl client.Client, lbNS string, lbName string, podName string) error {
+	var lb LoadBalancer
+
+	key := client.ObjectKey{Namespace: lbNS, Name: lbName}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Fetch the resource here; you need to refetch it on every try,
+		// since if you got a conflict on the last update attempt then
+		// you need to get the current version before making your own
+		// changes.
+		if err := cl.Get(ctx, key, &lb); err != nil {
+			return err
+		}
+
+		if podInfo, hasPod := lb.Spec.ProxyInterfaces[podName]; hasPod {
+			// Remove this pod's entry from the ProxyInterfaces map
+			delete(lb.Spec.ProxyInterfaces, podName)
+
+			// Find out if any remaining Envoy pods are running on the same
+			// node as the one we've deleted.
+			hasPods := false
+			for _, nodeInfo := range lb.Spec.ProxyInterfaces {
+				if podInfo.EPICNodeAddress == nodeInfo.EPICNodeAddress {
+					hasPods = true
+				}
+			}
+
+			// If this node has no more Envoy pods then remove this node's
+			// entry from any of the EPICEndpointMaps that have it.
+			if !hasPods {
+				for _, epTunnelMap := range lb.Spec.GUETunnelMaps {
+					delete(epTunnelMap.EPICEndpoints, podInfo.EPICNodeAddress)
+				}
+			}
+
+			// Try to update
+			return cl.Update(ctx, &lb)
+		}
+
+		return nil
+	})
 }
 
 func init() {

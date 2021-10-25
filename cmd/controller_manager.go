@@ -149,19 +149,15 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 // prebootCleanup cleans out leftover data that might be
 // invalid. Ifindex values, for example, can change after a reboot so
-// we zero them and "nudge" the Envoy pods so Python re-writes them.
+// we zero them and "nudge" the Envoy pods so Python re-writes
+// them. See also prebootNodeCleanup() in node-agent.go for the
+// node-specific preboot cleanup.
 func prebootCleanup(ctx context.Context, log logr.Logger) error {
 
 	// We use an ad-hoc client here because the mgr.GetClient() doesn't
 	// start until you call mgr.Start() but we want to do this cleanup
 	// before the controllers start
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return err
-	}
-	cl, err := client.New(config, client.Options{
-		Scheme: scheme,
-	})
+	cl, err := adHocClient(scheme)
 	if err != nil {
 		return err
 	}
@@ -226,4 +222,23 @@ func cleanIntfAnnotations(ctx context.Context, cl client.Client, podNS string, p
 
 		return nil
 	})
+}
+
+// adHocClient configures and returns an ad-hoc k8s client.Client. We
+// use an ad-hoc client in early startup because the mgr.GetClient()
+// doesn't start until you call mgr.Start() but we want to do some
+// cleanup before the controllers start.
+func adHocClient(scheme *runtime.Scheme) (client.Client, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	cl, err := client.New(config, client.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return cl, nil
 }
