@@ -279,10 +279,12 @@ func (lb *LoadBalancer) AddDNSEndpoint(lbsg LBServiceGroup) error {
 		LBName            string
 		LBSGName          string
 		PureLBServiceName string
+		IPAddress         string
 	}{
 		lb.Name,
 		lbsg.Name,
 		lb.Spec.DisplayName,
+		rfc1123Cleaner.Replace(lb.Spec.PublicAddress),
 	}
 	err = tmpl.Execute(&doc, params)
 	if err != nil {

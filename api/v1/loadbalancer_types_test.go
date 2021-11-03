@@ -96,6 +96,10 @@ func TestAddDNSEndpoint(t *testing.T) {
 			expected: "test",
 		},
 		{
+			template: "{{.IPAddress}}",
+			expected: "10-42-27-9-70b4",
+		},
+		{
 			template: "{{.LBName}}",
 			expected: "TestLB",
 		},
@@ -104,8 +108,8 @@ func TestAddDNSEndpoint(t *testing.T) {
 			expected: "TestSG",
 		},
 		{
-			template: "{{.PureLBServiceName}}.{{.LBSGName}}.example.com",
-			expected: "TestService.TestSG.example.com",
+			template: "{{.IPAddress}}.{{.PureLBServiceName}}.{{.LBSGName}}.example.com",
+			expected: "10-42-27-9-70b4.TestService.TestSG.example.com",
 		},
 	} {
 		lb := LoadBalancer{
@@ -114,6 +118,11 @@ func TestAddDNSEndpoint(t *testing.T) {
 			},
 			Spec: LoadBalancerSpec{
 				DisplayName: "TestService",
+				// This is the demon-spawn of an unholy union between IPV4 and
+				// IPV6. It's not a real address but should contain all of the
+				// special characters that our RFC1123 cleaner is supposed to
+				// replace
+				PublicAddress: "10.42.27.9:70b4",
 			},
 		}
 

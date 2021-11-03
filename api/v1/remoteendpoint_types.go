@@ -18,10 +18,6 @@ const (
 	RemoteEndpointFinalizerName string = "remoteendpoint.controller-manager.epic.acnodal.io/finalizer"
 )
 
-var (
-	rfc1123Cleaner = strings.NewReplacer(".", "-", ":", "-")
-)
-
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 
