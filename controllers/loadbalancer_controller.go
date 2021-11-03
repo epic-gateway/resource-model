@@ -298,7 +298,10 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 							// Spread pods across nodes as much as possible
 							TopologyKey:       "kubernetes.io/hostname",
 							MaxSkew:           1,
-							WhenUnsatisfiable: "DoNotSchedule",
+							WhenUnsatisfiable: "ScheduleAnyway",
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: labels,
+							},
 						},
 					},
 					ImagePullSecrets: []corev1.LocalObjectReference{
