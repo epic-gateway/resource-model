@@ -54,7 +54,7 @@ filter_chains:
                   route:
                     cluster: purelb
         http_filters:
-          - name: envoy.router
+          - name: envoy.filters.http.router
 `
 )
 
