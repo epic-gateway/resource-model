@@ -128,7 +128,7 @@ func (r *LoadBalancer) ValidateCreate() error {
 
 	// Block create if the IP allocation failed
 	if r.Spec.PublicAddress == "" {
-		return fmt.Errorf("%s has no public address", r.Name)
+		return fmt.Errorf("%s/%s IP address allocation failed", r.Namespace, r.Name)
 	}
 
 	return nil
