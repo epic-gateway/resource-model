@@ -160,7 +160,7 @@ func (r *LoadBalancer) fetchLBServiceGroup() (*LBServiceGroup, error) {
 	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningLBServiceGroupLabel]}
 	sg := &LBServiceGroup{}
 	if err := crtclient.Get(context.TODO(), sgName, sg); err != nil {
-		replog.Info("bad input: no owning service group", "name", sgName)
+		loadbalancerlog.Info("bad input: no owning service group", "name", sgName)
 		return nil, err
 	}
 
@@ -175,7 +175,7 @@ func allocateServiceID(ctx context.Context, cl client.Client, acct *Account) (se
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
 		serviceID, err = nextServiceID(ctx, cl, acct)
 		if err != nil {
-			accountlog.Info("problem allocating account serviceID", "error", err)
+			loadbalancerlog.Info("problem allocating account serviceID", "error", err)
 		}
 	}
 	return serviceID, err
