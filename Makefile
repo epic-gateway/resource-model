@@ -49,7 +49,7 @@ deploy: manifests
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: kustomize
+manifests: kustomize controller-gen
 	controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	$(KUSTOMIZE) build config/default | IMG=$(IMG) envsubst > deploy/epic-resource-model.yaml
 	cp deploy/epic-resource-model.yaml deploy/epic-resource-model-${SUFFIX}.yaml
@@ -64,7 +64,7 @@ vet:
 
 # Generate code
 .PHONY: generate
-generate:
+generate: controller-gen
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
@@ -74,6 +74,10 @@ docker-build:
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+.PHONY: controller-gen
+controller-gen:
+	go install sigs.k8s.io/controller-tools/...
 
 kustomize:
 ifeq (, $(shell which kustomize))
