@@ -58,7 +58,7 @@ func (r *LoadBalancer) Default() {
 	controllerutil.AddFinalizer(r, LoadbalancerFinalizerName)
 
 	// Fetch this LB's owning service group
-	sg, err := r.fetchLBServiceGroup()
+	sg, err := r.fetchLBServiceGroup(ctx)
 	if err != nil {
 		loadbalancerlog.Info("failed to fetch owning service group", "error", err)
 		return
@@ -68,10 +68,10 @@ func (r *LoadBalancer) Default() {
 	// address pool
 	poolName := sg.Labels[OwningServicePrefixLabel]
 
-	account := &Account{}
-	accountName := types.NamespacedName{Namespace: sg.Namespace, Name: sg.Labels[OwningAccountLabel]}
-	if err := crtclient.Get(ctx, accountName, account); err != nil {
-		loadbalancerlog.Info("failed to fetch owning service group", "error", err)
+	// Fetch this SG's owning account
+	account, err := r.fetchAccount(ctx, sg.Labels[OwningAccountLabel])
+	if err != nil {
+		loadbalancerlog.Info("failed to fetch owning account", "error", err)
 		return
 	}
 
@@ -119,10 +119,17 @@ var _ webhook.Validator = &LoadBalancer{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateCreate() error {
+	ctx := context.TODO()
 	loadbalancerlog.Info("validate create", "name", r.Name, "contents", r)
 
 	// Block create if there's no owning SG
-	if _, err := r.fetchLBServiceGroup(); err != nil {
+	sg, err := r.fetchLBServiceGroup(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Block create if there's no owning account
+	if _, err := r.fetchAccount(ctx, sg.Labels[OwningAccountLabel]); err != nil {
 		return err
 	}
 
@@ -152,19 +159,30 @@ func (r *LoadBalancer) ValidateDelete() error {
 	return nil
 }
 
-func (r *LoadBalancer) fetchLBServiceGroup() (*LBServiceGroup, error) {
+func (r *LoadBalancer) fetchLBServiceGroup(ctx context.Context) (*LBServiceGroup, error) {
 	// Block create if there's no owning SG
 	if r.Labels[OwningLBServiceGroupLabel] == "" {
 		return nil, fmt.Errorf("LB has no owning service group label")
 	}
 	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningLBServiceGroupLabel]}
 	sg := &LBServiceGroup{}
-	if err := crtclient.Get(context.TODO(), sgName, sg); err != nil {
+	if err := crtclient.Get(ctx, sgName, sg); err != nil {
 		loadbalancerlog.Info("bad input: no owning service group", "name", sgName)
 		return nil, err
 	}
 
 	return sg, nil
+}
+
+func (r *LoadBalancer) fetchAccount(ctx context.Context, name string) (*Account, error) {
+	account := &Account{}
+	accountName := types.NamespacedName{Namespace: r.Namespace, Name: name}
+	if err := crtclient.Get(ctx, accountName, account); err != nil {
+		loadbalancerlog.Info("failed to fetch owning account", "error", err)
+		return nil, err
+	}
+
+	return account, nil
 }
 
 // allocateServiceID allocates a service id from the Account that owns
