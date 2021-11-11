@@ -175,7 +175,7 @@ func (r *RemoteEndpointReconciler) addProxyTunnels(ctx context.Context, l logr.L
 	}
 	l.Info(string(patchBytes))
 	if err := r.Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
-		l.Info("patching LB status", "lb", lb, "error", err)
+		l.Error(err, "patching LB status", "lb", lb)
 		return err
 	}
 	l.Info("LB status patched", "lb", lb)
@@ -191,7 +191,7 @@ func allocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tun
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
 		tunnelID, err = nextTunnelID(ctx, l, cl)
 		if err != nil {
-			l.Info("problem allocating tunnel ID", "error", err)
+			l.Error(err, "problem allocating tunnel ID")
 		}
 	}
 	return tunnelID, err
@@ -210,7 +210,7 @@ func nextTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelI
 	// get the EPIC singleton
 	epic := epicv1.EPIC{}
 	if err := cl.Get(ctx, types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}, &epic); err != nil {
-		l.Info("EPIC get failed", "error", err)
+		l.Error(err, "EPIC get failed")
 		return 0, err
 	}
 

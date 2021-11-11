@@ -110,7 +110,7 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	for _, lb := range lbs.Items {
 		if existingIP := net.ParseIP(lb.Spec.PublicAddress); existingIP != nil {
 			if _, err := r.Allocator.Assign(lb.Name, existingIP, lb.Spec.PublicPorts, ""); err != nil {
-				log.Info("Error assigning IP", "IP", existingIP, "error", err)
+				log.Error(err, "Error assigning IP", "IP", existingIP)
 			} else {
 				log.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
 			}

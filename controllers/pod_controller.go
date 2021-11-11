@@ -166,7 +166,7 @@ func (r *PodReconciler) addPodTunnels(ctx context.Context, l logr.Logger, lb *ep
 	}
 	l.Info(string(patchBytes))
 	if err := r.Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
-		l.Info("patching LB status", "lb", lb, "error", err)
+		l.Error(err, "patching LB status", "lb", lb)
 		return err
 	}
 	l.Info("LB status patched", "lb", lb)

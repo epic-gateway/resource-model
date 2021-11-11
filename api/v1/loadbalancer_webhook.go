@@ -60,7 +60,7 @@ func (r *LoadBalancer) Default() {
 	// Fetch this LB's owning service group
 	sg, err := r.fetchLBServiceGroup(ctx)
 	if err != nil {
-		loadbalancerlog.Info("failed to fetch owning service group", "error", err)
+		loadbalancerlog.Error(err, "failed to fetch owning service group")
 		return
 	}
 
@@ -71,14 +71,14 @@ func (r *LoadBalancer) Default() {
 	// Fetch this SG's owning account
 	account, err := r.fetchAccount(ctx, sg.Labels[OwningAccountLabel])
 	if err != nil {
-		loadbalancerlog.Info("failed to fetch owning account", "error", err)
+		loadbalancerlog.Error(err, "failed to fetch owning account")
 		return
 	}
 
 	// Add a service id to this service
 	serviceID, err := allocateServiceID(ctx, crtclient, account)
 	if err != nil {
-		loadbalancerlog.Info("failed to allocate serviceID", "error", err)
+		loadbalancerlog.Error(err, "failed to allocate serviceID")
 	}
 	r.Spec.ServiceID = serviceID
 
@@ -178,7 +178,7 @@ func (r *LoadBalancer) fetchAccount(ctx context.Context, name string) (*Account,
 	account := &Account{}
 	accountName := types.NamespacedName{Namespace: r.Namespace, Name: name}
 	if err := crtclient.Get(ctx, accountName, account); err != nil {
-		loadbalancerlog.Info("failed to fetch owning account", "error", err)
+		loadbalancerlog.Error(err, "failed to fetch owning account")
 		return nil, err
 	}
 
@@ -193,7 +193,7 @@ func allocateServiceID(ctx context.Context, cl client.Client, acct *Account) (se
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
 		serviceID, err = nextServiceID(ctx, cl, acct)
 		if err != nil {
-			loadbalancerlog.Info("problem allocating account serviceID", "error", err)
+			loadbalancerlog.Error(err, "account serviceID allocation error")
 		}
 	}
 	return serviceID, err
