@@ -21,8 +21,8 @@ import (
 
 // log is for logging in this package.
 var (
-	loadbalancerlog = logf.Log.WithName("loadbalancer-resource")
-	allocator       PoolAllocator
+	lbLog     = logf.Log.WithName("loadbalancer-resource")
+	allocator PoolAllocator
 )
 
 // PoolAllocator allocates addresses. We use an interface to avoid
@@ -51,7 +51,7 @@ var _ webhook.Defaulter = &LoadBalancer{}
 // Default sets default values for this LoadBalancer object.
 func (r *LoadBalancer) Default() {
 	ctx := context.TODO()
-	loadbalancerlog.Info("default", "name", r.Name)
+	lbLog.Info("default", "name", r.Name)
 
 	// Add the controller as a finalizer so we can clean up when this
 	// LoadBalancer is deleted.
@@ -60,7 +60,7 @@ func (r *LoadBalancer) Default() {
 	// Fetch this LB's owning service group
 	sg, err := r.fetchLBServiceGroup(ctx)
 	if err != nil {
-		loadbalancerlog.Error(err, "failed to fetch owning service group")
+		lbLog.Error(err, "failed to fetch owning service group")
 		return
 	}
 
@@ -71,14 +71,14 @@ func (r *LoadBalancer) Default() {
 	// Fetch this SG's owning account
 	account, err := r.fetchAccount(ctx, sg.Labels[OwningAccountLabel])
 	if err != nil {
-		loadbalancerlog.Error(err, "failed to fetch owning account")
+		lbLog.Error(err, "failed to fetch owning account")
 		return
 	}
 
 	// Add a service id to this service
 	serviceID, err := allocateServiceID(ctx, crtclient, account)
 	if err != nil {
-		loadbalancerlog.Error(err, "failed to allocate serviceID")
+		lbLog.Error(err, "failed to allocate serviceID")
 	}
 	r.Spec.ServiceID = serviceID
 
@@ -101,7 +101,7 @@ func (r *LoadBalancer) Default() {
 	if r.Spec.PublicAddress == "" {
 		address, err := allocator.AllocateFromPool(r.NamespacedName().String(), poolName, r.Spec.PublicPorts, "")
 		if err != nil {
-			loadbalancerlog.Error(err, "allocation failed")
+			lbLog.Error(err, "allocation failed")
 			return
 		}
 		r.Spec.PublicAddress = address.String()
@@ -110,7 +110,7 @@ func (r *LoadBalancer) Default() {
 		r.AddDNSEndpoint(*sg)
 	}
 
-	loadbalancerlog.Info("defaulted", "name", r.Name, "contents", r)
+	lbLog.Info("defaulted", "name", r.Name, "contents", r)
 }
 
 // +kubebuilder:webhook:verbs=create;delete,path=/validate-epic-acnodal-io-v1-loadbalancer,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=loadbalancers,versions=v1,name=vloadbalancer.kb.io,sideEffects=None,admissionReviewVersions=v1
@@ -120,7 +120,7 @@ var _ webhook.Validator = &LoadBalancer{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateCreate() error {
 	ctx := context.TODO()
-	loadbalancerlog.Info("validate create", "name", r.Name, "contents", r)
+	lbLog.Info("validate create", "name", r.Name, "contents", r)
 
 	// Block create if there's no owning SG
 	sg, err := r.fetchLBServiceGroup(ctx)
@@ -148,7 +148,7 @@ func (r *LoadBalancer) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *LoadBalancer) ValidateDelete() error {
-	loadbalancerlog.Info("validate delete", "name", r.Name)
+	lbLog.Info("validate delete", "name", r.Name)
 
 	// Don't allow deletion if there are any upstream clusters still
 	// using this LB
@@ -167,7 +167,7 @@ func (r *LoadBalancer) fetchLBServiceGroup(ctx context.Context) (*LBServiceGroup
 	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningLBServiceGroupLabel]}
 	sg := &LBServiceGroup{}
 	if err := crtclient.Get(ctx, sgName, sg); err != nil {
-		loadbalancerlog.Info("bad input: no owning service group", "name", sgName)
+		lbLog.Info("bad input: no owning service group", "name", sgName)
 		return nil, err
 	}
 
@@ -178,7 +178,7 @@ func (r *LoadBalancer) fetchAccount(ctx context.Context, name string) (*Account,
 	account := &Account{}
 	accountName := types.NamespacedName{Namespace: r.Namespace, Name: name}
 	if err := crtclient.Get(ctx, accountName, account); err != nil {
-		loadbalancerlog.Error(err, "failed to fetch owning account")
+		lbLog.Error(err, "failed to fetch owning account")
 		return nil, err
 	}
 
@@ -193,7 +193,7 @@ func allocateServiceID(ctx context.Context, cl client.Client, acct *Account) (se
 	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
 		serviceID, err = nextServiceID(ctx, cl, acct)
 		if err != nil {
-			loadbalancerlog.Error(err, "account serviceID allocation error")
+			lbLog.Error(err, "account serviceID allocation error")
 		}
 	}
 	return serviceID, err
