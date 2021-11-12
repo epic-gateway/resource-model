@@ -69,7 +69,7 @@ func (r *LoadBalancer) Default() {
 	poolName := sg.Labels[OwningServicePrefixLabel]
 
 	// Fetch this SG's owning account
-	account, err := r.fetchAccount(ctx, sg.Labels[OwningAccountLabel])
+	account, err := sg.getAccount(ctx, crtclient)
 	if err != nil {
 		lbLog.Error(err, "failed to fetch owning account")
 		return
@@ -129,7 +129,7 @@ func (r *LoadBalancer) ValidateCreate() error {
 	}
 
 	// Block create if there's no owning account
-	if _, err := r.fetchAccount(ctx, sg.Labels[OwningAccountLabel]); err != nil {
+	if _, err := sg.getAccount(ctx, crtclient); err != nil {
 		return err
 	}
 
@@ -172,17 +172,6 @@ func (r *LoadBalancer) fetchLBServiceGroup(ctx context.Context) (*LBServiceGroup
 	}
 
 	return sg, nil
-}
-
-func (r *LoadBalancer) fetchAccount(ctx context.Context, name string) (*Account, error) {
-	account := &Account{}
-	accountName := types.NamespacedName{Namespace: r.Namespace, Name: name}
-	if err := crtclient.Get(ctx, accountName, account); err != nil {
-		lbLog.Error(err, "failed to fetch owning account")
-		return nil, err
-	}
-
-	return account, nil
 }
 
 // allocateServiceID allocates a service id from the Account that owns

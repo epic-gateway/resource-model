@@ -1,8 +1,13 @@
 package v1
 
 import (
+	"context"
+	"fmt"
+
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -58,6 +63,26 @@ type LBServiceGroup struct {
 
 	Spec   LBServiceGroupSpec   `json:"spec,omitempty"`
 	Status LBServiceGroupStatus `json:"status,omitempty"`
+}
+
+// getServicePrefix gets this LBSG's owning ServicePrefix.
+func (lbsg *LBServiceGroup) getServicePrefix(ctx context.Context, client client.Client) (*ServicePrefix, error) {
+	if lbsg.Labels[OwningServicePrefixLabel] == "" {
+		return nil, fmt.Errorf("LBSG has no owning service prefix label")
+	}
+	servicePrefix := &ServicePrefix{}
+	servicePrefixName := types.NamespacedName{Namespace: ConfigNamespace, Name: lbsg.Labels[OwningServicePrefixLabel]}
+	return servicePrefix, client.Get(ctx, servicePrefixName, servicePrefix)
+}
+
+// getAccount gets this LBSG's owning Account.
+func (lbsg *LBServiceGroup) getAccount(ctx context.Context, client client.Client) (*Account, error) {
+	if lbsg.Labels[OwningAccountLabel] == "" {
+		return nil, fmt.Errorf("LBSG has no owning account label")
+	}
+	account := &Account{}
+	accountName := types.NamespacedName{Namespace: lbsg.Namespace, Name: lbsg.Labels[OwningAccountLabel]}
+	return account, client.Get(ctx, accountName, account)
 }
 
 // +kubebuilder:object:root=true
