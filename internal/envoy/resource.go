@@ -37,6 +37,9 @@ type clusterParams struct {
 	ClusterName string
 	Endpoints   []epicv1.RemoteEndpoint
 
+	// ServiceNamespace is the namespace of the LoadBalancer.
+	ServiceNamespace string
+
 	// PureLBServiceName is the name of the service on the PureLB side,
 	// which is the LB "spec.display-name".
 	PureLBServiceName string
@@ -49,6 +52,11 @@ type listenerParams struct {
 	PortName string
 	Port     int32
 	Protocol v1.Protocol
+
+	// ServiceNamespace is the namespace of the LoadBalancer. It's
+	// useful when using the "ref" directive to tell Envoy about k8s
+	// Secrets.
+	ServiceNamespace string
 
 	// These make it easier to assign even weights to sets of more than
 	// one cluster. By default the weights need to add up to 100 which
@@ -85,6 +93,7 @@ func ServiceToCluster(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndp
 		for _, clusterName := range service.Spec.UpstreamClusters {
 			doc.Reset()
 			err = tmpl.Execute(&doc, clusterParams{
+				ServiceNamespace:  service.Namespace,
 				ClusterName:       clusterName,
 				ServiceName:       service.Name,
 				PureLBServiceName: service.Spec.DisplayName,
@@ -137,6 +146,7 @@ func makeHTTPListener(listenerConfigFragment string, service epicv1.LoadBalancer
 	}
 
 	params := listenerParams{
+		ServiceNamespace:  service.Namespace,
 		ServiceName:       service.Name,
 		PureLBServiceName: service.Spec.DisplayName,
 		Clusters:          clusters,
