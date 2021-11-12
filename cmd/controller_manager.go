@@ -89,6 +89,10 @@ func runControllers(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err = (&epicv1.LBServiceGroup{}).SetupWebhookWithManager(mgr); err != nil {
+		return err
+	}
+
 	if err = (&controllers.PodReconciler{
 		Client:        mgr.GetClient(),
 		Log:           ctrl.Log.WithName("controllers").WithName("Pod"),
