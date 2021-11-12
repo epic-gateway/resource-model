@@ -10,7 +10,6 @@ import (
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,7 +57,7 @@ func (r *LoadBalancer) Default() {
 	controllerutil.AddFinalizer(r, LoadbalancerFinalizerName)
 
 	// Fetch this LB's owning service group
-	sg, err := r.fetchLBServiceGroup(ctx)
+	sg, err := r.getLBServiceGroup(ctx, crtclient)
 	if err != nil {
 		lbLog.Error(err, "failed to fetch owning service group")
 		return
@@ -123,7 +122,7 @@ func (r *LoadBalancer) ValidateCreate() error {
 	lbLog.Info("validate create", "name", r.Name, "contents", r)
 
 	// Block create if there's no owning SG
-	sg, err := r.fetchLBServiceGroup(ctx)
+	sg, err := r.getLBServiceGroup(ctx, crtclient)
 	if err != nil {
 		return err
 	}
@@ -157,21 +156,6 @@ func (r *LoadBalancer) ValidateDelete() error {
 	}
 
 	return nil
-}
-
-func (r *LoadBalancer) fetchLBServiceGroup(ctx context.Context) (*LBServiceGroup, error) {
-	// Block create if there's no owning SG
-	if r.Labels[OwningLBServiceGroupLabel] == "" {
-		return nil, fmt.Errorf("LB has no owning service group label")
-	}
-	sgName := types.NamespacedName{Namespace: r.Namespace, Name: r.Labels[OwningLBServiceGroupLabel]}
-	sg := &LBServiceGroup{}
-	if err := crtclient.Get(ctx, sgName, sg); err != nil {
-		lbLog.Info("bad input: no owning service group", "name", sgName)
-		return nil, err
-	}
-
-	return sg, nil
 }
 
 // allocateServiceID allocates a service id from the Account that owns

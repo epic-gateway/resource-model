@@ -303,6 +303,16 @@ func (lb *LoadBalancer) AddDNSEndpoint(lbsg LBServiceGroup) error {
 	return nil
 }
 
+// getLBServiceGroup gets this LB's owning LBServiceGroup.
+func (lb *LoadBalancer) getLBServiceGroup(ctx context.Context, cl client.Client) (*LBServiceGroup, error) {
+	if lb.Labels[OwningLBServiceGroupLabel] == "" {
+		return nil, fmt.Errorf("LB has no owning service group label")
+	}
+	sgName := types.NamespacedName{Namespace: lb.Namespace, Name: lb.Labels[OwningLBServiceGroupLabel]}
+	sg := &LBServiceGroup{}
+	return sg, cl.Get(ctx, sgName, sg)
+}
+
 // RemovePodInfo removes podName's info from lbName's ProxyInterfaces
 // map.
 func RemovePodInfo(ctx context.Context, cl client.Client, lbNS string, lbName string, podName string) error {
