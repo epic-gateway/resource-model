@@ -3,7 +3,6 @@ package v1
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
@@ -29,8 +28,6 @@ func (r *ServicePrefix) SetupWebhookWithManager(mgr ctrl.Manager, val PoolValida
 }
 
 // +kubebuilder:webhook:verbs=create,path=/mutate-epic-acnodal-io-v1-serviceprefix,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=serviceprefixes,versions=v1,name=vserviceprefix.kb.io,sideEffects=None,admissionReviewVersions=v1
-
-var _ webhook.Defaulter = &LoadBalancer{}
 
 // Default sets default values for this LoadBalancer object.
 func (r *ServicePrefix) Default() {
