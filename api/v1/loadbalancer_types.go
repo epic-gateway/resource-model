@@ -217,7 +217,7 @@ func (lb *LoadBalancer) RemoveUpstream(clusterID string) error {
 		}
 	}
 
-	return fmt.Errorf("Upstream %s not found", clusterID)
+	return fmt.Errorf("Upstream cluster \"%s\" not found in LoadBalancer \"%s\"", clusterID, lb.Name)
 }
 
 // LoadBalancerName returns the name that we use in the LoadBalancer
