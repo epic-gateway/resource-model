@@ -34,14 +34,13 @@ var (
 	// namespace is an EPIC User Namespace.
 	UserNSLabels = map[string]string{"app.kubernetes.io/component": "user-namespace", "app.kubernetes.io/part-of": ProductName}
 
-	// envoyProxyLabels is the set of labels that we apply to one of our
-	// LoadBalancer CRs. Note that if these change then you'll need to
-	// update the python setup-network program so it matches.
+	// envoyProxyLabels is the set of labels that we apply to our
+	// EnvoyDeployment CRs. Note that if these change then you'll need
+	// to update HasEnvoyLabels() and the python setup-network program
+	// so they match.
 	envoyProxyLabels = map[string]string{
-		"app.kubernetes.io/name":      "envoy",
-		"app.kubernetes.io/part-of":   ProductName,
-		"app.kubernetes.io/component": "proxy",
-		OwningLoadBalancerLabel:       "PLACEHOLDER"}
+		"app.kubernetes.io/part-of": ProductName,
+		OwningLoadBalancerLabel:     "PLACEHOLDER"}
 )
 
 // LabelsForEnvoy returns the labels that we apply to a new Envoy
@@ -70,24 +69,12 @@ func HasEnvoyLabels(pod v1.Pod) bool {
 		return false
 	}
 
-	name, hasName := pod.ObjectMeta.Labels["app.kubernetes.io/name"]
-	if !hasName {
-		return false
-	}
-	if name != "envoy" {
-		return false
-	}
-
+	// This label is added by Marin3r
 	component, hasComponent := pod.ObjectMeta.Labels["app.kubernetes.io/component"]
 	if !hasComponent {
 		return false
 	}
-	if component != "proxy" {
-		return false
-	}
-
-	_, hasOwner := pod.ObjectMeta.Labels[OwningLoadBalancerLabel]
-	if !hasOwner {
+	if component != "envoy-deployment" {
 		return false
 	}
 

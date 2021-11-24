@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
+	marin3roperator "github.com/3scale-ops/marin3r/apis/operator.marin3r/v1alpha1"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,9 +33,6 @@ const (
 	// pod the CIDR that contains internal service addresses. The Envoy
 	// image uses this to set up routing between its two interfaces.
 	serviceCIDREnv = "SERVICE_CIDR"
-
-	// configured in epic-config.yaml in the envoy docker image
-	envoyManagementPort = 9901
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -50,8 +47,8 @@ type LoadBalancerReconciler struct {
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=remoteendpoints,verbs=get;list;delete;deletecollection
 
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marin3r.3scale.net,resources=envoyconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operator.marin3r.3scale.net,resources=envoydeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=crd.projectcalico.org,resources=ippools,verbs=get;list
 
 // Reconcile takes a Request and makes the system reflect what the
@@ -206,14 +203,12 @@ func envoyPodName(lb *epicv1.LoadBalancer) string {
 	// this should let us see that:
 	//  - it's an envoy
 	//  - it's working for the lb named lb.Name
-	return "envoy-" + lb.Name
+	return lb.Name
 }
 
-// deploymentForLB returns a Deployment object that will launch an
-// Envoy pod
-func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *epicv1.ServicePrefix, envoyImage string, serviceCIDR string) *appsv1.Deployment {
-	labels := epicv1.LabelsForEnvoy(lb.Name)
-
+// deploymentForLB returns an EnvoyDeployment object that will tell
+// Marin3r to launch Envoy pods to serve lb.
+func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *epicv1.ServicePrefix, envoyImage string, serviceCIDR string) *marin3roperator.EnvoyDeployment {
 	// Format the pod's IP address by parsing the raw address and adding
 	// the netmask from the service prefix Subnet
 	addr, err := netlink.ParseAddr(lb.Spec.PublicAddress + "/32")
@@ -242,105 +237,34 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 	//  - it's working for the lb named lb.Name
 	name := envoyPodName(lb)
 
-	// format a fragment of Envoy config yaml that will set the dynamic
-	// command-line overrides that differentiate this instance of Envoy
-	// from the others.
-	envoyOverrides := fmt.Sprintf("node: {cluster: xds_cluster, id: %s.%s}", lb.Namespace, lb.Name)
-
-	dep := &appsv1.Deployment{
+	dep := &marin3roperator.EnvoyDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: lb.Namespace,
 		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: lb.Spec.EnvoyReplicaCount,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+		Spec: marin3roperator.EnvoyDeploymentSpec{
+			DiscoveryServiceRef: epicv1.DiscoveryServiceName,
+			EnvoyConfigRef:      name,
+			Image:               pointer.StringPtr(envoyImage),
+			ExtraLabels:         epicv1.LabelsForEnvoy(lb.Name),
+			Replicas: &marin3roperator.ReplicasSpec{
+				Static: lb.Spec.EnvoyReplicaCount,
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{cniAnnotation: string(multusConfig)},
-					Labels:      labels,
-				},
-				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: pointer.Int64Ptr(0),
-					Containers: []corev1.Container{
-						{Image: envoyImage,
-							ImagePullPolicy: corev1.PullAlways,
-							Name:            name,
-							Ports:           portsToPorts(lb.Spec.PublicPorts),
-							Command:         []string{"/docker-entrypoint.sh"},
-							Args:            []string{"envoy", "--config-path", "/etc/envoy/envoy.yaml", "--config-yaml", envoyOverrides, "--log-level", "debug"},
-							Env: []corev1.EnvVar{{
-								Name:  serviceCIDREnv,
-								Value: serviceCIDR,
-							}},
-							SecurityContext: &corev1.SecurityContext{
-								Privileged:               pointer.BoolPtr(true),
-								AllowPrivilegeEscalation: pointer.BoolPtr(true),
-								Capabilities: &corev1.Capabilities{
-									Add: []corev1.Capability{"NET_ADMIN"},
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "envoy-sidecar-tls",
-									MountPath: "/etc/envoy/tls/client",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "envoy-sidecar-bootstrap-v3",
-									MountPath: "/etc/envoy/bootstrap",
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
-						{
-							// Spread pods across nodes as much as possible
-							TopologyKey:       "kubernetes.io/hostname",
-							MaxSkew:           1,
-							WhenUnsatisfiable: "ScheduleAnyway",
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: labels,
-							},
-						},
-					},
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{Name: gitlabSecret},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "envoy-sidecar-tls",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName:  "envoy-sidecar-client-cert",
-									DefaultMode: pointer.Int32Ptr(420),
-								},
-							},
-						},
-						{
-							Name: "envoy-sidecar-bootstrap-v3",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "envoy-sidecar-bootstrap-v3",
-									},
-									DefaultMode: pointer.Int32Ptr(420),
-								},
-							},
-						},
-					},
-				},
+			Ports: portsToPorts(lb.Spec.PublicPorts),
+			Annotations: map[string]string{
+				cniAnnotation: string(multusConfig),
 			},
+			EnvVars: []corev1.EnvVar{{
+				Name:  serviceCIDREnv,
+				Value: serviceCIDR,
+			}},
 		},
 	}
 
 	// If this is *not* a TrueIngress LB then set the env var that tells
 	// our Envoy docker-entrypoint to *not* set it up.
 	if !lb.Spec.TrueIngress {
-		dep.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{{
+		dep.Spec.EnvVars = []corev1.EnvVar{{
 			Name:  "TRUEINGRESS",
 			Value: "disabled",
 		}}
@@ -360,18 +284,20 @@ func splitNSName(name string) (*types.NamespacedName, error) {
 	return &types.NamespacedName{Namespace: parts[0], Name: parts[1]}, nil
 }
 
-// portsToPorts converts from ServicePorts to ContainerPorts,
-// implicitly adding Envoy's management port.
-func portsToPorts(sPorts []corev1.ServicePort) []corev1.ContainerPort {
-	cPorts := make([]corev1.ContainerPort, len(sPorts)+1)
-
-	// Implicitly expose the management port.
-	cPorts[0] = corev1.ContainerPort{Protocol: corev1.ProtocolTCP, ContainerPort: envoyManagementPort}
+// portsToPorts converts from ServicePorts to ContainerPorts.
+func portsToPorts(sPorts []corev1.ServicePort) []marin3roperator.ContainerPort {
+	cPorts := make([]marin3roperator.ContainerPort, len(sPorts))
 
 	// Expose the configured ports
 	for i, port := range sPorts {
-		cPorts[i+1] = corev1.ContainerPort{Protocol: washProtocol(port.Protocol), ContainerPort: port.Port}
+		proto := washProtocol(port.Protocol)
+		cPorts[i] = marin3roperator.ContainerPort{
+			Name:     port.Name,
+			Port:     port.Port,
+			Protocol: &proto,
+		}
 	}
+
 	return cPorts
 }
 
@@ -399,22 +325,22 @@ func listActiveLBEndpoints(ctx context.Context, cl client.Client, lb *epicv1.Loa
 	return activeEPs, err
 }
 
-func updateDeployment(ctx context.Context, cl client.Client, updated *appsv1.Deployment) error {
+func updateDeployment(ctx context.Context, cl client.Client, updated *marin3roperator.EnvoyDeployment) error {
 	key := client.ObjectKey{Namespace: updated.GetNamespace(), Name: updated.GetName()}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		existing := appsv1.Deployment{}
+		existing := updated.DeepCopy()
 
 		// Fetch the resource here; you need to refetch it on every try,
 		// since if you got a conflict on the last update attempt then
 		// you need to get the current version before making your own
 		// changes.
-		if err := cl.Get(ctx, key, &existing); err != nil {
+		if err := cl.Get(ctx, key, existing); err != nil {
 			return err
 		}
 		updated.Spec.DeepCopyInto(&existing.Spec)
 
 		// Try to update
-		return cl.Update(ctx, &existing)
+		return cl.Update(ctx, existing)
 	})
 }

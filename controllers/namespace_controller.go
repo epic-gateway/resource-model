@@ -28,6 +28,7 @@ type NamespaceReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get;watch
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=list;get;watch;create;update
 // +kubebuilder:rbac:groups="",resources=services,verbs=list;get;watch;create;update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=list;get;watch;create;update
