@@ -2,6 +2,8 @@ module gitlab.com/acnodal/epic/resource-model
 
 go 1.16
 
+replace github.com/3scale-ops/marin3r => gitlab.com/acnodal/epic/marin3r v0.9.1-epic7
+
 require (
 	github.com/3scale-ops/marin3r v0.9.1
 	github.com/containernetworking/plugins v0.8.7

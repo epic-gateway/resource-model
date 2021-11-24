@@ -1,11 +1,17 @@
 # Build the manager binary
 FROM golang:1.16-bullseye as builder
+
+# Configure golang for our private modules at gitlab
+ENV GONOPROXY=gitlab.com/acnodal
+ENV GONOSUMDB=gitlab.com/acnodal
+ENV GOPRIVATE=gitlab.com/acnodal
 ARG GITLAB_USER
 ARG GITLAB_PASSWORD
 
 RUN echo "machine gitlab.com login ${GITLAB_USER} password ${GITLAB_PASSWORD}" > ~/.netrc
 
 WORKDIR /workspace
+
 # Copy the Go Modules manifests
 COPY go.mod go.sum ./
 # cache deps before building and copying source so that we don't need to re-download as much
