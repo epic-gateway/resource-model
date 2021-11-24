@@ -8,7 +8,6 @@ import (
 
 	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	"github.com/vishvananda/netlink"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -58,6 +57,9 @@ type LoadBalancerReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
+	log.Info("reconciling")
+
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
 	sg := &epicv1.LBServiceGroup{}
@@ -73,8 +75,9 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return done, client.IgnoreNotFound(err)
 	}
 
-	log := r.Log.WithValues("loadbalancer", req.NamespacedName, "version", lb.ResourceVersion)
-	log.Info("reconciling")
+	// Now that we know the resource version we can use it in our log
+	// messages
+	log = r.Log.WithValues("loadbalancer", req.NamespacedName, "version", lb.ResourceVersion)
 
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {

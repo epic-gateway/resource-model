@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +31,7 @@ type PodReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := r.Log.WithValues("pod", req.NamespacedName)
 	pod := v1.Pod{}
 
 	// read the object that caused the event
@@ -43,7 +43,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return done, client.IgnoreNotFound(err)
 	}
 
-	log := r.Log.WithValues("pod", req.NamespacedName, "version", pod.ResourceVersion)
+	log = r.Log.WithValues("pod", req.NamespacedName, "version", pod.ResourceVersion)
 
 	// If it's not an Envoy Pod then do nothing
 	if !epicv1.HasEnvoyLabels(pod) {

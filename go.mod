@@ -12,18 +12,16 @@ require (
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.2
 	github.com/prometheus/client_golang v1.7.1
-	github.com/prometheus/common v0.10.0
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.6.1
-	github.com/ugorji/go v1.1.4 // indirect
 	github.com/vishvananda/netlink v1.1.0
 	gitlab.com/acnodal/packet-forwarding-component/src/go v0.0.0-20201020212529-ed4982208c08
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	k8s.io/api v0.20.2
+	k8s.io/apiextensions-apiserver v0.20.2 // indirect
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v0.20.2
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	sigs.k8s.io/controller-runtime v0.8.3
-	sigs.k8s.io/controller-tools v0.5.0 // indirect
 )
