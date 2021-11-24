@@ -6,7 +6,7 @@
 package v1
 
 import (
-	"github.com/3scale/marin3r/apis/marin3r/v1alpha1"
+	"github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	marin3r "github.com/3scale/marin3r/apis/operator/v1alpha1"
+	marin3r "github.com/3scale-ops/marin3r/apis/operator.marin3r/v1alpha1"
 	"github.com/go-logr/logr"
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	appsv1 "k8s.io/api/apps/v1"

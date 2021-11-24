@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
+	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	appsv1 "k8s.io/api/apps/v1"

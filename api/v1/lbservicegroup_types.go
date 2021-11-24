@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
+	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"

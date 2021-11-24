@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 
-	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
+	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
+	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	corev1 "k8s.io/api/core/v1"

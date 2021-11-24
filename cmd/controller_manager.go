@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 
-	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
-	marin3roperator "github.com/3scale/marin3r/apis/operator/v1alpha1"
+	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
+	marin3roperator "github.com/3scale-ops/marin3r/apis/operator.marin3r/v1alpha1"
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"

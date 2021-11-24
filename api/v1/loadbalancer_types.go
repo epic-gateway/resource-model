@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"html/template"
 
-	marin3r "github.com/3scale/marin3r/apis/marin3r/v1alpha1"
+	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
