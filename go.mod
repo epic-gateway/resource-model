@@ -1,6 +1,6 @@
 module gitlab.com/acnodal/epic/resource-model
 
-go 1.14
+go 1.16
 
 require (
 	github.com/3scale-ops/marin3r v0.9.1

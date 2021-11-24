@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.15 as builder
+FROM golang:1.16-bullseye as builder
 ARG GITLAB_USER
 ARG GITLAB_PASSWORD
 
