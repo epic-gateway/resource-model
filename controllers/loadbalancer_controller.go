@@ -254,10 +254,20 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 			Annotations: map[string]string{
 				cniAnnotation: string(multusConfig),
 			},
-			EnvVars: []corev1.EnvVar{{
-				Name:  serviceCIDREnv,
-				Value: serviceCIDR,
-			}},
+			EnvVars: []corev1.EnvVar{
+				{
+					Name:  serviceCIDREnv,
+					Value: serviceCIDR,
+				},
+				{
+					Name: "HOST_IP",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "status.hostIP",
+						},
+					},
+				},
+			},
 		},
 	}
 
