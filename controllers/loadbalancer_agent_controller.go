@@ -181,12 +181,6 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			log.Error(err, "adding ipset entry")
 			return done, err
 		}
-
-		// Setup host routing
-		log.Info("adding route", "prefix", prefix.Name, "address", lb.Spec.PublicAddress)
-		if err := prefix.AddMultusRoute(publicAddr); err != nil {
-			return done, err
-		}
 	} else {
 		log.Info("noProxy")
 		if err := cleanupLinux(ctx, log, r, prefix, lb, publicAddr); err != nil {
