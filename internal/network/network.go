@@ -10,6 +10,7 @@ import (
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
+	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -52,36 +53,20 @@ func IpsetSetCheck() error {
 }
 
 // IPTablesCheck sets up the iptables rules.
-func IPTablesCheck(brname string) error {
+func IPTablesCheck(log logr.Logger, brname string) error {
 	var (
-		cmd          *exec.Cmd
-		err          error
-		stdoutStderr []byte
+		script string
 	)
 
-	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-	err = cmd.Run()
-	if err != nil {
-		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-i", brname, "-m", "comment", "--comment", "multus bridge "+brname, "-j", "ACCEPT")
-		stdoutStderr, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
-			return err
-		}
+	// Check if the rule is already there and add it if not. iptables
+	// returns false if the rule doesn't exist.
+	script = fmt.Sprintf("/usr/sbin/iptables --check FORWARD -m set --match-set epic-in dst,dst -j ACCEPT || /usr/sbin/iptables --insert FORWARD -m set --match-set epic-in dst,dst -j ACCEPT")
+	if err := epicexec.RunScript(log, script); err != nil {
+		return err
 	}
 
-	cmd = exec.Command("/usr/sbin/iptables", "-C", "FORWARD", "-m", "set", "--match-set", "epic-in", "dst,dst", "-j", "ACCEPT")
-	err = cmd.Run()
-	if err != nil {
-		cmd = exec.Command("/usr/sbin/iptables", "-A", "FORWARD", "-m", "set", "--match-set", "epic-in", "dst,dst", "-j", "ACCEPT")
-		stdoutStderr, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", string(stdoutStderr))
-			return err
-		}
-	}
-
-	return err
+	script = fmt.Sprintf("/usr/sbin/iptables --check FORWARD -i %s -m comment --comment \"multus bridge %s\" -j ACCEPT || /usr/sbin/iptables --insert FORWARD -i %s -m comment --comment \"multus bridge %s\" -j ACCEPT", brname, brname, brname, brname)
+	return epicexec.RunScript(log, script)
 }
 
 // AddRt adds a route to `publicaddr` to the interface named
@@ -115,7 +100,7 @@ func ConfigureBridge(log logr.Logger, brname string, gateway *netlink.Addr) (*ne
 		log.Info("IPset epic-in already exists")
 	}
 
-	if err := IPTablesCheck(brname); err == nil {
+	if err := IPTablesCheck(log, brname); err == nil {
 		log.Info("IPtables setup for multus")
 	} else {
 		log.Error(err, "iptables", "unable to setup", brname)
