@@ -1,23 +1,48 @@
 domain: acnodal.io
-layout: go.kubebuilder.io/v2
+layout:
+- go.kubebuilder.io/v2
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}
 projectName: epic-resource-model
 repo: gitlab.com/acnodal/epic/resource-model
 resources:
-- group: epic
+- controller: true
+  domain: acnodal.io
+  group: epic
   kind: Account
+  path: gitlab.com/acnodal/epic/resource-model/api/v1
   version: v1
-- group: epic
+- controller: true
+  domain: acnodal.io
+  group: epic
   kind: LBServiceGroup
+  path: gitlab.com/acnodal/epic/resource-model/api/v1
   version: v1
-- group: epic
+- controller: true
+  domain: acnodal.io
+  group: epic
   kind: LoadBalancer
+  path: gitlab.com/acnodal/epic/resource-model/api/v1
   version: v1
-- group: epic
+- controller: true
+  domain: acnodal.io
+  group: epic
   kind: ServicePrefix
+  path: gitlab.com/acnodal/epic/resource-model/api/v1
   version: v1
-- group: epic
+- controller: true
+  domain: acnodal.io
+  group: epic
   kind: EPIC
+  path: gitlab.com/acnodal/epic/resource-model/api/v1
   version: v1
-version: 3-alpha
-plugins:
-  go.sdk.operatorframework.io/v2-alpha: {}
+- api:
+    crdVersion: v1beta1
+    namespaced: true
+  controller: true
+  domain: acnodal.io
+  group: epic
+  kind: GWRoute
+  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  version: v1
+version: "3"
