@@ -1,0 +1,59 @@
+---
+apiVersion: epic.acnodal.io/v1
+kind: GWRoute
+metadata:
+  name: 6d145af4-fa84-47de-9576-23e12b4d3e2d
+  namespace: epic-root
+spec:
+  clientRef:
+    clusterID: puregw-sample
+    namespace: puregw
+    name: gwroute-sample
+    uid: 6d145af4-fa84-47de-9576-23e12b4d3e2d
+  http:
+    parentRefs:
+    - name: a044f348-f80c-4ac0-b911-6ed45e37994a
+    rules:
+    - backendRefs:
+      - name: de053465-afcf-4fc1-b92f-94b82d06ff69
+        port: 80
+---
+apiVersion: epic.acnodal.io/v1
+kind: GWRoute
+metadata:
+  name: 6a4e8681-2048-43b0-980e-d09c3f332c80
+  namespace: epic-root
+spec:
+  clientRef:
+    clusterID: puregw-sample
+    namespace: puregw
+    name: gwroute-sample
+    uid: 6a4e8681-2048-43b0-980e-d09c3f332c80
+  http:
+    hostnames:
+    - foo.com
+    parentRefs:
+    - name: a044f348-f80c-4ac0-b911-6ed45e37994a
+    rules:
+    - backendRefs:
+      - name: de053465-afcf-4fc1-b92f-94b82d06ff69
+        port: 8080
+---
+apiVersion: epic.acnodal.io/v1
+kind: GWRoute
+metadata:
+  name: d6915724-f170-48a7-b835-5e9e63b1bd2c
+  namespace: epic-root
+spec:
+  clientRef:
+    clusterID: puregw-sample
+    namespace: puregw
+    name: gwroute-sample
+    uid: d6915724-f170-48a7-b835-5e9e63b1bd2c
+  http:
+    parentRefs:
+    - name: another-proxy
+    rules:
+    - backendRefs:
+      - name: de053465-afcf-4fc1-b92f-94b82d06ff69
+        port: 8080

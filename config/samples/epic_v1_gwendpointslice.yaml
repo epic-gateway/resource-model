@@ -1,0 +1,50 @@
+apiVersion: epic.acnodal.io/v1
+kind: GWEndpointSlice
+metadata:
+  name: e2a5213c-6771-4805-9dd0-bff31a2f63b9
+  namespace: epic-root
+spec:
+  clientRef:
+    clusterID: puregw-sample
+    namespace: puregw
+    name: sample-wtmvq
+    uid: e2a5213c-6771-4805-9dd0-bff31a2f63b9
+  parentRef:
+    clusterID: puregw-sample
+    namespace: puregw
+    name: sample
+    uid: de053465-afcf-4fc1-b92f-94b82d06ff69
+  addressType: IPv4
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+  endpoints:
+  - addresses:
+    - 10.1.238.137
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: mk8s1
+    targetRef:
+      kind: Pod
+      name: sample-556b9984c6-nkdv8
+      namespace: default
+      resourceVersion: "84444"
+      uid: f9f10456-ad24-47ef-ad75-6525d016f883
+  - addresses:
+    - 10.1.238.139
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: mk8s1
+    targetRef:
+      kind: Pod
+      name: sample-556b9984c6-xwkqt
+      namespace: default
+      resourceVersion: "252370"
+      uid: e2086e80-e261-4b92-9518-1cb49387cdcd
+  nodeAddresses:
+    mk8s1: "192.168.254.101"

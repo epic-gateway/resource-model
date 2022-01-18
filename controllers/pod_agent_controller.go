@@ -26,6 +26,7 @@ type PodAgentReconciler struct {
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=serviceprefixes,verbs=get;list
 
@@ -33,7 +34,6 @@ type PodAgentReconciler struct {
 // Request is asking for.
 func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	pod := v1.Pod{}
-	lb := epicv1.LoadBalancer{}
 	sg := epicv1.LBServiceGroup{}
 	prefix := epicv1.ServicePrefix{}
 	result := ctrl.Result{}
@@ -70,26 +70,56 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	log.Info("Reconciling", "ifindex", ifIndex, "ifname", ifName)
+	var (
+		publicIP net.IP
+		sgName   types.NamespacedName
+	)
 
-	// Get the LB to which this rep belongs
-	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: pod.Labels[epicv1.OwningLoadBalancerLabel]}
-	if err := r.Get(ctx, lbname, &lb); err != nil {
-		return done, err
+	owningProxy, belongsToProxy := pod.Labels[epicv1.OwningProxyLabel]
+	if belongsToProxy {
+		// Get the Proxy to which this rep belongs
+		proxy := epicv1.GWProxy{}
+		proxyName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: owningProxy}
+		if err := r.Get(ctx, proxyName, &proxy); err != nil {
+			return done, err
+		}
+
+		// Calculate this proxy's public address which we use both when we
+		// add and when we delete
+		publicIP = net.ParseIP(proxy.Spec.PublicAddress)
+		if publicIP == nil {
+			return done, fmt.Errorf("%s can't be parsed as an IP address", proxy.Spec.PublicAddress)
+		}
+
+		// Find the owning ServiceGroup's name.
+		sgName = types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: proxy.Labels[epicv1.OwningLBServiceGroupLabel]}
 	}
 
-	// Calculate this LB's public address which we use both when we add
-	// and when we delete
-	publicAddr := net.ParseIP(lb.Spec.PublicAddress)
-	if publicAddr == nil {
-		return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
+	owningLB, belongsToLB := pod.Labels[epicv1.OwningLoadBalancerLabel]
+	if belongsToLB {
+		// Get the LB to which this rep belongs
+		lb := epicv1.LoadBalancer{}
+		lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: owningLB}
+		if err := r.Get(ctx, lbname, &lb); err != nil {
+			return done, err
+		}
+
+		// Calculate this LB's public address which we use both when we add
+		// and when we delete
+		publicIP = net.ParseIP(lb.Spec.PublicAddress)
+		if publicIP == nil {
+			return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
+		}
+
+		// Find the owning ServiceGroup's name.
+		sgName = types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
 	}
 
-	// Get the "stack" of CRs to which this LB belongs: LBServiceGroup,
+	// Get the "stack" of CRs to which this LB/Proxy belongs: LBServiceGroup,
 	// and ServicePrefix. They provide configuration data that we need
-	// but that isn't contained in the pod or LB.
-	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
-	if err := r.Get(ctx, sgname, &sg); err != nil {
-		log.Error(err, "Failed to find owning service group", "name", sgname)
+	// but that isn't contained in the pod or LB/Proxy.
+	if err := r.Get(ctx, sgName, &sg); err != nil {
+		log.Error(err, "Failed to find owning service group", "name", sgName)
 		return done, err
 	}
 
@@ -120,8 +150,8 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// the time that the PFC tunnel becomes fully ready.
 
 		// Attract LB traffic to this node
-		log.Info("adding route", "lb", lb.Name, "address", lb.Spec.PublicAddress)
-		if err := prefix.AddMultusRoute(publicAddr); err != nil {
+		log.Info("adding route", "address", publicIP.String())
+		if err := prefix.AddMultusRoute(publicIP); err != nil {
 			return done, err
 		}
 	}

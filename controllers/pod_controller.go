@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -27,10 +28,13 @@ type PodReconciler struct {
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;update;patch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies/status,verbs=get;update;patch
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var podInfoErr error = nil
 	log := r.Log.WithValues("pod", req.NamespacedName)
 	pod := v1.Pod{}
 
@@ -53,12 +57,19 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
 		// This pod is marked for deletion. We need to clean up where
-		// possible, but also be careful to handle edge cases like the LB
-		// being "not found" because it was deleted first.
+		// possible, but also be careful to handle edge cases like the
+		// owner being "not found" because it was deleted first.
 
 		// Remove the pod's info from the LB but continue even if there's
 		// an error because we want to *always* remove our finalizer.
-		podInfoErr := epicv1.RemovePodInfo(ctx, r.Client, pod.ObjectMeta.Namespace, pod.Labels[epicv1.OwningLoadBalancerLabel], pod.ObjectMeta.Name)
+		owningLB, belongsToLB := pod.Labels[epicv1.OwningLoadBalancerLabel]
+		if belongsToLB {
+			podInfoErr = epicv1.RemovePodInfo(ctx, r.Client, pod.ObjectMeta.Namespace, owningLB, pod.ObjectMeta.Name)
+		}
+		owningProxy, belongsToProxy := pod.Labels[epicv1.OwningProxyLabel]
+		if belongsToProxy {
+			podInfoErr = epicv1.RemoveProxyInfo(ctx, r.Client, pod.ObjectMeta.Namespace, owningProxy, pod.ObjectMeta.Name)
+		}
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
@@ -72,19 +83,6 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return done, podInfoErr
 	}
 
-	// If the pod doesn't have a hostIP yet then we can't set up tunnels
-	if pod.Status.HostIP == "" {
-		log.Info("pod has no hostIP yet")
-		return tryAgain, nil
-	}
-
-	// Get the LB to which this rep belongs
-	lb := epicv1.LoadBalancer{}
-	lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: pod.Labels[epicv1.OwningLoadBalancerLabel]}
-	if err := r.Get(ctx, lbname, &lb); err != nil {
-		return done, err
-	}
-
 	// The pod is not being deleted, so if it does not have our
 	// finalizer, then add it and update the object.
 	log.Info("adding finalizer")
@@ -92,12 +90,47 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return done, err
 	}
 
-	// Allocate tunnels for this pod
-	if err := r.addPodTunnels(ctx, log, &lb, &pod); err != nil {
-		return done, err
+	// If the pod doesn't have a hostIP yet then we can't set up tunnels
+	if pod.Status.HostIP == "" {
+		log.Info("pod has no hostIP yet")
+		return tryAgain, nil
 	}
 
-	return done, nil
+	owningLB, belongsToLB := pod.Labels[epicv1.OwningLoadBalancerLabel]
+	if belongsToLB {
+		// Get the LB to which this rep belongs
+		lb := epicv1.LoadBalancer{}
+		lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: owningLB}
+		if err := r.Get(ctx, lbname, &lb); err != nil {
+			return done, err
+		}
+
+		// Allocate tunnels for this pod
+		if err := r.addPodTunnels(ctx, log, &lb, &pod); err != nil {
+			return done, err
+		}
+
+		return done, nil
+	}
+
+	owningProxy, belongsToProxy := pod.Labels[epicv1.OwningProxyLabel]
+	if belongsToProxy {
+		// Get the Proxy to which this rep belongs
+		proxy := epicv1.GWProxy{}
+		proxyName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: owningProxy}
+		if err := r.Get(ctx, proxyName, &proxy); err != nil {
+			return done, err
+		}
+
+		// Allocate tunnels for this pod
+		if err := r.addProxyTunnels(ctx, log, &proxy, &pod); err != nil {
+			return done, err
+		}
+
+		return done, nil
+	}
+
+	return done, fmt.Errorf("pod %s isn't owned by either an LB or a GWP", pod.Name)
 }
 
 // SetupWithManager sets up this controller to work with the mgr.
@@ -166,10 +199,72 @@ func (r *PodReconciler) addPodTunnels(ctx context.Context, l logr.Logger, lb *ep
 	}
 	l.Info(string(patchBytes))
 	if err := r.Patch(ctx, lb, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
-		l.Error(err, "patching LB status", "lb", lb)
+		l.Error(err, "patching tunnel maps", "lb", lb)
 		return err
 	}
-	l.Info("LB status patched", "lb", lb)
+	l.Info("tunnel maps patched", "lb", lb)
+
+	return nil
+}
+
+// addProxyTunnels adds a tunnel from proxy to each client node running an
+// endpoint and patches lb with the tunnel info.
+func (r *PodReconciler) addProxyTunnels(ctx context.Context, l logr.Logger, proxy *epicv1.GWProxy, pod *v1.Pod) error {
+	var (
+		err        error
+		patchBytes []byte
+		tunnelMaps map[string]epicv1.EPICEndpointMap = map[string]epicv1.EPICEndpointMap{}
+	)
+
+	// prepare a patch to set this rep's tunnel endpoints in the proxy
+	// status
+	patch := epicv1.GWProxy{
+		Spec: epicv1.GWProxySpec{
+			GUETunnelMaps: tunnelMaps,
+		},
+	}
+
+	// fetch the node config; it tells us the GUEEndpoint for this node
+	config := &epicv1.EPIC{}
+	if err := r.Get(ctx, types.NamespacedName{Name: epicv1.ConfigName, Namespace: epicv1.ConfigNamespace}, config); err != nil {
+		return err
+	}
+
+	// We set up a tunnel from each client-side node to this proxy's
+	// node.
+	for epAddr, epTunnels := range proxy.Spec.GUETunnelMaps {
+
+		// If the tunnel doesn't exist (i.e., we haven't seen this
+		// epicNode/clientNode pair before) then allocate a new tunnel and
+		// add it to the patch.
+		if _, exists := epTunnels.EPICEndpoints[pod.Status.HostIP]; !exists {
+
+			// This is a new proxyNode/endpointNode pair, so allocate a new
+			// tunnel ID for it
+			envoyEndpoint := epicv1.GUETunnelEndpoint{}
+			config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
+			envoyEndpoint.Address = pod.Status.HostIP
+			if envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client); err != nil {
+				return err
+			}
+			tunnelMaps[epAddr] = epicv1.EPICEndpointMap{
+				EPICEndpoints: map[string]epicv1.GUETunnelEndpoint{
+					pod.Status.HostIP: envoyEndpoint,
+				},
+			}
+		}
+	}
+
+	// apply the patch
+	if patchBytes, err = json.Marshal(patch); err != nil {
+		return err
+	}
+	l.Info(string(patchBytes))
+	if err := r.Patch(ctx, proxy, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
+		l.Error(err, "patching tunnel maps", "proxy", proxy)
+		return err
+	}
+	l.Info("tunnel maps patched", "proxy", proxy)
 
 	return nil
 }

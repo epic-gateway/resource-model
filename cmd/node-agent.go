@@ -29,6 +29,8 @@ var (
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch;update
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers/status,verbs=get;update
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;list
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies/status,verbs=get;update
 
 func init() {
 	rootCmd.AddCommand(nodeAgentCmd)
@@ -69,6 +71,14 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 	if err = (&controllers.LoadBalancerAgentReconciler{
 		Client:        mgr.GetClient(),
 		Log:           ctrl.Log.WithName("controllers").WithName("LoadBalancerAgent"),
+		RuntimeScheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err = (&controllers.GWProxyAgentReconciler{
+		Client:        mgr.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("GWProxyAgent"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err

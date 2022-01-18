@@ -92,16 +92,16 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		log.Info("netdef already exists")
 	}
 
+	// Tell the allocator about the prefix
+	if err := r.Allocator.AddPool(sp); err != nil {
+		return result, err
+	}
+
 	// Read the set of LBs that belong to this SP
 	labelSelector := labels.SelectorFromSet(map[string]string{epicv1.OwningServicePrefixLabel: req.Name})
 	listOps := client.ListOptions{Namespace: "", LabelSelector: labelSelector}
 	lbs := epicv1.LoadBalancerList{}
 	if err := r.List(ctx, &lbs, &listOps); err != nil {
-		return result, err
-	}
-
-	// Tell the allocator about the prefix
-	if err := r.Allocator.AddPool(sp); err != nil {
 		return result, err
 	}
 
@@ -113,6 +113,26 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				log.Error(err, "Error assigning IP", "IP", existingIP)
 			} else {
 				log.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
+			}
+		}
+	}
+
+	// Read the set of proxies that belong to this SP
+	proxySelector := labels.SelectorFromSet(map[string]string{epicv1.OwningServicePrefixLabel: req.Name})
+	proxyListOpts := client.ListOptions{Namespace: "", LabelSelector: proxySelector}
+	proxies := epicv1.GWProxyList{}
+	if err := r.List(ctx, &proxies, &proxyListOpts); err != nil {
+		return result, err
+	}
+
+	// "Warm up" the allocator with the previously-allocated addresses
+	// from the list of proxies
+	for _, proxy := range proxies.Items {
+		if existingIP := net.ParseIP(proxy.Spec.PublicAddress); existingIP != nil {
+			if _, err := r.Allocator.Assign(proxy.Name, existingIP, proxy.Spec.PublicPorts, ""); err != nil {
+				log.Error(err, "Error assigning IP", "IP", existingIP)
+			} else {
+				log.Info("Previously allocated", "IP", existingIP, "proxy", proxy.Namespace+"/"+proxy.Name)
 			}
 		}
 	}

@@ -23,6 +23,11 @@ const (
 	// LoadBalancer they belong.
 	OwningLoadBalancerLabel string = GroupName + "/owning-loadbalancer"
 
+	// OwningProxyLabel is the name of the label that we apply to
+	// endpoints to indicate in a query-friendly way to which
+	// Proxy they belong.
+	OwningProxyLabel string = GroupName + "/owning-proxy"
+
 	// OwningClusterLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which Cluster
 	// they belong.
@@ -40,7 +45,7 @@ var (
 	// so they match.
 	envoyProxyLabels = map[string]string{
 		"app.kubernetes.io/part-of": ProductName,
-		OwningLoadBalancerLabel:     "PLACEHOLDER"}
+	}
 )
 
 // LabelsForEnvoy returns the labels that we apply to a new Envoy
@@ -54,6 +59,21 @@ func LabelsForEnvoy(name string) map[string]string {
 
 	// Override the owning LB placeholder with our actual owning LB
 	labels[OwningLoadBalancerLabel] = name
+
+	return labels
+}
+
+// LabelsForProxy returns the labels that we apply to a new Envoy
+// proxy deployment.
+func LabelsForProxy(name string) map[string]string {
+	// Copy the template label map
+	labels := make(map[string]string, len(envoyProxyLabels))
+	for k, v := range envoyProxyLabels {
+		labels[k] = v
+	}
+
+	// Override the owning LB placeholder with our actual owning LB
+	labels[OwningProxyLabel] = name
 
 	return labels
 }

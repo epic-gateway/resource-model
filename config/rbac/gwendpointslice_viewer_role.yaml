@@ -1,0 +1,20 @@
+# permissions for end users to view gwendpointslice.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gwendpointslice-viewer-role
+rules:
+- apiGroups:
+  - epic.acnodal.io
+  resources:
+  - gwendpointslice
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - epic.acnodal.io
+  resources:
+  - gwendpointslice/status
+  verbs:
+  - get

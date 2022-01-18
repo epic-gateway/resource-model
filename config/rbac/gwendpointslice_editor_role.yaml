@@ -1,0 +1,24 @@
+# permissions for end users to edit gwendpointslice.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gwendpointslice-editor-role
+rules:
+- apiGroups:
+  - epic.acnodal.io
+  resources:
+  - gwendpointslice
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - epic.acnodal.io
+  resources:
+  - gwendpointslice/status
+  verbs:
+  - get

@@ -1,0 +1,21 @@
+apiVersion: operator.marin3r.3scale.net/v1alpha1
+kind: EnvoyDeployment
+metadata:
+  name: envoydeployment
+  namespace: epic-root
+spec:
+  discoveryServiceRef: discoveryservice
+  envoyConfigRef: samplehttp-adhoc-cli
+  image: 192.168.1.80:5000/epic/envoy:tobyc-dev
+  initManager:
+    image: 192.168.1.80:5000/epic/marin3r:v0.0.0-dev
+  ports:
+  - name: http
+    port: 80
+  annotations:
+    k8s.v1.cni.cncf.io/networks: '[{"ips":["192.168.77.2/24"],"name":"default","namespace":"epic"}]'
+  envVars:
+  - name: SERVICE_CIDR
+    value: 10.152.183.0/24
+  extraLabels:
+    foo: bar
