@@ -26,7 +26,7 @@ type PodAgentReconciler struct {
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list
-// +kubebuilder:rbac:groups=epic.acnodal.io,resources=servicegroups,verbs=get;list
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=serviceprefixes,verbs=get;list
 
 // Reconcile takes a Request and makes the system reflect what the
