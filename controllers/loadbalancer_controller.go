@@ -285,15 +285,6 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 	return dep
 }
 
-func splitNSName(name string) (*types.NamespacedName, error) {
-	parts := strings.Split(name, string(types.Separator))
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("Malformed NamespaceName: %q", parts)
-	}
-
-	return &types.NamespacedName{Namespace: parts[0], Name: parts[1]}, nil
-}
-
 // portsToPorts converts from ServicePorts to ContainerPorts.
 func portsToPorts(sPorts []corev1.ServicePort) []marin3roperator.ContainerPort {
 	cPorts := make([]marin3roperator.ContainerPort, len(sPorts))
