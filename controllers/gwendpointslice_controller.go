@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/go-logr/logr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -98,7 +97,7 @@ func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// Add our endpoints to each of the GWProxies that references us.
 	for _, proxy := range proxies {
 		l.Info("parent", "proxy", proxy.NamespacedName())
-		err := r.allocateProxyTunnels(ctx, l, proxy, &slice.ToEndpoints()[0].Spec)
+		err := r.allocateProxyTunnels(ctx, l, proxy, slice.ToEndpoints())
 		if err != nil {
 			return done, err
 		}
@@ -107,39 +106,18 @@ func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return done, nil
 }
 
-// allocateProxyTunnels adds a tunnel from ep to each node running an
-// Envoy proxy and patches proxy with the tunnel info.
-func (r *GWEndpointSliceReconciler) allocateProxyTunnels(ctx context.Context, l logr.Logger, proxy *epicv1.GWProxy, ep *epicv1.RemoteEndpointSpec) error {
+// allocateProxyTunnels adds a tunnel from each endpoints item to each
+// node running an Envoy proxy and patches proxy with the tunnel info.
+func (r *GWEndpointSliceReconciler) allocateProxyTunnels(ctx context.Context, l logr.Logger, proxy *epicv1.GWProxy, endpoints []epicv1.RemoteEndpoint) error {
 	var (
-		err            error
-		envoyEndpoints map[string]epicv1.GUETunnelEndpoint = map[string]epicv1.GUETunnelEndpoint{}
-		patchBytes     []byte
-		raw            []byte = make([]byte, 8, 8)
+		err        error
+		newMap     map[string]epicv1.EPICEndpointMap = map[string]epicv1.EPICEndpointMap{}
+		patch      []map[string]interface{}
+		patchBytes []byte
+		raw        []byte = make([]byte, 8, 8)
 	)
 
-	// prepare a patch to set this rep's tunnel endpoints in the LB
-	// status
 	_, _ = rand.Read(raw)
-	patch := epicv1.GWProxy{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				// Sometimes we get a new endpoint that is hosted on a client
-				// node that hosts other endpoints that we already knew
-				// about. In that case this patch doesn't add anything to the
-				// tunnel map so the LB CR doesn't change so the LB agent
-				// controller doesn't fire. We add this "nudge" to ensure that
-				// the LB agent controller always fires.
-				"nudge": hex.EncodeToString(raw),
-			},
-		},
-		Spec: epicv1.GWProxySpec{
-			GUETunnelMaps: map[string]epicv1.EPICEndpointMap{
-				ep.NodeAddress: {
-					EPICEndpoints: envoyEndpoints,
-				},
-			},
-		},
-	}
 
 	// fetch the node config; it tells us the GUEEndpoint for this node
 	config := &epicv1.EPIC{}
@@ -147,32 +125,81 @@ func (r *GWEndpointSliceReconciler) allocateProxyTunnels(ctx context.Context, l 
 		return err
 	}
 
-	// We set up a tunnel from each proxy to this endpoint's node.
-	for _, proxyPod := range proxy.Spec.ProxyInterfaces {
+	// We set up a tunnel from each proxy to each of this slice's nodes.
+	for _, clientPod := range endpoints {
+		for _, proxyPod := range proxy.Spec.ProxyInterfaces {
 
-		// If the tunnel already exists (i.e., two endpoints in the same
-		// service on the same node) then we don't need to do anything
-		if tunnel, exists := proxy.Spec.GUETunnelMaps[ep.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress]; exists {
-			envoyEndpoints[proxyPod.EPICNodeAddress] = tunnel
-		} else {
-			// This is a new proxyNode/endpointNode pair, so allocate a new
-			// tunnel ID for it
-			envoyEndpoint := epicv1.GUETunnelEndpoint{}
-			config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
-			envoyEndpoint.Address = proxyPod.EPICNodeAddress
-			if envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client); err != nil {
-				return err
+			// If we haven't seen this client node yet then initialize its
+			// map.
+			if _, seenBefore := newMap[clientPod.Spec.NodeAddress]; !seenBefore {
+				newMap[clientPod.Spec.NodeAddress] = epicv1.EPICEndpointMap{
+					EPICEndpoints: map[string]epicv1.GUETunnelEndpoint{},
+				}
 			}
-			envoyEndpoints[proxyPod.EPICNodeAddress] = envoyEndpoint
+
+			if tunnel, exists := proxy.Spec.GUETunnelMaps[clientPod.Spec.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress]; exists {
+				// If the tunnel already exists (i.e., two client endpoints in
+				// the same service on the same node) then we can just copy
+				// the map from the old resource into the patch.
+				newMap[clientPod.Spec.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress] = tunnel
+			} else {
+				// This is a new proxyNode/endpointNode pair, so allocate a new
+				// tunnel ID for it.
+				envoyEndpoint := epicv1.GUETunnelEndpoint{}
+				config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
+				envoyEndpoint.Address = proxyPod.EPICNodeAddress
+				if envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client); err != nil {
+					return err
+				}
+				newMap[clientPod.Spec.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress] = envoyEndpoint
+			}
 		}
 	}
+
+	// Prepare the patch. It will have two parts: the nudge annotation
+	// and the new tunnel map.
+	if proxy.Annotations == nil {
+		// If this is the first annotation then we need to wrap it in a
+		// JSON object
+		patch = []map[string]interface{}{{
+			"op":    "add",
+			"path":  "/metadata/annotations",
+			"value": map[string]string{"nudge": hex.EncodeToString(raw)},
+		}}
+	} else {
+		// If there are other annotations then we can just add this one
+		patch = []map[string]interface{}{{
+			"op":    "add",
+			"path":  "/metadata/annotations/nudge",
+			"value": hex.EncodeToString(raw),
+		}}
+	}
+	// If there's already a map then delete it.
+	if len(proxy.Spec.GUETunnelMaps) > 0 {
+		patch = append(
+			patch,
+			map[string]interface{}{
+				"op":   "remove",
+				"path": "/spec/gue-tunnel-endpoints",
+			},
+		)
+	}
+	// Add the new tunnel map.
+	patch = append(
+		patch,
+		map[string]interface{}{
+			"op":    "add",
+			"path":  "/spec/gue-tunnel-endpoints",
+			"value": newMap,
+		},
+	)
 
 	// apply the patch
 	if patchBytes, err = json.Marshal(patch); err != nil {
 		return err
 	}
 	l.Info(string(patchBytes))
-	if err := r.Patch(ctx, proxy, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
+	if err := r.Patch(ctx, proxy, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
 		l.Error(err, "patching", "proxy", proxy)
 		return err
 	}
