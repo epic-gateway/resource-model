@@ -17,10 +17,6 @@ import (
 )
 
 const (
-	// LoadbalancerFinalizerName is the name of the finalizer that
-	// cleans up when a LoadBalancer CR is deleted.
-	LoadbalancerFinalizerName string = "lb.controller-manager.acnodal.io/finalizer"
-
 	// loadbalancerAgentFinalizerName is the name of the finalizer that
 	// cleans up on each node when a LoadBalancer CR is deleted. It's
 	// used by the AgentFinalizerName function below so this const isn't

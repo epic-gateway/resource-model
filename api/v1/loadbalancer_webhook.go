@@ -54,7 +54,7 @@ func (r *LoadBalancer) Default() {
 
 	// Add the controller as a finalizer so we can clean up when this
 	// LoadBalancer is deleted.
-	controllerutil.AddFinalizer(r, LoadbalancerFinalizerName)
+	controllerutil.AddFinalizer(r, FinalizerName)
 
 	// Fetch this LB's owning service group
 	sg, err := r.getLBServiceGroup(ctx, crtclient)

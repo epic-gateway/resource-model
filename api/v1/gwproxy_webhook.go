@@ -41,7 +41,7 @@ func (r *GWProxy) Default() {
 
 	// Add the controller as a finalizer so we can clean up when this
 	// GWProxy is deleted.
-	controllerutil.AddFinalizer(r, GWProxyFinalizerName)
+	controllerutil.AddFinalizer(r, FinalizerName)
 
 	// Fetch this LB's owning service group
 	sg, err := r.getLBServiceGroup(ctx, crtclient)

@@ -93,7 +93,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// Remove our finalizer from the list and update the lb. If
 		// anything goes wrong below we don't want to block the deletion
 		// of the CR
-		if err := RemoveFinalizer(ctx, r.Client, lb, epicv1.LoadbalancerFinalizerName); err != nil {
+		if err := RemoveFinalizer(ctx, r.Client, lb, epicv1.FinalizerName); err != nil {
 			return done, err
 		}
 

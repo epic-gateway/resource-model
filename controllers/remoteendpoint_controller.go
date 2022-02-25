@@ -63,7 +63,7 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
-		if err := RemoveFinalizer(ctx, r.Client, &rep, epicv1.RemoteEndpointFinalizerName); err != nil {
+		if err := RemoveFinalizer(ctx, r.Client, &rep, epicv1.FinalizerName); err != nil {
 			return done, err
 		}
 
@@ -83,7 +83,7 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// The pod is not being deleted, so if it does not have our
 	// finalizer, then add it and update the object.
-	if err := AddFinalizer(ctx, r.Client, &rep, epicv1.RemoteEndpointFinalizerName); err != nil {
+	if err := AddFinalizer(ctx, r.Client, &rep, epicv1.FinalizerName); err != nil {
 		return done, err
 	}
 

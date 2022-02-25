@@ -56,11 +56,11 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if !sp.ObjectMeta.DeletionTimestamp.IsZero() {
 
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&sp, epicv1.ServicePrefixFinalizerName) {
+		if controllerutil.ContainsFinalizer(&sp, epicv1.FinalizerName) {
 			log.Info("to be deleted")
 
 			// Remove our finalizer from the list and update the CR
-			controllerutil.RemoveFinalizer(&sp, epicv1.ServicePrefixFinalizerName)
+			controllerutil.RemoveFinalizer(&sp, epicv1.FinalizerName)
 			if err := r.Update(ctx, &sp); err != nil {
 				return done, err
 			}

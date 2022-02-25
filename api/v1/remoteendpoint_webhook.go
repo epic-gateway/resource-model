@@ -46,7 +46,7 @@ func (r *RemoteEndpoint) Default() {
 
 	// Add the controller as a finalizer so we can clean up when this
 	// RemoteEndpoint is deleted.
-	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, RemoteEndpointFinalizerName)
+	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, FinalizerName)
 
 	// Add the owning LB as a reference so this EP will be deleted if
 	// the LB is

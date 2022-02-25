@@ -12,12 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// RemoteEndpointFinalizerName is the name of the finalizer that
-	// does the per-cluster cleanup when a RemoteEndpoint CR is deleted.
-	RemoteEndpointFinalizerName string = "remoteendpoint.controller-manager.epic.acnodal.io/finalizer"
-)
-
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "make" to regenerate code after modifying this file
 

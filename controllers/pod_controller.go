@@ -15,10 +15,6 @@ import (
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
-const (
-	podFinalizerName = "pod.controller-manager.epic.acnodal.io/finalizer"
-)
-
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
@@ -74,7 +70,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
 		log.Info("removing finalizer")
-		if err := RemoveFinalizer(ctx, r.Client, &pod, podFinalizerName); err != nil {
+		if err := RemoveFinalizer(ctx, r.Client, &pod, epicv1.FinalizerName); err != nil {
 			return done, err
 		}
 
@@ -86,7 +82,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// The pod is not being deleted, so if it does not have our
 	// finalizer, then add it and update the object.
 	log.Info("adding finalizer")
-	if err := AddFinalizer(ctx, r.Client, &pod, podFinalizerName); err != nil {
+	if err := AddFinalizer(ctx, r.Client, &pod, epicv1.FinalizerName); err != nil {
 		return done, err
 	}
 

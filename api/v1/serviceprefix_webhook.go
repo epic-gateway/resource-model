@@ -35,5 +35,5 @@ func (r *ServicePrefix) Default() {
 
 	// Add the controller as a finalizer so we can clean up when this
 	// LoadBalancer is deleted.
-	r.Finalizers = append(r.Finalizers, ServicePrefixFinalizerName)
+	r.Finalizers = append(r.Finalizers, FinalizerName)
 }

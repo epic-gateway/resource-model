@@ -10,13 +10,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	// GWEndpointSliceFinalizerName is the name of the finalizer that
-	// does the per-cluster cleanup when a GWEndpointSlice CR is
-	// deleted.
-	GWEndpointSliceFinalizerName string = "gwendpointslice.controller-manager.epic.acnodal.io"
-)
-
 func init() {
 	SchemeBuilder.Register(&GWEndpointSlice{}, &GWEndpointSliceList{})
 }

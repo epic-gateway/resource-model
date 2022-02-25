@@ -69,7 +69,7 @@ func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
-		if err := RemoveFinalizer(ctx, r.Client, &slice, epicv1.GWEndpointSliceFinalizerName); err != nil {
+		if err := RemoveFinalizer(ctx, r.Client, &slice, epicv1.FinalizerName); err != nil {
 			return done, err
 		}
 
@@ -80,7 +80,7 @@ func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// The proxy is not being deleted, so if it does not have our
 	// finalizer, then add it and update the object.
-	if err := AddFinalizer(ctx, r.Client, &slice, epicv1.GWEndpointSliceFinalizerName); err != nil {
+	if err := AddFinalizer(ctx, r.Client, &slice, epicv1.FinalizerName); err != nil {
 		return done, err
 	}
 

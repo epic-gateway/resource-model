@@ -19,10 +19,6 @@ import (
 )
 
 const (
-	// GWProxyFinalizerName is the name of the finalizer that
-	// cleans up when a GWProxy CR is deleted.
-	GWProxyFinalizerName string = "gwp.controller-manager.epic.acnodal.io"
-
 	// gwproxyAgentFinalizerName is the name of the finalizer that
 	// cleans up on each node when a GWProxy CR is deleted. It's used by
 	// the AgentFinalizerName function below so this const isn't
