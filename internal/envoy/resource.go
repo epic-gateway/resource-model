@@ -23,13 +23,29 @@ import (
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
 var (
+	// funcMap provides our template helpers to the golang template
+	// code.
 	funcMap = template.FuncMap{
-		"ToUpper": toUpper,
+
+		// RefWeightsTotal adds up the weights of the HTTPBackendRefs in
+		// the array.
+		"RefWeightsTotal": func(refs []gatewayv1a2.HTTPBackendRef) (total int) {
+			for _, ref := range refs {
+				total += int(*ref.Weight)
+			}
+			return
+		},
+
+		// ToUpper upper-cases a string.
+		"ToUpper": func(protocol v1.Protocol) string {
+			return strings.ToUpper(string(protocol))
+		},
 	}
 )
 
@@ -121,7 +137,7 @@ func routesToClusters(proxy epicv1.GWProxy, routes []epicv1.GWRoute) ([]marin3r.
 		clusters = []marin3r.EnvoyResource{}
 	)
 
-	// Find the set of clusters that are refenced by the routes.
+	// Find the set of clusters that are referenced by the routes.
 	clusterNames := map[string]struct{}{}
 	for _, route := range routes {
 		for _, rule := range route.Spec.HTTP.Rules {
@@ -322,8 +338,4 @@ func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3
 			},
 		},
 	}, nil
-}
-
-func toUpper(protocol v1.Protocol) string {
-	return strings.ToUpper(string(protocol))
 }
