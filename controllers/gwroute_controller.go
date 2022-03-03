@@ -132,7 +132,6 @@ func (r *GWRouteReconciler) nudgeProxy(ctx context.Context, l logr.Logger, proxy
 	if patchBytes, err = json.Marshal(patch); err != nil {
 		return err
 	}
-	l.Info(string(patchBytes))
 	if err := r.Patch(ctx, proxy, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
 		l.Error(err, "patching", "proxy", proxy)
 		return err
