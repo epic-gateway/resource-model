@@ -80,7 +80,8 @@ func (r *GWRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	l.Info("Reconciling")
 
-	// This route can reference multiple GWProxies. Nudge each of them.
+	// This route can reference multiple parent GWProxies. Nudge each of
+	// them.
 	for _, parent := range route.Spec.HTTP.ParentRefs {
 		proxyName := types.NamespacedName{Namespace: route.Namespace, Name: string(parent.Name)}
 		pl := l.WithValues("parent", proxyName)
@@ -97,9 +98,24 @@ func (r *GWRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	// This route can reference multiple backend GWEndpointSlices. Nudge
+	// each of them.
+	slices, err := r.backendRefs(ctx, l, &route)
+	if err != nil {
+		return done, err
+	}
+	for _, slice := range slices {
+		sl := l.WithValues("slice", slice.Name)
+		if err := r.nudgeSlice(ctx, sl, &slice); err != nil {
+			return done, err
+		}
+	}
+
 	return done, nil
 }
 
+// nudgeProxy "nudges" proxy, i.e., causes its reconciler to fire, by
+// adding a random annotation.
 func (r *GWRouteReconciler) nudgeProxy(ctx context.Context, l logr.Logger, proxy *epicv1.GWProxy) error {
 	var (
 		err        error
@@ -139,4 +155,72 @@ func (r *GWRouteReconciler) nudgeProxy(ctx context.Context, l logr.Logger, proxy
 	l.Info("patched", "proxy", proxy)
 
 	return nil
+}
+
+// nudgeProxy "nudges" slice, i.e., causes its reconciler to fire, by
+// adding a random annotation.
+func (r *GWRouteReconciler) nudgeSlice(ctx context.Context, l logr.Logger, slice *epicv1.GWEndpointSlice) error {
+	var (
+		err        error
+		patch      []map[string]interface{}
+		patchBytes []byte
+		raw        []byte = make([]byte, 8, 8)
+	)
+
+	_, _ = rand.Read(raw)
+
+	// Prepare the patch with the new annotation.
+	if slice.Annotations == nil {
+		// If this is the first annotation then we need to wrap it in a
+		// JSON object
+		patch = []map[string]interface{}{{
+			"op":    "add",
+			"path":  "/metadata/annotations",
+			"value": map[string]string{"nudge": hex.EncodeToString(raw)},
+		}}
+	} else {
+		// If there are other annotations then we can just add this one
+		patch = []map[string]interface{}{{
+			"op":    "add",
+			"path":  "/metadata/annotations/nudge",
+			"value": hex.EncodeToString(raw),
+		}}
+	}
+
+	// apply the patch
+	if patchBytes, err = json.Marshal(patch); err != nil {
+		return err
+	}
+	if err := r.Patch(ctx, slice, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
+		l.Error(err, "patching", "slice", slice)
+		return err
+	}
+	l.Info("patched", "slice", slice)
+
+	return nil
+}
+
+// backendRefs lists slices that belong to the route and that are
+// active, i.e., not in the process of being deleted.
+func (r *GWRouteReconciler) backendRefs(ctx context.Context, l logr.Logger, route *epicv1.GWRoute) ([]epicv1.GWEndpointSlice, error) {
+	activeSlices := []epicv1.GWEndpointSlice{}
+	listOps := client.ListOptions{Namespace: route.Namespace}
+	slices := epicv1.GWEndpointSliceList{}
+	err := r.Client.List(ctx, &slices, &listOps)
+	if err != nil {
+		return activeSlices, err
+	}
+
+	for _, rule := range route.Spec.HTTP.Rules {
+		for _, ref := range rule.BackendRefs {
+			clusterName := string(ref.Name)
+			for _, slice := range slices.Items {
+				if slice.Spec.ParentRef.UID == clusterName && slice.ObjectMeta.DeletionTimestamp.IsZero() {
+					activeSlices = append(activeSlices, slice)
+				}
+			}
+		}
+	}
+
+	return activeSlices, err
 }
