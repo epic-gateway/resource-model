@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/network"
@@ -35,7 +36,7 @@ type GWProxyAgentReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := r.Log.WithValues("gwproxy", req.NamespacedName, "agent-running-on", os.Getenv("EPIC_NODE_NAME"))
+	l := log.FromContext(ctx).WithValues("agent-running-on", os.Getenv("EPIC_NODE_NAME"))
 	proxy := &epicv1.GWProxy{}
 	sg := &epicv1.LBServiceGroup{}
 	prefix := &epicv1.ServicePrefix{}
@@ -117,36 +118,36 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Set up each proxy pod belonging to this proxy
 	for proxyName, proxyInfo := range proxy.Spec.ProxyInterfaces {
 
-		l = r.Log.WithValues("proxy", proxyName)
+		pl := l.WithValues("proxy", proxyName)
 
 		// Skip if the relevant Envoy isn't running on this host. We can
 		// tell because there's an entry in the ProxyInterfaces map but
 		// it's not for this host.
 		if proxyInfo.EPICNodeAddress != os.Getenv("EPIC_HOST") {
-			l.Info("Not me: status has no proxy interface info for this host")
+			pl.Info("Not me: status has no proxy interface info for this host")
 			continue
 		}
 
 		// Skip if the relevant Envoy needs to have its interface data set
 		// by the Python daemon.
 		if proxyInfo.Name == "" {
-			l.Info("proxy interface info incomplete", "name", proxyName)
+			pl.Info("proxy interface info incomplete", "name", proxyName)
 			continue
 		}
 
 		hasProxy = true
-		l.Info("proxy status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
+		pl.Info("proxy status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
 		// Set up a service gateway to each client-cluster endpoint on
 		// this client-cluster node
 		for _, epInfo := range reps {
-			l.Info("setting up rep", "ip", epInfo.Spec)
+			pl.Info("setting up rep", "ip", epInfo.Spec)
 
 			// For each client-cluster node that hosts an endpoint we need to
 			// set up a tunnel
 			clientTunnelMap, hasClientMap := proxy.Spec.GUETunnelMaps[epInfo.Spec.NodeAddress]
 			if !hasClientMap {
-				l.Error(fmt.Errorf("no client-side tunnel info for node %s", epInfo.Spec.NodeAddress), "setting up tunnels")
+				pl.Error(fmt.Errorf("no client-side tunnel info for node %s", epInfo.Spec.NodeAddress), "setting up tunnels")
 			}
 
 			tunnelInfo, hasTunnelInfo := clientTunnelMap.EPICEndpoints[proxyInfo.EPICNodeAddress]
@@ -154,18 +155,16 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				continue
 			}
 
-			l = r.Log.WithValues("tunnel", tunnelInfo.TunnelID)
-
 			// Configure the tunnel, which connects an EPIC node to a
 			// client-cluster node
 			if err := configureTunnel(l, tunnelInfo); err != nil {
-				l.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
+				pl.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
 			}
 
 			// Set up a service gateway from this proxy to this rep
-			l.Info("setting up rep", "rep", epInfo)
+			pl.Info("setting up rep", "rep", epInfo)
 			if err := configureService(l, epInfo.Spec, proxyInfo.Index, tunnelInfo.TunnelID, proxy.Spec.TunnelKey); err != nil {
-				l.Error(err, "setting up service gateway")
+				pl.Error(err, "setting up service gateway")
 			}
 		}
 	}

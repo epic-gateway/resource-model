@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
@@ -33,15 +34,15 @@ type PodAgentReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	l := log.FromContext(ctx).WithValues("agent-running-on", os.Getenv("EPIC_NODE_NAME"))
 	pod := v1.Pod{}
 	sg := epicv1.LBServiceGroup{}
 	prefix := epicv1.ServicePrefix{}
 	result := ctrl.Result{}
-	log := r.Log.WithValues("agent-running-on", os.Getenv("EPIC_NODE_NAME"), "pod", req.NamespacedName.Name)
 
 	// read the Pod that caused the event
 	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {
-		log.Info("can't get pod resource, probably deleted")
+		l.Info("can't get pod resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -50,13 +51,13 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// If it's not an Envoy Pod then do nothing
 	if !epicv1.HasEnvoyLabels(pod) {
-		log.Info("pod is not a proxy pod")
+		l.Info("pod is not a proxy pod")
 		return done, nil
 	}
 
 	// If it's not running on this node then do nothing
 	if os.Getenv("EPIC_NODE_NAME") != pod.Spec.NodeName {
-		log.Info("pod is not running on this node", "pod-running-on", pod.Spec.NodeName)
+		l.Info("pod is not running on this node", "pod-running-on", pod.Spec.NodeName)
 		return done, nil
 	}
 
@@ -65,11 +66,11 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	ifIndex, haveIfIndex := pod.ObjectMeta.Annotations[epicv1.IfIndexAnnotation]
 	ifName, haveIfName := pod.ObjectMeta.Annotations[epicv1.IfNameAnnotation]
 	if !haveIfIndex || !haveIfName {
-		log.Info("incomplete proxy interface info, will retry")
+		l.Info("incomplete proxy interface info, will retry")
 		return tryAgain, nil
 	}
 
-	log.Info("Reconciling", "ifindex", ifIndex, "ifname", ifName)
+	l.Info("Reconciling", "ifindex", ifIndex, "ifname", ifName)
 	var (
 		publicIP net.IP
 		sgName   types.NamespacedName
@@ -119,13 +120,13 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// and ServicePrefix. They provide configuration data that we need
 	// but that isn't contained in the pod or LB/Proxy.
 	if err := r.Get(ctx, sgName, &sg); err != nil {
-		log.Error(err, "Failed to find owning service group", "name", sgName)
+		l.Error(err, "Failed to find owning service group", "name", sgName)
 		return done, err
 	}
 
 	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
 	if err := r.Get(ctx, prefixName, &prefix); err != nil {
-		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
+		l.Error(err, "Failed to find owning service prefix", "name", prefixName)
 		return done, err
 	}
 
@@ -133,7 +134,7 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// tagger.
 	if pod.ObjectMeta.DeletionTimestamp.IsZero() {
 		// add the packet tagger to the Envoy pod veth
-		if err := r.configureTagging(log, ifName); err != nil {
+		if err := r.configureTagging(l, ifName); err != nil {
 			return result, err
 		}
 
@@ -150,7 +151,7 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// the time that the PFC tunnel becomes fully ready.
 
 		// Attract LB traffic to this node
-		log.Info("adding route", "address", publicIP.String())
+		l.Info("adding route", "address", publicIP.String())
 		if err := prefix.AddMultusRoute(publicIP); err != nil {
 			return done, err
 		}

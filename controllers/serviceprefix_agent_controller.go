@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"context"
+	"os"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 
@@ -30,15 +32,15 @@ type ServicePrefixAgentReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *ServicePrefixAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	l := log.FromContext(ctx).WithValues("agent-running-on", os.Getenv("EPIC_NODE_NAME"))
 	var err error
 	result := ctrl.Result{}
-	log := r.Log.WithValues("serviceprefix", req.NamespacedName)
 
 	// read the object that caused the event
 	sp := epicv1.ServicePrefix{}
 	err = r.Get(ctx, req.NamespacedName, &sp)
 	if err != nil {
-		log.Info("can't get resource, probably deleted")
+		l.Info("can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -46,8 +48,8 @@ func (r *ServicePrefixAgentReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// configure the Multus bridge interface
-	if _, err = network.ConfigureBridge(log, sp.Spec.MultusBridge, sp.Spec.GatewayAddr()); err != nil {
-		log.Error(err, "Failed to configure multus bridge")
+	if _, err = network.ConfigureBridge(l, sp.Spec.MultusBridge, sp.Spec.GatewayAddr()); err != nil {
+		l.Error(err, "Failed to configure multus bridge")
 		return done, err
 	}
 

@@ -17,6 +17,7 @@ import (
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
@@ -42,7 +43,7 @@ type GWProxyReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := r.Log.WithValues("gwproxy", req.NamespacedName)
+	l := log.FromContext(ctx)
 	l.Info("reconciling")
 
 	prefix := &epicv1.ServicePrefix{}
@@ -62,7 +63,7 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Now that we know the resource version we can use it in our log
 	// messages
-	l = r.Log.WithValues("gwproxy", req.NamespacedName, "version", proxy.ResourceVersion)
+	l = l.WithValues("version", proxy.ResourceVersion)
 
 	// Check if k8s wants to delete this object
 	if !proxy.ObjectMeta.DeletionTimestamp.IsZero() {

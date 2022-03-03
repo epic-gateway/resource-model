@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
@@ -30,24 +31,24 @@ type PodReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	l := log.FromContext(ctx)
 	var podInfoErr error = nil
-	log := r.Log.WithValues("pod", req.NamespacedName)
 	pod := v1.Pod{}
 
 	// read the object that caused the event
 	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {
-		log.Info("can't get resource, probably deleted", "pod", req.NamespacedName.Name)
+		l.Info("can't get resource, probably deleted", "pod", req.NamespacedName.Name)
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
 		return done, client.IgnoreNotFound(err)
 	}
 
-	log = r.Log.WithValues("pod", req.NamespacedName, "version", pod.ResourceVersion)
+	l = l.WithValues("version", pod.ResourceVersion)
 
 	// If it's not an Envoy Pod then do nothing
 	if !epicv1.HasEnvoyLabels(pod) {
-		log.Info("is not a proxy pod")
+		l.Info("is not a proxy pod")
 		return done, nil
 	}
 
@@ -69,7 +70,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
-		log.Info("removing finalizer")
+		l.Info("removing finalizer")
 		if err := RemoveFinalizer(ctx, r.Client, &pod, epicv1.FinalizerName); err != nil {
 			return done, err
 		}
@@ -81,14 +82,14 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// The pod is not being deleted, so if it does not have our
 	// finalizer, then add it and update the object.
-	log.Info("adding finalizer")
+	l.Info("adding finalizer")
 	if err := AddFinalizer(ctx, r.Client, &pod, epicv1.FinalizerName); err != nil {
 		return done, err
 	}
 
 	// If the pod doesn't have a hostIP yet then we can't set up tunnels
 	if pod.Status.HostIP == "" {
-		log.Info("pod has no hostIP yet")
+		l.Info("pod has no hostIP yet")
 		return tryAgain, nil
 	}
 
@@ -102,7 +103,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 
 		// Allocate tunnels for this pod
-		if err := r.addPodTunnels(ctx, log, &lb, &pod); err != nil {
+		if err := r.addPodTunnels(ctx, l, &lb, &pod); err != nil {
 			return done, err
 		}
 
@@ -119,7 +120,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 
 		// Allocate tunnels for this pod
-		if err := r.addProxyTunnels(ctx, log, &proxy, &pod); err != nil {
+		if err := r.addProxyTunnels(ctx, l, &proxy, &pod); err != nil {
 			return done, err
 		}
 

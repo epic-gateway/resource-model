@@ -16,6 +16,7 @@ import (
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // NamespaceReconciler reconciles a Namespace object
@@ -40,9 +41,9 @@ type NamespaceReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	l := log.FromContext(ctx)
 	var err error
 	result := ctrl.Result{}
-	l := r.Log.WithValues("namespace", req.NamespacedName.Name)
 
 	// read the object that caused the event
 	ns := &v1.Namespace{}

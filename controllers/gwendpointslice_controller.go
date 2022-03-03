@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
@@ -42,7 +43,7 @@ func (r *GWEndpointSliceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.6.4/pkg/reconcile
 func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := r.Log.WithValues("gwendpointslice", req.NamespacedName)
+	l := log.FromContext(ctx)
 	slice := epicv1.GWEndpointSlice{}
 
 	// Get the resource that caused this event.

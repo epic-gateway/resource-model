@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
@@ -24,12 +25,12 @@ type EPICAgentReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *EPICAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("EPIC", req.NamespacedName)
+	l := log.FromContext(ctx)
 
 	// read the object that caused the event
 	config := &epicv1.EPIC{}
 	if err := r.Get(ctx, req.NamespacedName, config); err != nil {
-		log.Info("can't get resource, probably deleted")
+		l.Info("can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -39,10 +40,10 @@ func (r *EPICAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	base := config.Spec.NodeBase
 	for _, nic := range base.IngressNICs {
 		if err := pfc.SetupNIC(nic, "decap", "ingress", 0, 9); err != nil {
-			log.Error(err, "Failed to setup NIC "+nic)
+			l.Error(err, "Failed to setup NIC "+nic)
 		}
 		if err := pfc.SetupNIC(nic, "encap", "egress", 1, 25); err != nil {
-			log.Error(err, "Failed to setup NIC "+nic)
+			l.Error(err, "Failed to setup NIC "+nic)
 		}
 	}
 

@@ -12,6 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
@@ -37,15 +38,15 @@ type ServicePrefixReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	l := log.FromContext(ctx)
 	var err error
 	result := ctrl.Result{}
-	log := r.Log.WithValues("serviceprefix", req.NamespacedName)
 
 	// read the object that caused the event
 	sp := epicv1.ServicePrefix{}
 	err = r.Get(ctx, req.NamespacedName, &sp)
 	if err != nil {
-		log.Info("can't get resource, probably deleted")
+		l.Info("can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -57,7 +58,7 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(&sp, epicv1.FinalizerName) {
-			log.Info("to be deleted")
+			l.Info("to be deleted")
 
 			// Remove our finalizer from the list and update the CR
 			controllerutil.RemoveFinalizer(&sp, epicv1.FinalizerName)
@@ -74,22 +75,22 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// check if we've got a netattachdef for this SP
 	netdef := r.fetchNetAttachDef(ctx, req.NamespacedName.Namespace, req.NamespacedName.Name)
 	if netdef == nil {
-		log.Info("need to create")
+		l.Info("need to create")
 		// create a netdef to work with the ServicePrefix
 		netdef, err = r.netdefForSP(&sp)
 		if err == nil {
 			// load the netdef into k8s
 			netdef, err = r.addNetAttachDef(ctx, netdef)
 			if err != nil {
-				log.Error(err, "adding netdef")
+				l.Error(err, "adding netdef")
 				return result, err
 			}
 		} else {
-			log.Error(err, "creating netdef")
+			l.Error(err, "creating netdef")
 			return result, err
 		}
 	} else {
-		log.Info("netdef already exists")
+		l.Info("netdef already exists")
 	}
 
 	// Tell the allocator about the prefix
@@ -110,9 +111,9 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	for _, lb := range lbs.Items {
 		if existingIP := net.ParseIP(lb.Spec.PublicAddress); existingIP != nil {
 			if _, err := r.Allocator.Assign(lb.Name, existingIP, lb.Spec.PublicPorts, ""); err != nil {
-				log.Error(err, "Error assigning IP", "IP", existingIP)
+				l.Error(err, "Error assigning IP", "IP", existingIP)
 			} else {
-				log.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
+				l.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
 			}
 		}
 	}
@@ -130,9 +131,9 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	for _, proxy := range proxies.Items {
 		if existingIP := net.ParseIP(proxy.Spec.PublicAddress); existingIP != nil {
 			if _, err := r.Allocator.Assign(proxy.Name, existingIP, proxy.Spec.PublicPorts, ""); err != nil {
-				log.Error(err, "Error assigning IP", "IP", existingIP)
+				l.Error(err, "Error assigning IP", "IP", existingIP)
 			} else {
-				log.Info("Previously allocated", "IP", existingIP, "proxy", proxy.Namespace+"/"+proxy.Name)
+				l.Info("Previously allocated", "IP", existingIP, "proxy", proxy.Namespace+"/"+proxy.Name)
 			}
 		}
 	}
