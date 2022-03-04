@@ -58,6 +58,17 @@ var (
 		"HeaderTypeRegex": func(matchType *gatewayv1a2.HeaderMatchType) bool {
 			return *matchType == gatewayv1a2.HeaderMatchRegularExpression
 		},
+
+		// HostnameOrDefault returns what's passed in if it has at least
+		// one hostname. If an empty array is passed in then it returns an
+		// array with a single "*" which tells Envoy to match all
+		// hostnames.
+		"HostnameOrDefault": func(hostnames []gatewayv1a2.Hostname) []gatewayv1a2.Hostname {
+			if len(hostnames) > 0 {
+				return hostnames
+			}
+			return []gatewayv1a2.Hostname{"*"}
+		},
 	}
 )
 
