@@ -46,6 +46,18 @@ var (
 		"ToUpper": func(protocol v1.Protocol) string {
 			return strings.ToUpper(string(protocol))
 		},
+
+		// HeaderTypeExact compares the provided matchType to
+		// HeaderMatchExact.
+		"HeaderTypeExact": func(matchType *gatewayv1a2.HeaderMatchType) bool {
+			return *matchType == gatewayv1a2.HeaderMatchExact
+		},
+
+		// HeaderTypeRegex compares the provided matchType to
+		// HeaderMatchRegularExpression.
+		"HeaderTypeRegex": func(matchType *gatewayv1a2.HeaderMatchType) bool {
+			return *matchType == gatewayv1a2.HeaderMatchRegularExpression
+		},
 	}
 )
 
