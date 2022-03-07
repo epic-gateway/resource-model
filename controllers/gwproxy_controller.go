@@ -157,7 +157,7 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// template.
 	if err := r.Create(ctx, &envoyConfig); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
-			l.Info("Failed to create new EnvoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+			l.Error(err, "Failed to create new EnvoyConfig", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name, "config", envoyConfig)
 			return done, err
 		}
 		l.Info("existing EnvoyConfig, will update", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
