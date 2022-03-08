@@ -1,6 +1,11 @@
 package v1
 
 import (
+	"net"
+	"os"
+
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -83,4 +88,36 @@ type EPICList struct {
 
 func init() {
 	SchemeBuilder.Register(&EPIC{}, &EPICList{})
+}
+
+// IngressIPAddr returns the first IP address from the first interface in
+// this node's IngressNICs list. If error is non-nil then something
+// has gone wrong.
+func (node *Node) IngressIPAddr() (string, error) {
+	link, err := netlink.LinkByName(node.IngressNICs[0])
+	if err != nil {
+		return "", err
+	}
+	addrs, err := netlink.AddrList(link, addrFamily(net.ParseIP(os.Getenv("EPIC_HOST"))))
+	if err != nil {
+		return "", err
+	}
+	addr := addrs[0].IP.String()
+	return addr, nil
+}
+
+// addrFamily returns whether lbIP is an IPV4 or IPV6 address.  The
+// return value will be nl.FAMILY_V6 if the address is an IPV6
+// address, nl.FAMILY_V4 if it's IPV4, or 0 if the family can't be
+// determined.
+func addrFamily(lbIP net.IP) (lbIPFamily int) {
+	if nil != lbIP.To16() {
+		lbIPFamily = nl.FAMILY_V6
+	}
+
+	if nil != lbIP.To4() {
+		lbIPFamily = nl.FAMILY_V4
+	}
+
+	return
 }

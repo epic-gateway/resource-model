@@ -38,6 +38,7 @@ type GWProxyAgentReconciler struct {
 func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx).WithValues("agent-running-on", os.Getenv("EPIC_NODE_NAME"))
 	proxy := &epicv1.GWProxy{}
+	epic := &epicv1.EPIC{}
 	sg := &epicv1.LBServiceGroup{}
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
@@ -53,9 +54,10 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return done, client.IgnoreNotFound(err)
 	}
 
-	// Get the "stack" of CRs to which this proxy belongs: LBServiceGroup,
-	// ServicePrefix, and Account. They provide configuration data that
-	// we need but that isn't contained in the proxy.
+	// Get the "stack" of CRs to which this proxy belongs:
+	// LBServiceGroup, ServicePrefix, Account, and the EPIC
+	// singleton. They provide configuration data that we need but that
+	// isn't contained in the proxy.
 	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: proxy.Labels[epicv1.OwningLBServiceGroupLabel]}
 	if err := r.Get(ctx, sgname, sg); err != nil {
 		l.Error(err, "Failed to find owning service group", "name", sgname)
@@ -70,6 +72,12 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	accountName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: sg.Labels[epicv1.OwningAccountLabel]}
 	if err := r.Get(ctx, accountName, account); err != nil {
+		return done, err
+	}
+
+	epicName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}
+	if err := r.Get(ctx, epicName, epic); err != nil {
+		l.Error(err, "Failed to find EPIC config singleton", "name", epicName)
 		return done, err
 	}
 
@@ -115,6 +123,11 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	hasProxy := false
 
+	myAddr, err := epic.Spec.NodeBase.IngressIPAddr()
+	if err != nil {
+		return done, err
+	}
+
 	// Set up each proxy pod belonging to this proxy
 	for proxyName, proxyInfo := range proxy.Spec.ProxyInterfaces {
 
@@ -123,8 +136,8 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// Skip if the relevant Envoy isn't running on this host. We can
 		// tell because there's an entry in the ProxyInterfaces map but
 		// it's not for this host.
-		if proxyInfo.EPICNodeAddress != os.Getenv("EPIC_HOST") {
-			pl.Info("Not me: status has no proxy interface info for this host")
+		if proxyInfo.EPICNodeAddress != myAddr {
+			pl.Info("Not me: status has no proxy interface info for this host", "nodeAddr", proxyInfo.EPICNodeAddress, "myAddr", myAddr)
 			continue
 		}
 
