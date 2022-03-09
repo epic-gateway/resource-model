@@ -98,8 +98,15 @@ func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// Add our endpoints to each of the GWProxies that references us.
 	for _, proxy := range proxies {
 		l.Info("parent", "proxy", proxy.NamespacedName())
-		err := r.allocateProxyTunnels(ctx, l, proxy, slice.ToEndpoints())
+
+		// Get all of the client-side endpoints for this proxy
+		reps, err := proxy.ActiveProxyEndpoints(ctx, r.Client)
 		if err != nil {
+			return done, err
+		}
+
+		// Allocate tunnels
+		if err := r.allocateProxyTunnels(ctx, l, proxy, reps); err != nil {
 			return done, err
 		}
 	}
