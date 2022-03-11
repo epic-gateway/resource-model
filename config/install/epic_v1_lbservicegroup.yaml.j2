@@ -2,14 +2,15 @@
 apiVersion: epic.acnodal.io/v1
 kind: LBServiceGroup
 metadata:
-  namespace: EPIC_ORG_NS
-  name: EPIC_LBSG_NAME
+  namespace: {{ group_org_ns }}
+  name: samplehttp
   labels:
-    epic.acnodal.io/owning-account: EPIC_ORG_NAME
-    epic.acnodal.io/owning-serviceprefix: EPIC_SP_NAME
+    epic.acnodal.io/owning-account: {{ group_org_name }}
+    epic.acnodal.io/owning-serviceprefix: {{ service_prefix_name }}
     app.kubernetes.io/component: lbservicegroup
     app.kubernetes.io/part-of: epic
 spec:
+{% raw %}
   can-be-shared: yes
   endpoint-template:
     dnsName: "{{.LBName}}.{{.LBSGName}}.client.acnodal.io"
@@ -94,18 +95,20 @@ spec:
                                 {{- end}}
                   http_filters:
                     - name: envoy.filters.http.router
+{% endraw %}
 ---
 apiVersion: epic.acnodal.io/v1
 kind: LBServiceGroup
 metadata:
-  namespace: EPIC_ORG_NS
+  namespace: {{ group_org_ns }}
   name: gatewayhttp
   labels:
-    epic.acnodal.io/owning-account: EPIC_ORG_NAME
-    epic.acnodal.io/owning-serviceprefix: EPIC_SP_NAME
+    epic.acnodal.io/owning-account: {{ group_org_name }}
+    epic.acnodal.io/owning-serviceprefix: {{ service_prefix_name }}
     app.kubernetes.io/component: lbservicegroup
     app.kubernetes.io/part-of: epic
 spec:
+{% raw %}
   can-be-shared: yes
   endpoint-template:
     dnsName: "{{.LBName}}.{{.LBSGName}}.client.acnodal.io"
@@ -220,12 +223,13 @@ spec:
                   {{- end }}
                 http_filters:
                 - name: envoy.filters.http.router
+{% endraw %}
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: selfsigned
-  namespace: EPIC_ORG_NS
+  namespace: {{ group_org_ns }}
 spec:
   selfSigned: {}
 ---
@@ -233,7 +237,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: lbsg-https-cert
-  namespace: EPIC_ORG_NS
+  namespace: {{ group_org_ns }}
 spec:
   secretName: lbsg-https-cert
   commonName: epic-self-signed
@@ -244,14 +248,15 @@ spec:
 apiVersion: epic.acnodal.io/v1
 kind: LBServiceGroup
 metadata:
-  namespace: EPIC_ORG_NS
+  namespace: {{ group_org_ns }}
   name: samplehttps
   labels:
-    epic.acnodal.io/owning-account: EPIC_ORG_NAME
-    epic.acnodal.io/owning-serviceprefix: EPIC_SP_NAME
+    epic.acnodal.io/owning-account: {{ group_org_name }}
+    epic.acnodal.io/owning-serviceprefix: {{ service_prefix_name }}
     app.kubernetes.io/component: lbservicegroup
     app.kubernetes.io/part-of: epic
 spec:
+{% raw %}
   can-be-shared: yes
   endpoint-template:
     dnsName: "{{.LBName}}.{{.LBSGName}}.client.acnodal.io"
@@ -346,8 +351,9 @@ spec:
                         sds_config:
                           resource_api_version: V3
                           ads: {}
+{% endraw %}
       secrets:
       - name: lbsg-https-cert
         ref:
           name: lbsg-https-cert
-          namespace: EPIC_ORG_NS
+          namespace: {{ group_org_ns }}

@@ -7,10 +7,10 @@ metadata:
     app.kubernetes.io/component: application-configuration
     app.kubernetes.io/part-of: epic
 spec:
-  service-cidr: SERVICE_CIDR
-  xds-image: EPIC_MARIN3R_IMG_BASE:EPIC_MARIN3R_VERSION
-  eds-image: EPIC_EDS_IMG
-  envoy-image: EPIC_ENVOY_IMG
+  service-cidr: {{ svc_cidr }}
+  xds-image: {{ marin3r_image }}
+  eds-image: {{ eds_image }}
+  envoy-image: {{ envoy_image }}
   base:
     gue-ingress-nics:
-    - EPIC_GUE_NIC
+    - {{ true_ingress_interface }}
