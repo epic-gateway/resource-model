@@ -23,12 +23,8 @@ manifest:
 
   script:
   - make SUFFIX=${TAG_SPECIFIC} all
-  - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/epic-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest/${TAG_SPECIFIC}/epic-resource-model.yaml"'
-
-  artifacts:
-    paths:
-      - config
-      - deploy/*.yaml
+  - tar czf epic-install.tar.gz config deploy
+  - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file epic-install.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/epic-install.tar.gz"'
 
 docker:
   image: docker:20.10.5

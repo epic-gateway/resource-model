@@ -1,0 +1,16 @@
+apiVersion: epic.acnodal.io/v1
+kind: EPIC
+metadata:
+  namespace: epic
+  name: epic
+  labels:
+    app.kubernetes.io/component: application-configuration
+    app.kubernetes.io/part-of: epic
+spec:
+  service-cidr: SERVICE_CIDR
+  xds-image: EPIC_MARIN3R_IMG_BASE:EPIC_MARIN3R_VERSION
+  eds-image: EPIC_EDS_IMG
+  envoy-image: EPIC_ENVOY_IMG
+  base:
+    gue-ingress-nics:
+    - EPIC_GUE_NIC

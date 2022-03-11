@@ -1,0 +1,13 @@
+---
+apiVersion: epic.acnodal.io/v1
+kind: ServicePrefix
+metadata:
+  name: EPIC_SP_NAME
+  namespace: epic
+  labels:
+    app.kubernetes.io/component: serviceprefix
+    app.kubernetes.io/part-of: epic
+spec:
+  subnet: EPIC_LB_SUBNET
+  pool: EPIC_LB_ADDRESS_POOL
+  aggregation: EPIC_LB_AGGREGATION
