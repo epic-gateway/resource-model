@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
@@ -24,6 +25,20 @@ import (
 	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
 )
 
+const (
+	gitlabSecret  = "gitlab"
+	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+
+	// serviceCIDREnv is the name of the env var that tells the Envoy
+	// pod the CIDR that contains internal service addresses. The Envoy
+	// image uses this to set up routing between its two interfaces.
+	serviceCIDREnv = "SERVICE_CIDR"
+	// podCIDREnv is the name of the env var that tells the Envoy pod
+	// the CIDR that contains internal pod addresses. The Envoy image
+	// uses this to set up routing between its two interfaces.
+	podCIDREnv = "POD_CIDR"
+)
+
 // GWProxyReconciler reconciles a GWProxy object
 type GWProxyReconciler struct {
 	client.Client
@@ -38,7 +53,7 @@ type GWProxyReconciler struct {
 
 // +kubebuilder:rbac:groups=marin3r.3scale.net,resources=envoyconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.marin3r.3scale.net,resources=envoydeployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=crd.projectcalico.org,resources=ippools,verbs=get;list
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
@@ -50,6 +65,7 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	account := &epicv1.Account{}
 	sg := &epicv1.LBServiceGroup{}
 	epic := &epicv1.EPIC{}
+	node := &corev1.Node{}
 
 	// read the object that caused the event
 	proxy := &epicv1.GWProxy{}
@@ -114,6 +130,11 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return done, err
 	}
 
+	nodeName := types.NamespacedName{Namespace: "", Name: os.Getenv("EPIC_NODE_NAME")}
+	if err := r.Get(ctx, nodeName, node); err != nil {
+		return done, err
+	}
+
 	// Determine the Envoy Image to run. EPIC singleton is the default,
 	// and LBSG overrides.
 	envoyImage := epic.Spec.EnvoyImage
@@ -122,7 +143,7 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Launch the Envoy deployment that will implement this proxy.
-	dep := r.deploymentForProxy(proxy, prefix, envoyImage, epic.Spec.ServiceCIDR)
+	dep := r.deploymentForProxy(proxy, prefix, envoyImage, epic.Spec.ServiceCIDR, node.Spec.PodCIDR)
 	if err := r.Create(ctx, dep); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			l.Info("Failed to create new Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
@@ -187,7 +208,7 @@ func (r *GWProxyReconciler) Scheme() *runtime.Scheme {
 
 // deploymentForProxy returns an EnvoyDeployment object that will tell
 // Marin3r to launch Envoy pods to serve for this proxy.
-func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1.ServicePrefix, envoyImage string, serviceCIDR string) *marin3roperator.EnvoyDeployment {
+func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1.ServicePrefix, envoyImage string, serviceCIDR string, podCIDR string) *marin3roperator.EnvoyDeployment {
 	// Format the pod's IP address by parsing the raw address and adding
 	// the netmask from the service prefix Subnet
 	addr, err := netlink.ParseAddr(proxy.Spec.PublicAddress + "/32")
@@ -234,6 +255,10 @@ func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1
 				{
 					Name:  serviceCIDREnv,
 					Value: serviceCIDR,
+				},
+				{
+					Name:  podCIDREnv,
+					Value: podCIDR,
 				},
 				{
 					Name: "HOST_IP",

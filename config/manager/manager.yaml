@@ -22,4 +22,9 @@ spec:
         image: ${IMG}
         imagePullPolicy: Always
         command: ["/usr/local/bin/manager", "controller-manager", "--debug"]
+        env:
+        - name: EPIC_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
       terminationGracePeriodSeconds: 2

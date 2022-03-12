@@ -25,16 +25,6 @@ import (
 	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
 )
 
-const (
-	gitlabSecret  = "gitlab"
-	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
-
-	// serviceCIDREnv is the name of the env var that tells the Envoy
-	// pod the CIDR that contains internal service addresses. The Envoy
-	// image uses this to set up routing between its two interfaces.
-	serviceCIDREnv = "SERVICE_CIDR"
-)
-
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
@@ -49,7 +39,6 @@ type LoadBalancerReconciler struct {
 
 // +kubebuilder:rbac:groups=marin3r.3scale.net,resources=envoyconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.marin3r.3scale.net,resources=envoydeployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=crd.projectcalico.org,resources=ippools,verbs=get;list
 
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
