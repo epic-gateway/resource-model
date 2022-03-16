@@ -3,7 +3,6 @@ package network
 
 import (
 	"fmt"
-	"net"
 	"os/exec"
 	"syscall"
 
@@ -67,19 +66,6 @@ func IPTablesCheck(log logr.Logger, brname string) error {
 
 	script = fmt.Sprintf("/usr/sbin/iptables --check FORWARD -i %s -m comment --comment \"multus bridge %s\" -j ACCEPT || /usr/sbin/iptables --insert FORWARD -i %s -m comment --comment \"multus bridge %s\" -j ACCEPT", brname, brname, brname, brname)
 	return epicexec.RunScript(log, script)
-}
-
-// AddRt adds a route to `publicaddr` to the interface named
-// `multusint`.
-func AddRt(publicaddr *net.IPNet, link *netlink.Bridge) error {
-	//FIXME error handling, if route add fails should be retried, requeue?
-	return netlink.RouteReplace(&netlink.Route{LinkIndex: link.Index, Dst: publicaddr})
-}
-
-// DelRt deletes the route to `publicaddr`.
-func DelRt(publicaddr *net.IPNet) error {
-	//FIXME error handling, if route add fails should be retried, requeue?
-	return netlink.RouteDel(&netlink.Route{Dst: publicaddr})
 }
 
 // ConfigureBridge configures the bridge interface used to get packets
