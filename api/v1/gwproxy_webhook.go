@@ -38,7 +38,7 @@ var _ webhook.Defaulter = &GWProxy{}
 // Default sets default values for this GWProxy object.
 func (r *GWProxy) Default() {
 	ctx := context.TODO()
-	lbLog.Info("default", "name", r.Name)
+	gwLog.Info("default", "name", r.Name)
 
 	// Add the controller as a finalizer so we can clean up when this
 	// GWProxy is deleted.
@@ -47,7 +47,7 @@ func (r *GWProxy) Default() {
 	// Fetch this LB's owning service group
 	sg, err := r.getLBServiceGroup(ctx, crtclient)
 	if err != nil {
-		lbLog.Error(err, "failed to fetch owning service group")
+		gwLog.Error(err, "failed to fetch owning service group")
 		return
 	}
 
@@ -74,7 +74,7 @@ func (r *GWProxy) Default() {
 	if r.Spec.PublicAddress == "" {
 		address, err := gwallocator.AllocateFromPool(r.NamespacedName().String(), poolName, r.Spec.PublicPorts, "")
 		if err != nil {
-			lbLog.Error(err, "allocation failed")
+			gwLog.Error(err, "allocation failed")
 			return
 		}
 		r.Spec.PublicAddress = address.String()
@@ -83,7 +83,7 @@ func (r *GWProxy) Default() {
 		r.AddDNSEndpoint(*sg)
 	}
 
-	lbLog.Info("defaulted", "name", r.Name, "contents", r)
+	gwLog.Info("defaulted", "name", r.Name, "contents", r)
 }
 
 // +kubebuilder:webhook:verbs=create;delete,path=/validate-epic-acnodal-io-v1-gwproxy,mutating=false,failurePolicy=fail,groups=epic.acnodal.io,resources=gwproxies,versions=v1,name=vgwproxy.kb.io,sideEffects=None,admissionReviewVersions=v1
@@ -93,7 +93,7 @@ var _ webhook.Validator = &GWProxy{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *GWProxy) ValidateCreate() error {
 	ctx := context.TODO()
-	lbLog.Info("validate create", "name", r.Name, "contents", r)
+	gwLog.Info("validate create", "name", r.Name, "contents", r)
 
 	// Block create if there's no owning SG
 	sg, err := r.getLBServiceGroup(ctx, crtclient)
