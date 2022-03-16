@@ -82,7 +82,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
-		if err := cleanupPFC(log, lb, account.Spec.GroupID); err != nil {
+		if err := cleanupPFC(log, lb); err != nil {
 			log.Error(err, "Failed to cleanup PFC")
 		}
 
@@ -218,7 +218,7 @@ func deleteService(l logr.Logger, tunnelID uint32) error {
 }
 
 // cleanupPFC undoes the PFC setup that we did for this lb.
-func cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer, groupID uint16) error {
+func cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer) error {
 	var serviceRet error = nil
 
 	// remove the PFC tunnels

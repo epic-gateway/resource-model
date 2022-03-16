@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -66,20 +65,6 @@ func (r *LoadBalancer) Default() {
 	// Get the name of the ServicePrefix - it's also the name of the
 	// address pool
 	poolName := sg.Labels[OwningServicePrefixLabel]
-
-	// Fetch this SG's owning account
-	account, err := sg.getAccount(ctx, crtclient)
-	if err != nil {
-		lbLog.Error(err, "failed to fetch owning account")
-		return
-	}
-
-	// Add a service id to this service
-	serviceID, err := allocateServiceID(ctx, crtclient, account)
-	if err != nil {
-		lbLog.Error(err, "failed to allocate serviceID")
-	}
-	r.Spec.ServiceID = serviceID
 
 	// If the user hasn't provided an Envoy config template or replica
 	// count, then copy them from the owning LBServiceGroup
@@ -156,36 +141,6 @@ func (r *LoadBalancer) ValidateDelete() error {
 	}
 
 	return nil
-}
-
-// allocateServiceID allocates a service id from the Account that owns
-// this LB. If this call succeeds (i.e., error is nil) then the
-// returned service id will be unique.
-func allocateServiceID(ctx context.Context, cl client.Client, acct *Account) (serviceID uint16, err error) {
-	tries := 3
-	for err = fmt.Errorf(""); err != nil && tries > 0; tries-- {
-		serviceID, err = nextServiceID(ctx, cl, acct)
-		if err != nil {
-			lbLog.Error(err, "account serviceID allocation error")
-		}
-	}
-	return serviceID, err
-}
-
-// nextServiceID gets the next LB ServiceID by doing a
-// read-modify-write cycle. It might be inefficient in terms of not
-// using all of the values that it allocates but it's safe because the
-// Update() will only succeed if the LBServiceGroup hasn't been modified
-// since the Get().
-//
-// This function doesn't retry so if there's a collision with some
-// other process the caller needs to retry.
-func nextServiceID(ctx context.Context, cl client.Client, acct *Account) (serviceID uint16, err error) {
-
-	// increment the SGs service ID counter
-	acct.Status.CurrentServiceID++
-
-	return acct.Status.CurrentServiceID, cl.Status().Update(ctx, acct)
 }
 
 // generateTunnelKey generates a 128-bit tunnel key and returns it as

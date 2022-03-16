@@ -42,15 +42,6 @@ type RemoteEndpointStatus struct {
 	// lookup the LB since it might have been deleted.
 	ProxyIfindex int `json:"proxy-ifindex,omitempty"`
 
-	// GroupID is no longer used.
-	GroupID uint16 `json:"group-id,omitempty"`
-
-	// ServiceID is a cache of the owning LoadBalancer's ServiceID. The
-	// ID in the LoadBalancer Spec is canonical but we cache it here so
-	// we can cleanup the PFC service without having to lookup the LB
-	// since it might have been deleted.
-	ServiceID uint16 `json:"service-id,omitempty"`
-
 	// The TunnelID in the LoadBalancer Status is canonical but we cache
 	// it here so we can cleanup the PFC service without having to
 	// lookup the LB since it might have been deleted.

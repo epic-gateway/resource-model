@@ -4,19 +4,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-// Important: Run "make" to regenerate code after modifying this file
-
 // AccountSpec defines the desired state of Account
 type AccountSpec struct {
-	// GroupID is no longer used.
-	GroupID uint16 `json:"group-id,omitempty"`
 }
 
 // AccountStatus defines the observed state of Account
 type AccountStatus struct {
-	// CurrentServiceID is no longer used.
-	CurrentServiceID uint16 `json:"current-service-id"`
 }
 
 // +kubebuilder:object:root=true

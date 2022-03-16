@@ -44,12 +44,6 @@ type LoadBalancerSpec struct {
 	// PublicPorts is the set of ports on which this LB will listen.
 	PublicPorts []corev1.ServicePort `json:"public-ports,omitempty"`
 
-	// ServiceID is used with the account-level GroupID to set up this
-	// service's GUE tunnels between the EPIC and the client cluster. It
-	// should not be set by the client - a webhook fills it in when the
-	// CR is created.
-	ServiceID uint16 `json:"service-id,omitempty"`
-
 	// TunnelKey authenticates clients with the EPIC. It must be a
 	// base64-encoded 128-bit value. If not present, this will be filled
 	// in by the defaulting webhook.
