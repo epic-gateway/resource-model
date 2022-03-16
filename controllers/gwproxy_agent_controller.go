@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -94,9 +95,9 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// 	log.Error(err, "Failed to cleanup PFC")
 		// }
 
-		// if err := cleanupLinux(ctx, log, r, prefix, lb, publicAddr); err != nil {
-		// 	log.Error(err, "Failed to cleanup Linux")
-		// }
+		if err := cleanupLinux(ctx, l, r, prefix, proxy.Name, publicAddr, proxy.Spec.PublicPorts); err != nil {
+			l.Error(err, "Failed to cleanup Linux")
+		}
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
@@ -212,4 +213,20 @@ func (r *GWProxyAgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Scheme returns this reconciler's scheme.
 func (r *GWProxyAgentReconciler) Scheme() *runtime.Scheme {
 	return r.RuntimeScheme
+}
+
+func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefix *epicv1.ServicePrefix, lbName string, publicAddr net.IP, ports []v1.ServicePort) error {
+	l.Info("cleanupLinux")
+
+	// remove route
+	if err := prefix.RemoveMultusRoute(ctx, r, l, lbName, publicAddr); err != nil {
+		l.Error(err, "Failed to delete bridge route")
+	}
+
+	// remove IPSet entry
+	if err := network.DelIpsetEntry(publicAddr.String(), ports); err != nil {
+		l.Error(err, "Failed to delete ipset entry")
+	}
+
+	return nil
 }

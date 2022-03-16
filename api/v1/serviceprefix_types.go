@@ -130,14 +130,14 @@ func (sp *ServicePrefix) AddMultusRoute(lbIP net.IP) error {
 }
 
 // RemoveMultusRoute removes the multus bridge route for lbIP only if
-// no other LB is using it. Because we can aggregate addresses, one
+// no other proxy is using it. Because we can aggregate addresses, one
 // route might attract traffic for more than one IP address. We don't
 // want to remove a route until *all* of the IPs that depend on it are
 // gone.
-func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader, l logr.Logger, lbName string, lbIP net.IP) error {
+func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader, l logr.Logger, proxyName string, lbIP net.IP) error {
 	var (
 		dest       net.IPNet
-		lbs        LoadBalancerList
+		gwps       GWProxyList
 		routeInUse bool = false
 		err        error
 	)
@@ -147,30 +147,30 @@ func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader,
 		return err
 	}
 
-	// List the set of LBs that belong to this SP
+	// List the set of proxies that belong to this SP
 	listOps := client.ListOptions{
 		Namespace:     "", // all namespaces (since SPs live in "epic")
 		LabelSelector: labels.SelectorFromSet(map[string]string{OwningServicePrefixLabel: sp.Name}),
 	}
-	if err := r.List(ctx, &lbs, &listOps); err != nil {
+	if err := r.List(ctx, &gwps, &listOps); err != nil {
 		return err
 	}
 
-	// Check to see if any other LBs are using the same aggregated route
-	for _, otherLB := range lbs.Items {
-		// Only check *other* LBs, not this one
-		if otherLB.Name == lbName {
+	// Check to see if any other proxies are using the same aggregated route
+	for _, otherProxy := range gwps.Items {
+		// Only check *other* proxies, not this one
+		if otherProxy.Name == proxyName {
 			continue
 		}
 
-		// Only check LBs that aren't being deleted
-		if !otherLB.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Only check proxies that aren't being deleted
+		if !otherProxy.ObjectMeta.DeletionTimestamp.IsZero() {
 			continue
 		}
 
-		// If the aggregated route is the same (i.e., if another LB is
+		// If the aggregated route is the same (i.e., if another proxy is
 		// using it) then mark the route as "in use"
-		otherAddr := net.ParseIP(otherLB.Spec.PublicAddress)
+		otherAddr := net.ParseIP(otherProxy.Spec.PublicAddress)
 		if otherAddr == nil {
 			continue
 		}
@@ -182,7 +182,7 @@ func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader,
 		}
 	}
 
-	// If the route is not in use by any other LB then we can delete it
+	// If the route is not in use by any other proxy then we can delete it
 	if !routeInUse {
 		l.Info("removing route", "route", dest.String())
 		return netlink.RouteDel(&netlink.Route{Dst: &dest})

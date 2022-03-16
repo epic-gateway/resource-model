@@ -86,7 +86,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			log.Error(err, "Failed to cleanup PFC")
 		}
 
-		if err := cleanupLinux(ctx, log, r, prefix, lb, publicAddr); err != nil {
+		if err := cleanupLinux(ctx, log, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
 			log.Error(err, "Failed to cleanup Linux")
 		}
 
@@ -183,7 +183,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	} else {
 		log.Info("noProxy")
-		if err := cleanupLinux(ctx, log, r, prefix, lb, publicAddr); err != nil {
+		if err := cleanupLinux(ctx, log, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
 			log.Error(err, "Failed to cleanup Linux")
 		}
 	}
@@ -237,18 +237,4 @@ func cleanupPFC(l logr.Logger, lb *epicv1.LoadBalancer) error {
 
 	// If anything went wrong, return that
 	return serviceRet
-}
-
-func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefix *epicv1.ServicePrefix, lb *epicv1.LoadBalancer, publicAddr net.IP) error {
-	// remove route
-	if err := prefix.RemoveMultusRoute(ctx, r, l, lb.Name, publicAddr); err != nil {
-		l.Error(err, "Failed to delete bridge route")
-	}
-
-	// remove IPSet entry
-	if err := network.DelIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-		l.Error(err, "Failed to delete ipset entry")
-	}
-
-	return nil
 }
