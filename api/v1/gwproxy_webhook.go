@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -101,13 +102,26 @@ func (r *GWProxy) ValidateCreate() error {
 	}
 
 	// Block create if there's no owning account
-	if _, err := sg.getAccount(ctx, crtclient); err != nil {
+	acct, err := sg.getAccount(ctx, crtclient)
+	if err != nil {
 		return err
 	}
 
 	// Block create if the IP allocation failed
 	if r.Spec.PublicAddress == "" {
 		return fmt.Errorf("%s/%s IP address allocation failed", r.Namespace, r.Name)
+	}
+
+	// See how many proxies have already been created in this account.
+	proxyListOpts := client.ListOptions{Namespace: r.Namespace}
+	proxies := GWProxyList{}
+	if err := crtclient.List(ctx, &proxies, &proxyListOpts); err != nil {
+		return err
+	}
+
+	// If the user has created too many proxies then deny this one.
+	if len(proxies.Items) >= acct.Spec.ProxyLimit {
+		return fmt.Errorf("Account proxy limit exceeded, please contact Acnodal")
 	}
 
 	return nil

@@ -6,6 +6,10 @@ import (
 
 // AccountSpec defines the desired state of Account
 type AccountSpec struct {
+	// ProxyLimit defines how many proxies can be created in this
+	// account.
+	// +kubebuilder:default=2
+	ProxyLimit int `json:"proxyLimit,omitempty"`
 }
 
 // AccountStatus defines the observed state of Account
