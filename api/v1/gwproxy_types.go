@@ -297,6 +297,7 @@ func RemoveProxyInfo(ctx context.Context, cl client.Client, namespace string, pr
 func (proxy *GWProxy) ActiveProxyEndpoints(ctx context.Context, cl client.Client) ([]RemoteEndpoint, error) {
 	activeEPs := []RemoteEndpoint{}
 	listOps := client.ListOptions{Namespace: proxy.Namespace}
+	gwName := types.NamespacedName{Namespace: proxy.Namespace, Name: proxy.Name}
 
 	// List all of the routes in this NS. We'll check later if any
 	// reference this proxy.
@@ -315,7 +316,7 @@ func (proxy *GWProxy) ActiveProxyEndpoints(ctx context.Context, cl client.Client
 	}
 
 	for _, route := range routes.Items {
-		if route.ObjectMeta.DeletionTimestamp.IsZero() {
+		if route.ObjectMeta.DeletionTimestamp.IsZero() && route.isChildOf(gwName) {
 			for _, rule := range route.Spec.HTTP.Rules {
 				for _, ref := range rule.BackendRefs {
 

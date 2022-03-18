@@ -6,8 +6,13 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
+
+func init() {
+	SchemeBuilder.Register(&GWRoute{}, &GWRouteList{})
+}
 
 // GWRouteSpec defines the desired state of GWRoute
 type GWRouteSpec struct {
@@ -57,6 +62,14 @@ type GWRouteList struct {
 	Items           []GWRoute `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&GWRoute{}, &GWRouteList{})
+// isChildOf indicates whether this GWRoute has a ParentRef that
+// references gateway.
+func (gwr *GWRoute) isChildOf(gateway types.NamespacedName) bool {
+	for _, ref := range gwr.Spec.HTTP.ParentRefs {
+		if string(ref.Name) == gateway.Name {
+			return true
+		}
+	}
+
+	return false
 }
