@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -158,6 +159,11 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		l.Info("deployment created", "namespace", dep.Namespace, "name", dep.Name)
 	}
 
+	// Allocate tunnels
+	if err := allocateProxyTunnels(ctx, r.Client, l, proxy); err != nil {
+		return done, err
+	}
+
 	// Find any Routes that point to this Proxy
 	routes, err := proxy.GetChildRoutes(ctx, r.Client, l)
 	if err != nil {
@@ -275,4 +281,96 @@ func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1
 	// Set GWProxy instance as the owner and controller
 	ctrl.SetControllerReference(proxy, dep, r.Scheme())
 	return dep
+}
+
+// allocateProxyTunnels adds a tunnel from each endpoints item to each
+// node running an Envoy proxy and patches proxy with the tunnel info.
+func allocateProxyTunnels(ctx context.Context, cl client.Client, l logr.Logger, proxy *epicv1.GWProxy) error {
+	var (
+		err        error
+		newMap     map[string]epicv1.EPICEndpointMap = map[string]epicv1.EPICEndpointMap{}
+		patch      []map[string]interface{}
+		patchBytes []byte
+		raw        []byte = make([]byte, 8, 8)
+	)
+
+	_, _ = rand.Read(raw)
+
+	// fetch the node config; it tells us the GUEEndpoint for this node
+	config := &epicv1.EPIC{}
+	if err := cl.Get(ctx, types.NamespacedName{Name: epicv1.ConfigName, Namespace: epicv1.ConfigNamespace}, config); err != nil {
+		return err
+	}
+
+	// Get all of the client-side endpoints for this proxy
+	endpoints, err := proxy.ActiveProxyEndpoints(ctx, cl)
+	if err != nil {
+		return err
+	}
+
+	// We set up a tunnel from each proxy to each of this slice's nodes.
+	for _, clientPod := range endpoints {
+		for _, proxyPod := range proxy.Spec.ProxyInterfaces {
+
+			// If we haven't seen this client node yet then initialize its
+			// map.
+			if _, seenBefore := newMap[clientPod.Spec.NodeAddress]; !seenBefore {
+				newMap[clientPod.Spec.NodeAddress] = epicv1.EPICEndpointMap{
+					EPICEndpoints: map[string]epicv1.GUETunnelEndpoint{},
+				}
+			}
+
+			if tunnel, exists := proxy.Spec.GUETunnelMaps[clientPod.Spec.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress]; exists {
+				// If the tunnel already exists (i.e., two client endpoints in
+				// the same service on the same node) then we can just copy
+				// the map from the old resource into the patch.
+				newMap[clientPod.Spec.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress] = tunnel
+			} else {
+				// This is a new proxyNode/endpointNode pair, so allocate a new
+				// tunnel ID for it.
+				envoyEndpoint := epicv1.GUETunnelEndpoint{}
+				config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
+				envoyEndpoint.Address = proxyPod.EPICNodeAddress
+				if envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, cl); err != nil {
+					return err
+				}
+				newMap[clientPod.Spec.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress] = envoyEndpoint
+			}
+		}
+	}
+
+	// Prepare the patch.
+
+	// If there's already a map then delete it.
+	if len(proxy.Spec.GUETunnelMaps) > 0 {
+		patch = append(
+			patch,
+			map[string]interface{}{
+				"op":   "remove",
+				"path": "/spec/gue-tunnel-endpoints",
+			},
+		)
+	}
+	// Add the new tunnel map.
+	patch = append(
+		patch,
+		map[string]interface{}{
+			"op":    "add",
+			"path":  "/spec/gue-tunnel-endpoints",
+			"value": newMap,
+		},
+	)
+
+	// apply the patch
+	if patchBytes, err = json.Marshal(patch); err != nil {
+		return err
+	}
+	l.Info(string(patchBytes))
+	if err := cl.Patch(ctx, proxy, client.RawPatch(types.JSONPatchType, patchBytes)); err != nil {
+		l.Error(err, "patching", "proxy", proxy)
+		return err
+	}
+	l.Info("patched", "proxy", proxy)
+
+	return nil
 }
