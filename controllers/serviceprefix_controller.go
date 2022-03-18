@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net"
 
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 
@@ -25,7 +25,6 @@ import (
 type ServicePrefixReconciler struct {
 	client.Client
 	NetClient     netclient.K8sCniCncfIoV1Interface
-	Log           logr.Logger
 	Allocator     *allocator.Allocator
 	RuntimeScheme *runtime.Scheme
 }
@@ -77,7 +76,7 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if netdef == nil {
 		l.Info("need to create")
 		// create a netdef to work with the ServicePrefix
-		netdef, err = r.netdefForSP(&sp)
+		netdef, err = r.netdefForSP(&sp, l)
 		if err == nil {
 			// load the netdef into k8s
 			netdef, err = r.addNetAttachDef(ctx, netdef)
@@ -165,7 +164,7 @@ func (r *ServicePrefixReconciler) Scheme() *runtime.Scheme {
 // netdefForSG returns a NetworkAttachmentDefinition object that will
 // allow Envoy pods to attach to the Multus interface.
 // the mtu is sufficently small for correct operation but not exact
-func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix) (*nettypes.NetworkAttachmentDefinition, error) {
+func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix, l logr.Logger) (*nettypes.NetworkAttachmentDefinition, error) {
 	netdefspec, err := json.Marshal(map[string]interface{}{
 		// FIXME: need to add parameters to tell Multus which netdef to use
 		"cniVersion": "0.3.1",
@@ -185,7 +184,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix) (*nettyp
 		return nil, err
 	}
 
-	r.Log.Info("multus config", "config", string(netdefspec))
+	l.Info("multus config", "config", string(netdefspec))
 
 	netdef := &nettypes.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{

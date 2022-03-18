@@ -8,7 +8,6 @@ import (
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	marin3roperator "github.com/3scale-ops/marin3r/apis/operator.marin3r/v1alpha1"
-	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +18,7 @@ import (
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
@@ -28,7 +28,6 @@ import (
 // LoadBalancerReconciler reconciles a LoadBalancer object
 type LoadBalancerReconciler struct {
 	client.Client
-	Log           logr.Logger
 	Allocator     *allocator.Allocator
 	RuntimeScheme *runtime.Scheme
 }
@@ -43,8 +42,8 @@ type LoadBalancerReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("loadbalancer", req.NamespacedName)
-	log.Info("reconciling")
+	l := log.FromContext(ctx)
+	l.V(1).Info("reconciling")
 
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
@@ -54,7 +53,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// read the object that caused the event
 	lb := &epicv1.LoadBalancer{}
 	if err := r.Get(ctx, req.NamespacedName, lb); err != nil {
-		log.Info("can't get resource, probably deleted", "loadbalancer", req.NamespacedName)
+		l.Info("can't get resource, probably deleted", "loadbalancer", req.NamespacedName)
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -63,7 +62,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Now that we know the resource version we can use it in our log
 	// messages
-	log = r.Log.WithValues("loadbalancer", req.NamespacedName, "version", lb.ResourceVersion)
+	l = l.WithValues("resourceVersion", lb.ResourceVersion)
 
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -125,16 +124,16 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	dep := r.deploymentForLB(lb, prefix, envoyImage, epic.Spec.ServiceCIDR)
 	if err := r.Create(ctx, dep); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
-			log.Info("Failed to create new Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
+			l.Info("Failed to create new Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
 			return done, err
 		}
-		log.Info("deployment created previously, will update", "namespace", dep.Namespace, "name", dep.Name, "replicas", dep.Spec.Replicas)
+		l.Info("deployment created previously, will update", "namespace", dep.Namespace, "name", dep.Name, "replicas", dep.Spec.Replicas)
 		if err := updateDeployment(ctx, r.Client, dep); err != nil {
-			log.Info("Failed to update Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
+			l.Info("Failed to update Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
 			return done, err
 		}
 	} else {
-		log.Info("deployment created", "namespace", dep.Namespace, "name", dep.Name)
+		l.Info("deployment created", "namespace", dep.Namespace, "name", dep.Name)
 	}
 
 	// List the endpoints that belong to this LB in case this is an
@@ -145,7 +144,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err != nil {
 		return done, err
 	}
-	log.Info("endpoints", "endpoints", reps)
+	l.Info("endpoints", "endpoints", reps)
 
 	// Build a new EnvoyConfig
 	envoyConfig, err := envoy.ServiceToEnvoyConfig(*lb, reps)
@@ -160,10 +159,10 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// template.
 	if err := r.Create(ctx, &envoyConfig); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
-			log.Info("Failed to create new EnvoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+			l.Info("Failed to create new EnvoyConfig", "message", err.Error(), "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 			return done, err
 		}
-		log.Info("existing EnvoyConfig, will update", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+		l.Info("existing EnvoyConfig, will update", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 		existing := marin3r.EnvoyConfig{}
 		if err := r.Get(ctx, types.NamespacedName{Namespace: lb.Namespace, Name: lb.Name}, &existing); err != nil {
 			return done, err
@@ -172,7 +171,7 @@ func (r *LoadBalancerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return done, r.Update(ctx, &existing)
 	}
 
-	log.Info("EnvoyConfig created", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
+	l.Info("EnvoyConfig created", "namespace", envoyConfig.Namespace, "name", envoyConfig.Name)
 	return done, nil
 }
 

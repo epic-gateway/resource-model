@@ -43,7 +43,6 @@ const (
 // GWProxyReconciler reconciles a GWProxy object
 type GWProxyReconciler struct {
 	client.Client
-	Log           logr.Logger
 	Allocator     *allocator.Allocator
 	RuntimeScheme *runtime.Scheme
 }
@@ -60,7 +59,7 @@ type GWProxyReconciler struct {
 // Request is asking for.
 func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
-	l.Info("reconciling")
+	l.V(1).Info("Reconciling")
 
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}

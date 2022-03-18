@@ -19,7 +19,6 @@ import (
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 

@@ -19,7 +19,6 @@ import (
 // GWRouteReconciler reconciles a GWRoute object
 type GWRouteReconciler struct {
 	client.Client
-	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
@@ -78,7 +77,7 @@ func (r *GWRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	l.Info("Reconciling")
+	l.V(1).Info("Reconciling")
 
 	// This route can reference multiple parent GWProxies. Nudge each of
 	// them.

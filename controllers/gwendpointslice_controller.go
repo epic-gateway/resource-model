@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,7 +14,6 @@ import (
 // GWEndpointSliceReconciler reconciles a GWEndpointSlice object
 type GWEndpointSliceReconciler struct {
 	client.Client
-	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
@@ -81,7 +79,7 @@ func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return done, err
 	}
 
-	l.Info("Reconciling")
+	l.V(1).Info("Reconciling")
 
 	// Get the proxies that are connected to this slice. It can be more
 	// than one since more than one GWRoute and reference this slice,

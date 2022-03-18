@@ -390,7 +390,7 @@ func (proxy *GWProxy) Nudge(ctx context.Context, cl client.Client, l logr.Logger
 		l.Error(err, "patching", "proxy", proxy)
 		return err
 	}
-	l.Info("patched", "proxy", proxy)
+	l.V(1).Info("patched", "proxy", proxy)
 
 	return nil
 }

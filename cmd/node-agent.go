@@ -54,7 +54,6 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 	// Set up controllers
 	if err = (&controllers.EPICAgentReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("EPICAgent"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
@@ -62,7 +61,6 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.ServicePrefixAgentReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("ServicePrefixAgent"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
@@ -70,7 +68,6 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.LoadBalancerAgentReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("LoadBalancerAgent"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
@@ -78,7 +75,6 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.GWProxyAgentReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("GWProxyAgent"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
@@ -86,7 +82,6 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.PodAgentReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("PodAgent"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
@@ -126,7 +121,7 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 // after a reboot so we zero them and "nudge" the Envoy pods so Python
 // re-writes them. See also prebootCleanup() in controller_manager.go
 // for the system-wide preboot cleanup.
-func prebootNodeCleanup(ctx context.Context, log logr.Logger) error {
+func prebootNodeCleanup(ctx context.Context, l logr.Logger) error {
 
 	// We use an ad-hoc client here because the mgr.GetClient() doesn't
 	// start until you call mgr.Start() but we want to do this cleanup
@@ -148,7 +143,7 @@ func prebootNodeCleanup(ctx context.Context, log logr.Logger) error {
 			continue
 		}
 
-		log.Info("clean", "name", proxyPod.Namespace+"/"+proxyPod.Name)
+		l.Info("clean", "name", proxyPod.Namespace+"/"+proxyPod.Name)
 		cleanIntfAnnotations(ctx, cl, proxyPod.Namespace, proxyPod.Name)
 		// Remove the pod's info from the LB but continue even if there's
 		// an error.

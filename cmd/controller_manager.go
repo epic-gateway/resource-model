@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/controllers"
@@ -54,6 +55,9 @@ func init() {
 		"Enabling this will ensure that there is only one active controller manager instance")
 
 	rootCmd.AddCommand(controllerManCmd)
+
+	opts := zap.Options{Development: true}
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 }
 
 func runControllers(cmd *cobra.Command, args []string) error {
@@ -77,7 +81,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 	// Set up controllers and webhooks
 	if err = (&controllers.NamespaceReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("Namespace"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
@@ -97,7 +100,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.PodReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("Pod"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
@@ -105,7 +107,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.ServicePrefixReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("ServicePrefix"),
 		RuntimeScheme: mgr.GetScheme(),
 		Allocator:     alloc,
 	}).SetupWithManager(mgr); err != nil {
@@ -117,7 +118,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.LoadBalancerReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("LoadBalancer"),
 		RuntimeScheme: mgr.GetScheme(),
 		Allocator:     alloc,
 	}).SetupWithManager(mgr); err != nil {
@@ -129,7 +129,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.GWProxyReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("GWProxy"),
 		RuntimeScheme: mgr.GetScheme(),
 		Allocator:     alloc,
 	}).SetupWithManager(mgr); err != nil {
@@ -141,28 +140,24 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 	if err = (&controllers.GWRouteReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("GWRoute"),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
 
 	if err = (&controllers.GWClusterReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("GWCluster"),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
 
 	if err = (&controllers.GWEndpointSliceReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("GWEndpointSlice"),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
 
 	if err = (&controllers.RemoteEndpointReconciler{
 		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("RemoteEndpoint"),
 		RuntimeScheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err

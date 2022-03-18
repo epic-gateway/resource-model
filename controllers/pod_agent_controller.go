@@ -21,7 +21,6 @@ import (
 // PodAgentReconciler reconciles a Pod object
 type PodAgentReconciler struct {
 	client.Client
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 
@@ -70,7 +69,7 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return tryAgain, nil
 	}
 
-	l.Info("Reconciling", "ifindex", ifIndex, "ifname", ifName)
+	l.V(1).Info("Reconciling", "ifindex", ifIndex, "ifname", ifName)
 	var (
 		publicIP net.IP
 		sgName   types.NamespacedName
@@ -120,13 +119,13 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// and ServicePrefix. They provide configuration data that we need
 	// but that isn't contained in the pod or LB/Proxy.
 	if err := r.Get(ctx, sgName, &sg); err != nil {
-		l.Error(err, "Failed to find owning service group", "name", sgName)
+		l.Error(err, "Failed to find owning service group", "sgName", sgName)
 		return done, err
 	}
 
 	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
 	if err := r.Get(ctx, prefixName, &prefix); err != nil {
-		l.Error(err, "Failed to find owning service prefix", "name", prefixName)
+		l.Error(err, "Failed to find owning service prefix", "prefixName", prefixName)
 		return done, err
 	}
 
@@ -151,7 +150,7 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// the time that the PFC tunnel becomes fully ready.
 
 		// Attract LB traffic to this node
-		l.Info("adding route", "address", publicIP.String())
+		l.Info("Adding route", "proxy-public-address", publicIP.String())
 		if err := prefix.AddMultusRoute(publicIP); err != nil {
 			return done, err
 		}

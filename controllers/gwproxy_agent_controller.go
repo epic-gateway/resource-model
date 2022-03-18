@@ -23,7 +23,6 @@ import (
 // tunnels.
 type GWProxyAgentReconciler struct {
 	client.Client
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 
@@ -44,7 +43,7 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
 
-	l.Info("reconciling")
+	l.V(1).Info("Reconciling")
 
 	// read the object that caused the event
 	if err := r.Get(ctx, req.NamespacedName, proxy); err != nil {
@@ -138,19 +137,19 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// tell because there's an entry in the ProxyInterfaces map but
 		// it's not for this host.
 		if proxyInfo.EPICNodeAddress != myAddr {
-			pl.Info("Not me: status has no proxy interface info for this host", "nodeAddr", proxyInfo.EPICNodeAddress, "myAddr", myAddr)
+			pl.Info("Not me: proxy status has no interface info for this host", "proxy-node-address", proxyInfo.EPICNodeAddress, "my-node-address", myAddr)
 			continue
 		}
 
 		// Skip if the relevant Envoy needs to have its interface data set
 		// by the Python daemon.
 		if proxyInfo.Name == "" {
-			pl.Info("proxy interface info incomplete", "name", proxyName)
+			pl.Info("proxy interface info incomplete", "proxyName", proxyName)
 			continue
 		}
 
 		hasProxy = true
-		pl.Info("proxy status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
+		pl.Info("proxy status proxy veth info", "proxyName", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
 		// Set up a service gateway to each client-cluster endpoint on
 		// this client-cluster node
@@ -216,7 +215,7 @@ func (r *GWProxyAgentReconciler) Scheme() *runtime.Scheme {
 }
 
 func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefix *epicv1.ServicePrefix, lbName string, publicAddr net.IP, ports []v1.ServicePort) error {
-	l.Info("cleanupLinux")
+	l.V(1).Info("cleanupLinux")
 
 	// remove route
 	if err := prefix.RemoveMultusRoute(ctx, r, l, lbName, publicAddr); err != nil {

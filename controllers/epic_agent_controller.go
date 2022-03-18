@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,7 +15,6 @@ import (
 // EPICAgentReconciler reconciles a EPIC object
 type EPICAgentReconciler struct {
 	client.Client
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 

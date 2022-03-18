@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,7 +19,6 @@ import (
 type ServicePrefixAgentReconciler struct {
 	client.Client
 	NetClient     netclient.K8sCniCncfIoV1Interface
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 

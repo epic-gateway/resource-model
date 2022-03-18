@@ -31,7 +31,7 @@ func (r *ServicePrefix) SetupWebhookWithManager(mgr ctrl.Manager, val PoolValida
 
 // Default sets default values for this LoadBalancer object.
 func (r *ServicePrefix) Default() {
-	spLog.Info("default", "name", r.Name)
+	spLog.Info("default", "prefixName", r.Name)
 
 	// Add the controller as a finalizer so we can clean up when this
 	// LoadBalancer is deleted.

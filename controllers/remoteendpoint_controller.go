@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
@@ -21,7 +22,6 @@ import (
 // RemoteEndpointReconciler reconciles RemoteEndpoint objects.
 type RemoteEndpointReconciler struct {
 	client.Client
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 
@@ -32,12 +32,12 @@ type RemoteEndpointReconciler struct {
 // Request is asking for. In this case the request indicates that an
 // endpoint has changed so we need to update the LB's tunnel map.
 func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("rep", req.NamespacedName)
+	l := log.FromContext(ctx)
 	rep := epicv1.RemoteEndpoint{}
 
 	// Get the RemoteEndpoint that caused the event
 	if err := r.Get(ctx, req.NamespacedName, &rep); err != nil {
-		log.Info("can't get resource, probably deleted")
+		l.Info("can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -46,7 +46,7 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// If the NodeAddress is "" then this is an ad-hoc endpoint, i.e., it doesn't use GUE.
 	if rep.Spec.NodeAddress == "" {
-		log.Info("ad-hoc, no tunnel setup needed")
+		l.Info("ad-hoc, no tunnel setup needed")
 		return done, nil
 	}
 
@@ -55,11 +55,11 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// possible, but also be careful to handle edge cases like the LB
 		// being "not found" because it was deleted first.
 
-		log.Info("object to be deleted")
+		l.Info("object to be deleted")
 
 		// Remove the rep's info from the LB but continue even if there's
 		// an error because we want to *always* remove our finalizer.
-		repInfoErr := removeRepInfo(ctx, r.Client, log, req.NamespacedName.Namespace, rep.Labels[epicv1.OwningLoadBalancerLabel], rep)
+		repInfoErr := removeRepInfo(ctx, r.Client, l, req.NamespacedName.Namespace, rep.Labels[epicv1.OwningLoadBalancerLabel], rep)
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
@@ -72,7 +72,7 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return done, repInfoErr
 	}
 
-	log.Info("reconciling")
+	l.V(1).Info("Reconciling")
 
 	// Get the LB to which this rep belongs.
 	lb := epicv1.LoadBalancer{}
@@ -88,7 +88,7 @@ func (r *RemoteEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Allocate tunnels for this endpoint
-	if err := r.addProxyTunnels(ctx, log, &lb, &rep.Spec); err != nil {
+	if err := r.addProxyTunnels(ctx, l, &lb, &rep.Spec); err != nil {
 		return done, err
 	}
 

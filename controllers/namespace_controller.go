@@ -73,7 +73,7 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Create the Marin3r DiscoveryService that will configure this
 	// namespace's Envoys
-	if err := r.maybeCreateMarin3r(ctx, ns.Name, config.Spec.XDSImage, true); err != nil {
+	if err := r.maybeCreateMarin3r(ctx, l, ns.Name, config.Spec.XDSImage, true); err != nil {
 		return result, err
 	}
 
@@ -137,7 +137,7 @@ func nsHasLabel(o *v1.Namespace, label, value string) bool {
 
 // maybeCreateMarin3r creates a new marin3r.DiscoveryService if one
 // doesn't exist, or does nothing if one already exists.
-func (r *NamespaceReconciler) maybeCreateMarin3r(ctx context.Context, namespace string, image *string, debug bool) error {
+func (r *NamespaceReconciler) maybeCreateMarin3r(ctx context.Context, l logr.Logger, namespace string, image *string, debug bool) error {
 	ds := marin3r.DiscoveryService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      epicv1.DiscoveryServiceName,
@@ -150,11 +150,11 @@ func (r *NamespaceReconciler) maybeCreateMarin3r(ctx context.Context, namespace 
 	}
 
 	if err := maybeCreate(ctx, r, &ds); err != nil {
-		r.Log.Info("Failed to create new DiscoveryService", "message", err.Error(), "name", ds.Name)
+		l.Info("Failed to create new DiscoveryService", "message", err.Error(), "name", ds.Name)
 		return err
 	}
 
-	r.Log.Info("DiscoveryService created", "name", ds.Name)
+	l.Info("DiscoveryService created", "name", ds.Name)
 	return nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
@@ -22,7 +23,6 @@ import (
 // Ingress tunnels.
 type LoadBalancerAgentReconciler struct {
 	client.Client
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 
@@ -36,17 +36,17 @@ type LoadBalancerAgentReconciler struct {
 // Reconcile takes a Request and makes the system reflect what the
 // Request is asking for.
 func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("loadbalancer", req.NamespacedName, "agent-running-on", os.Getenv("EPIC_NODE_NAME"))
+	l := log.FromContext(ctx).WithValues("agent-running-on", os.Getenv("EPIC_NODE_NAME"))
 	lb := &epicv1.LoadBalancer{}
 	sg := &epicv1.LBServiceGroup{}
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
 
-	log.Info("reconciling")
+	l.V(1).Info("Reconciling")
 
 	// read the object that caused the event
 	if err := r.Get(ctx, req.NamespacedName, lb); err != nil {
-		log.Info("can't get resource, probably deleted")
+		l.Info("can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
@@ -58,13 +58,13 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	// we need but that isn't contained in the LB.
 	sgname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
 	if err := r.Get(ctx, sgname, sg); err != nil {
-		log.Error(err, "Failed to find owning service group", "name", sgname)
+		l.Error(err, "Failed to find owning service group", "name", sgname)
 		return done, err
 	}
 
 	prefixName := types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: sg.Labels[epicv1.OwningServicePrefixLabel]}
 	if err := r.Get(ctx, prefixName, prefix); err != nil {
-		log.Error(err, "Failed to find owning service prefix", "name", prefixName)
+		l.Error(err, "Failed to find owning service prefix", "name", prefixName)
 		return done, err
 	}
 
@@ -82,17 +82,17 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Check if k8s wants to delete this object
 	if !lb.ObjectMeta.DeletionTimestamp.IsZero() {
-		if err := cleanupPFC(log, lb); err != nil {
-			log.Error(err, "Failed to cleanup PFC")
+		if err := cleanupPFC(l, lb); err != nil {
+			l.Error(err, "Failed to cleanup PFC")
 		}
 
-		if err := cleanupLinux(ctx, log, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
-			log.Error(err, "Failed to cleanup Linux")
+		if err := cleanupLinux(ctx, l, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
+			l.Error(err, "Failed to cleanup Linux")
 		}
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
-		log.Info("removing finalizer")
+		l.Info("removing finalizer")
 		if err := RemoveFinalizer(ctx, r.Client, lb, lb.AgentFinalizerName(os.Getenv("EPIC_NODE_NAME"))); err != nil {
 			return done, err
 		}
@@ -102,7 +102,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// The lb is not being deleted, so if it does not have our
 	// finalizer, then add it and update the object.
-	log.Info("adding finalizer")
+	l.Info("adding finalizer")
 	if err := AddFinalizer(ctx, r.Client, lb, lb.AgentFinalizerName(os.Getenv("EPIC_NODE_NAME"))); err != nil {
 		return done, err
 	}
@@ -117,37 +117,36 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Set up each proxy pod belonging to this LB
 	for proxyName, proxyInfo := range lb.Spec.ProxyInterfaces {
-
-		log = r.Log.WithValues("proxy", proxyName)
+		lp := l.WithValues("proxy", proxyName)
 
 		// Skip if the relevant Envoy isn't running on this host. We can
 		// tell because there's an entry in the ProxyInterfaces map but
 		// it's not for this host.
 		if proxyInfo.EPICNodeAddress != os.Getenv("EPIC_HOST") {
-			log.Info("Not me: status has no proxy interface info for this host")
+			lp.Info("Not me: status has no proxy interface info for this host")
 			continue
 		}
 
 		// Skip if the relevant Envoy needs to have its interface data set
 		// by the Python daemon.
 		if proxyInfo.Name == "" {
-			log.Info("proxy interface info incomplete", "name", proxyName)
+			lp.Info("proxy interface info incomplete", "name", proxyName)
 			continue
 		}
 
 		hasProxy = true
-		log.Info("LB status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
+		lp.Info("LB status proxy veth info", "proxy-name", proxyName, "ifindex", proxyInfo.Index, "ifname", proxyInfo.Name)
 
 		// Set up a service gateway to each client-cluster endpoint on
 		// this client-cluster node
 		for _, epInfo := range reps {
-			log.Info("setting up rep", "ip", epInfo.Spec)
+			lp.Info("setting up rep", "ip", epInfo.Spec)
 
 			// For each client-cluster node that hosts an endpoint we need to
 			// set up a tunnel
 			clientTunnelMap, hasClientMap := lb.Spec.GUETunnelMaps[epInfo.Spec.NodeAddress]
 			if !hasClientMap {
-				log.Error(fmt.Errorf("no client-side tunnel info for node %s", epInfo.Spec.NodeAddress), "setting up tunnels")
+				lp.Error(fmt.Errorf("no client-side tunnel info for node %s", epInfo.Spec.NodeAddress), "setting up tunnels")
 			}
 
 			tunnelInfo, hasTunnelInfo := clientTunnelMap.EPICEndpoints[proxyInfo.EPICNodeAddress]
@@ -155,18 +154,18 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 				continue
 			}
 
-			log = r.Log.WithValues("tunnel", tunnelInfo.TunnelID)
+			lt := lp.WithValues("tunnel", tunnelInfo.TunnelID)
 
 			// Configure the tunnel, which connects an EPIC node to a
 			// client-cluster node
-			if err := configureTunnel(log, tunnelInfo); err != nil {
-				log.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
+			if err := configureTunnel(l, tunnelInfo); err != nil {
+				lt.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
 			}
 
 			// Set up a service gateway from this proxy to this rep
-			log.Info("setting up rep", "rep", epInfo)
-			if err := configureService(log, epInfo.Spec, proxyInfo.Index, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
-				log.Error(err, "setting up service gateway")
+			l.Info("setting up rep", "rep", epInfo)
+			if err := configureService(l, epInfo.Spec, proxyInfo.Index, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
+				lt.Error(err, "setting up service gateway")
 			}
 		}
 	}
@@ -178,13 +177,13 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if hasProxy {
 		// Open host ports by updating IPSET tables
 		if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
-			log.Error(err, "adding ipset entry")
+			l.Error(err, "adding ipset entry")
 			return done, err
 		}
 	} else {
-		log.Info("noProxy")
-		if err := cleanupLinux(ctx, log, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
-			log.Error(err, "Failed to cleanup Linux")
+		l.Info("noProxy")
+		if err := cleanupLinux(ctx, l, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
+			l.Error(err, "Failed to cleanup Linux")
 		}
 	}
 
