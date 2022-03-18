@@ -194,10 +194,10 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return done, err
 		}
 	} else {
-		l.Info("noProxy")
-		// if err := cleanupLinux(ctx, log, r, prefix, lb, publicAddr); err != nil {
-		// 	log.Error(err, "Failed to cleanup Linux")
-		// }
+		l.V(1).Info("noProxy")
+		if err := cleanupLinux(ctx, l, r, prefix, proxy.Name, publicAddr, proxy.Spec.PublicPorts); err != nil {
+			l.Error(err, "Failed to cleanup Linux")
+		}
 	}
 
 	return done, nil
