@@ -51,15 +51,6 @@ resources:
   controller: true
   domain: acnodal.io
   group: epic
-  kind: GWCluster
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
-  version: v1
-- api:
-    crdVersion: v1beta1
-    namespaced: true
-  controller: true
-  domain: acnodal.io
-  group: epic
   kind: GWEndpointSlice
   path: gitlab.com/acnodal/epic/resource-model/api/v1
   version: v1

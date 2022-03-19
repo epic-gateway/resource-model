@@ -6,6 +6,5 @@ resources:
 - epic_v1_serviceprefix.yaml
 - epic_v1_epic.yaml
 - epic_v1_gwroute.yaml
-- epic_v1_gwcluster.yaml
 - epic_v1_gwendpointslice.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

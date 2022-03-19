@@ -144,12 +144,6 @@ func runControllers(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err = (&controllers.GWClusterReconciler{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
 	if err = (&controllers.GWEndpointSliceReconciler{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
