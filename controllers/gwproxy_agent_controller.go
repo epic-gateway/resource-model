@@ -188,7 +188,7 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// up.
 	if hasProxy {
 		// Open host ports by updating IPSET tables
-		if err := network.AddIpsetEntry(proxy.Spec.PublicAddress, proxy.Spec.PublicPorts); err != nil {
+		if err := network.AddIpsetEntry(l, proxy.Spec.PublicAddress, proxy.Spec.PublicPorts); err != nil {
 			l.Error(err, "adding ipset entry")
 			return done, err
 		}
@@ -223,7 +223,7 @@ func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefix *e
 	}
 
 	// remove IPSet entry
-	if err := network.DelIpsetEntry(publicAddr.String(), ports); err != nil {
+	if err := network.DelIpsetEntry(l, publicAddr.String(), ports); err != nil {
 		l.Error(err, "Failed to delete ipset entry")
 	}
 

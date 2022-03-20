@@ -176,7 +176,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	// up.
 	if hasProxy {
 		// Open host ports by updating IPSET tables
-		if err := network.AddIpsetEntry(lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
+		if err := network.AddIpsetEntry(l, lb.Spec.PublicAddress, lb.Spec.PublicPorts); err != nil {
 			l.Error(err, "adding ipset entry")
 			return done, err
 		}

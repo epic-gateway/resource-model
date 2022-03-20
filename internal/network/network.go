@@ -3,7 +3,7 @@ package network
 
 import (
 	"fmt"
-	"os/exec"
+	"net"
 	"syscall"
 
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
@@ -13,28 +13,38 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// AddIpsetEntry adds the provided address and ports to the "epic-in"
-// set. The last error to happen will be returned.
-func AddIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
+// AddIpsetEntry adds the provided address and ports to the
+// appropriate set based on the IP family.
+func AddIpsetEntry(l logr.Logger, publicaddr string, ports []corev1.ServicePort) (err error) {
+	addr := net.ParseIP(publicaddr)
+	if addr == nil {
+		return fmt.Errorf("Unparseable IP address: %s", publicaddr)
+	}
 	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "add", "epic-in", ipsetAddress(publicaddr, port))
-		if cmdErr := cmd.Run(); cmdErr != nil {
-			err = cmdErr
+		if nil == addr.To4() {
+			epicexec.RunScript(l, "ipset -exist add epic-in-ip6 "+ipsetAddress(publicaddr, port))
+		} else {
+			epicexec.RunScript(l, "ipset -exist add epic-in     "+ipsetAddress(publicaddr, port))
 		}
 	}
-	return err
+	return
 }
 
 // DelIpsetEntry deletes the provided address and ports from the
-// "epic-in" set. The last error to happen will be returned.
-func DelIpsetEntry(publicaddr string, ports []corev1.ServicePort) (err error) {
+// appropriate set based on the IP family.
+func DelIpsetEntry(l logr.Logger, publicaddr string, ports []corev1.ServicePort) (err error) {
+	addr := net.ParseIP(publicaddr)
+	if addr == nil {
+		return fmt.Errorf("Unparseable IP address: %s", publicaddr)
+	}
 	for _, port := range ports {
-		cmd := exec.Command("ipset", "-exist", "del", "epic-in", ipsetAddress(publicaddr, port))
-		if cmdErr := cmd.Run(); cmdErr != nil {
-			err = cmdErr
+		if nil == addr.To4() {
+			epicexec.RunScript(l, "ipset -exist del epic-in-ip6 "+ipsetAddress(publicaddr, port))
+		} else {
+			epicexec.RunScript(l, "ipset -exist del epic-in     "+ipsetAddress(publicaddr, port))
 		}
 	}
-	return err
+	return
 }
 
 // ipsetAddress formats an address and port how ipset likes them,
@@ -45,10 +55,16 @@ func ipsetAddress(publicaddr string, port corev1.ServicePort) string {
 	return fmt.Sprintf("%s,%s:%d", publicaddr, port.Protocol, port.Port)
 }
 
-// IpsetSetCheck runs ipset to create the epic-in table.
-func IpsetSetCheck() error {
-	cmd := exec.Command("/usr/sbin/ipset", "create", "epic-in", "hash:ip,port")
-	return cmd.Run()
+// ipsetSetCheck runs ipset to create the epic-in tables.
+func ipsetSetCheck(l logr.Logger) error {
+	// If the set exists we'll flush it, and if it doesn't exist we'll
+	// create it
+	err6 := epicexec.RunScript(l, "/usr/sbin/ipset flush epic-in-ip6 || /usr/sbin/ipset create epic-in-ip6 hash:ip,port family inet6")
+	err4 := epicexec.RunScript(l, "/usr/sbin/ipset flush epic-in     || /usr/sbin/ipset create epic-in     hash:ip,port family inet ")
+	if err6 != nil {
+		return err6
+	}
+	return err4
 }
 
 // IPTablesCheck sets up the iptables rules.
@@ -80,15 +96,11 @@ func ConfigureBridge(log logr.Logger, brname string, gateway *netlink.Addr) (*ne
 		log.Error(err, "Multus", "unable to setup", brname)
 	}
 
-	if err := IpsetSetCheck(); err == nil {
-		log.Info("IPset epic-in added")
-	} else {
-		log.Info("IPset epic-in already exists")
+	if err := ipsetSetCheck(log); err != nil {
+		log.Error(err, "IPSet unable to setup")
 	}
 
-	if err := IPTablesCheck(log, brname); err == nil {
-		log.Info("IPtables setup for multus")
-	} else {
+	if err := IPTablesCheck(log, brname); err != nil {
 		log.Error(err, "iptables", "unable to setup", brname)
 	}
 
