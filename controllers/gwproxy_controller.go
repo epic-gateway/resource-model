@@ -229,9 +229,10 @@ func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1
 	// Format the multus configuration that tells multus which IP
 	// address to attach to the pod's net1 interface.
 	multusConfig, err := json.Marshal([]map[string]interface{}{{
-		"name":      sp.Name,
-		"namespace": sp.Namespace,
-		"ips":       []string{addr.String()}},
+		"default-route": []string{},
+		"name":          sp.Name,
+		"namespace":     sp.Namespace,
+		"ips":           []string{addr.String()}},
 	})
 	if err != nil {
 		return nil
