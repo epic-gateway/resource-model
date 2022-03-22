@@ -52,6 +52,12 @@ type GWProxySpec struct {
 	// PublicAddress is the publicly-visible IP address for this LB.
 	PublicAddress string `json:"public-address,omitempty"`
 
+	// AltAddress is a secondary IP address for this LB. When the
+	// PublicAddress is an IPV6 address then we also need to attach an
+	// IPV4 address to the proxy pod to enable IPV4 traffic in and out
+	// of the pod.
+	AltAddress string `json:"alt-address,omitempty"`
+
 	// PublicPorts is the set of ports on which this LB will listen.
 	PublicPorts []corev1.ServicePort `json:"public-ports,omitempty"`
 

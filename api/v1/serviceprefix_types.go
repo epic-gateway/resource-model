@@ -14,6 +14,29 @@ import (
 
 // Important: Run "make" to regenerate code after modifying this file
 
+const (
+	AltAddressSuffix string = "-alt"
+)
+
+// AddressPool specifies a pool of IP addresses.
+type AddressPool struct {
+	// Pool specifies a pool of addresses that PureLB manages. It can be
+	// a CIDR or a from-to range of addresses, e.g.,
+	// 'fd53:9ef0:8683::-fd53:9ef0:8683::3'.
+	Pool string `json:"pool"`
+
+	// Subnet specifies the subnet that contains all of the addresses in
+	// the Pool. It's specified with CIDR notation, e.g.,
+	// 'fd53:9ef0:8683::/120'. All of the addresses in the Pool must be
+	// contained within the Subnet.
+	Subnet string `json:"subnet"`
+
+	// Aggregation changes the address mask of the allocated address
+	// from the subnet mask to the specified mask. It can be "default"
+	// or an integer in the range 8-128.
+	Aggregation string `json:"aggregation"`
+}
+
 // ServicePrefixSpec defines the desired state of ServicePrefix
 type ServicePrefixSpec struct {
 	// Subnet is the subnet in which all of the pool addresses live. It
@@ -26,6 +49,12 @@ type ServicePrefixSpec struct {
 	// be specified as an IP address alone, with no subnet. If no
 	// Gateway is provided the multus0 bridge won't have an IP address.
 	Gateway *string `json:"gateway,omitempty"`
+
+	// AltAddress is a secondary IP address pool for this SP. When the
+	// Pool contains IPV6 addresses then we also need a pool of IPV4
+	// addresses to attach to the proxy pod (to enable IPV4 traffic in
+	// and out of the pod).
+	AltPool *AddressPool `json:"alt-pool,omitempty"`
 
 	// +kubebuilder:default=default
 	Aggregation string `json:"aggregation,omitempty"`
