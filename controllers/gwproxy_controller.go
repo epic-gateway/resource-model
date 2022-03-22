@@ -225,6 +225,19 @@ func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1
 		return nil
 	}
 	addr.Mask = subnet.Mask
+	addresses := []string{addr.String()}
+
+	if proxy.Spec.AltAddress != "" {
+		addrAlt, err := netlink.ParseAddr(proxy.Spec.AltAddress + "/32")
+		if err != nil {
+			return nil
+		}
+		subnetAlt, err := sp.Spec.SubnetIPNetAlt()
+		if err == nil {
+			addrAlt.Mask = subnetAlt.Mask
+			addresses = append(addresses, addrAlt.String())
+		}
+	}
 
 	// Format the multus configuration that tells multus which IP
 	// address to attach to the pod's net1 interface.
@@ -232,8 +245,8 @@ func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1
 		"default-route": []string{},
 		"name":          sp.Name,
 		"namespace":     sp.Namespace,
-		"ips":           []string{addr.String()}},
-	})
+		"ips":           addresses,
+	}})
 	if err != nil {
 		return nil
 	}

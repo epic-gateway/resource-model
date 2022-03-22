@@ -135,6 +135,14 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				l.Info("Previously allocated", "IP", existingIP, "proxy", proxy.Namespace+"/"+proxy.Name)
 			}
 		}
+
+		if altIP := net.ParseIP(proxy.Spec.AltAddress); altIP != nil {
+			if _, err := r.Allocator.Assign(proxy.NamespacedName().String()+epicv1.AltAddressSuffix, altIP, proxy.Spec.PublicPorts, ""); err != nil {
+				l.Error(err, "Error assigning IP", "IP", altIP)
+			} else {
+				l.Info("Previously allocated", "IP", altIP, "proxy", proxy.Namespace+"/"+proxy.Name)
+			}
+		}
 	}
 
 	return result, err

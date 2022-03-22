@@ -67,6 +67,14 @@ func (sps *ServicePrefixSpec) SubnetIPNet() (*net.IPNet, error) {
 	return netlink.ParseIPNet(sps.Subnet)
 }
 
+// SubnetIPNetAlt returns this ServicePrefix's subnet in the form of a net.IPNet.
+func (sps *ServicePrefixSpec) SubnetIPNetAlt() (*net.IPNet, error) {
+	if sps.AltPool == nil {
+		return nil, fmt.Errorf("Prefix has no alt pool")
+	}
+	return netlink.ParseIPNet(sps.AltPool.Subnet)
+}
+
 // GatewayAddr returns this ServicePrefix's gateway in the form of a netlink.Addr.
 func (sps *ServicePrefixSpec) GatewayAddr() *netlink.Addr {
 	if sps.Gateway == nil {

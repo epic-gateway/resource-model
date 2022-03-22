@@ -83,6 +83,18 @@ func (r *GWProxy) Default() {
 		r.AddDNSEndpoint(*sg)
 	}
 
+	// Add an alt external address if needed, but don't fail if it
+	// doesn't work.
+	if r.Spec.AltAddress == "" {
+		address, err := gwallocator.AllocateFromPool(r.NamespacedName().String()+AltAddressSuffix, poolName+AltAddressSuffix, r.Spec.PublicPorts, "")
+		if err != nil {
+			gwLog.Error(err, "No alt pool", "poolName", poolName)
+		} else {
+			gwLog.V(1).Info("alt address", "address", address)
+			r.Spec.AltAddress = address.String()
+		}
+	}
+
 	gwLog.V(1).Info("defaulted", "proxyName", r.Name, "contents", r)
 }
 

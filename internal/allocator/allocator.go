@@ -43,7 +43,9 @@ func NewAllocator() *Allocator {
 	}
 }
 
-// AddPrefix adds an address pool to the allocator.
+// AddPrefix adds a ServicePrefix's address pool(s) to the
+// allocator. Each SP will have at least one pool, but if that pool is
+// IPV6 then it will also have an alternative pool of IPV4 addresses.
 func (a *Allocator) AddPrefix(sp epicv1.ServicePrefix) error {
 	pool, err := NewLocalPool(sp.Spec.Pool, sp.Spec.Subnet, sp.Spec.Aggregation)
 	if err != nil {
@@ -54,6 +56,16 @@ func (a *Allocator) AddPrefix(sp epicv1.ServicePrefix) error {
 	// Refresh or initiate stats
 	poolCapacity.WithLabelValues(sp.Name).Set(float64(pool.Size()))
 	poolActive.WithLabelValues(sp.Name).Set(float64(pool.InUse()))
+
+	// Add this SP's alt pool (if it has one).
+	if sp.Spec.AltPool != nil {
+		fmt.Printf("adding alt pool %s\n", sp.Name+epicv1.AltAddressSuffix)
+		pool, err := NewLocalPool(sp.Spec.AltPool.Pool, sp.Spec.AltPool.Subnet, sp.Spec.AltPool.Aggregation)
+		if err != nil {
+			return fmt.Errorf("parsing alt address pool #%s: %s", sp.Name, err)
+		}
+		a.pools[sp.Name+epicv1.AltAddressSuffix] = pool
+	}
 
 	return nil
 }
