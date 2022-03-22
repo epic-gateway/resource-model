@@ -112,7 +112,7 @@ func runControllers(cmd *cobra.Command, args []string) error {
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
-	if err = (&epicv1.ServicePrefix{}).SetupWebhookWithManager(mgr, alloc); err != nil {
+	if err = (&epicv1.ServicePrefix{}).SetupWebhookWithManager(mgr); err != nil {
 		return err
 	}
 

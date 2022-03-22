@@ -22,7 +22,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
@@ -802,89 +801,6 @@ func TestPoolMetrics(t *testing.T) {
 	}
 }
 
-func TestValidateCreate(t *testing.T) {
-	alloc := NewAllocator()
-	alloc.pools = map[string]Pool{
-		"test": mustLocalPool(t, "1.2.3.4/30"),
-	}
-	goodSpec := epicv1.ServicePrefixSpec{
-		Subnet:  "1.2.3.0/24",
-		Pool:    "1.2.3.8-1.2.3.11",
-		Gateway: pointer.StringPtr("1.2.3.0"),
-	}
-	noGatewaySpec := epicv1.ServicePrefixSpec{
-		Subnet: "1.2.3.0/24",
-		Pool:   "1.2.3.8-1.2.3.11",
-	}
-	invalidSpec := epicv1.ServicePrefixSpec{
-		Subnet: "gah",
-		Pool:   "3.2.1.1-3.2.1.4",
-	}
-	overlapSpec := epicv1.ServicePrefixSpec{
-		Subnet: "1.2.3.0/24",
-		Pool:   "1.2.3.7-1.2.3.11",
-	}
-
-	// Good SPs should validate
-	assert.Nil(t, alloc.ValidateCreate(servicePrefix("notDuplicate", goodSpec)), "good SP should validate")
-	assert.Nil(t, alloc.ValidateCreate(servicePrefix("notDuplicate", noGatewaySpec)), "noGatewaySpec SP should validate")
-
-	// Invalid SP should trigger an error
-	assert.Nil(t, alloc.ValidateCreate(servicePrefix("notDuplicate", invalidSpec)), "non-duplicate SP name not accepted")
-
-	// Duplicate name should trigger an error
-	assert.NotNil(t, alloc.ValidateCreate(servicePrefix("test", goodSpec)), "duplicate SP name not rejected")
-
-	// Overlap should trigger an error
-	assert.NotNil(t, alloc.ValidateCreate(servicePrefix("test", overlapSpec)), "overlapping SP name not rejected")
-}
-
-func TestValidateUpdate(t *testing.T) {
-	alloc := NewAllocator()
-	alloc.pools = map[string]Pool{
-		"test":  mustLocalPool(t, "1.2.3.4/30"),
-		"other": mustLocalPool(t, "1.2.3.7-1.2.3.11"),
-	}
-	goodSpec := epicv1.ServicePrefixSpec{
-		Subnet:  "2.2.3.0/24",
-		Pool:    "2.2.3.8-2.2.3.11",
-		Gateway: pointer.StringPtr("2.2.3.0"),
-	}
-	noGatewaySpec := epicv1.ServicePrefixSpec{
-		Subnet: "2.2.3.0/24",
-		Pool:   "2.2.3.8-2.2.3.11",
-	}
-	invalidSpec := epicv1.ServicePrefixSpec{
-		Subnet: "gah",
-		Pool:   "3.2.1.1-3.2.1.4",
-	}
-	overlapSpec := epicv1.ServicePrefixSpec{
-		Subnet: "1.2.3.0/24",
-		Pool:   "1.2.3.11-1.2.3.21",
-	}
-
-	// Good SPs should validate
-	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("notDuplicate", goodSpec)), "good SP should validate")
-	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("notDuplicate", noGatewaySpec)), "noGatewaySpec SP should validate")
-
-	// Invalid SP should trigger an error
-	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("notDuplicate", invalidSpec)), "non-duplicate SP name not accepted")
-
-	// Update to an existing SP should validate
-	assert.Nil(t, alloc.ValidateUpdate(servicePrefix("test", goodSpec)), "updated SP rejected")
-
-	// Overlap should trigger an error
-	assert.NotNil(t, alloc.ValidateUpdate(servicePrefix("test", overlapSpec)), "overlapping SP name not rejected")
-
-	// Once an address has been allocated from the pool, the pool can no longer be modified
-	alloc.AllocateFromPool("testSvc", "test", []corev1.ServicePort{{Port: 0}}, "testKey")
-	assert.NotNil(t, alloc.ValidateDelete(servicePrefix("test", goodSpec)))
-
-	// By unassigning the address we make it OK to delete the pool again
-	alloc.Unassign("testSvc")
-	assert.Nil(t, alloc.ValidateDelete(servicePrefix("test", goodSpec)))
-}
-
 func TestValidateDelete(t *testing.T) {
 	alloc := NewAllocator()
 	alloc.pools = map[string]Pool{
@@ -910,7 +826,7 @@ func TestValidateDelete(t *testing.T) {
 // Some helpers
 
 func assigned(a *Allocator, svc string) string {
-	ip := a.IP(svc)
+	ip := a.ip(svc)
 	if ip == nil {
 		return ""
 	}

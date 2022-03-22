@@ -7,23 +7,11 @@ import (
 
 // log is for logging in this package.
 var (
-	spLog       = logf.Log.WithName("serviceprefix-resource")
-	spValidator PoolValidator
+	spLog = logf.Log.WithName("serviceprefix-resource")
 )
 
-// PoolValidator validates incoming ServicePrefixes. We use an
-// interface to avoid import loops between the v1 package and the
-// allocator package.
-// +kubebuilder:object:generate=false
-type PoolValidator interface {
-	ValidateCreate(*ServicePrefix) error
-	ValidateUpdate(*ServicePrefix) error
-	ValidateDelete(*ServicePrefix) error
-}
-
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
-func (r *ServicePrefix) SetupWebhookWithManager(mgr ctrl.Manager, val PoolValidator) error {
-	spValidator = val
+func (r *ServicePrefix) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(r).Complete()
 }
 

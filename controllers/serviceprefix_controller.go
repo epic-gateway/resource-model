@@ -93,7 +93,7 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Tell the allocator about the prefix
-	if err := r.Allocator.AddPool(sp); err != nil {
+	if err := r.Allocator.AddPrefix(sp); err != nil {
 		return result, err
 	}
 

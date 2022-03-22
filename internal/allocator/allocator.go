@@ -43,9 +43,9 @@ func NewAllocator() *Allocator {
 	}
 }
 
-// AddPool adds an address pool to the allocator.
-func (a *Allocator) AddPool(sp epicv1.ServicePrefix) error {
-	pool, err := parsePrefix(sp.Name, sp.Spec)
+// AddPrefix adds an address pool to the allocator.
+func (a *Allocator) AddPrefix(sp epicv1.ServicePrefix) error {
+	pool, err := NewLocalPool(sp.Spec.Pool, sp.Spec.Subnet, sp.Spec.Aggregation)
 	if err != nil {
 		return fmt.Errorf("parsing address pool #%s: %s", sp.Name, err)
 	}
@@ -121,11 +121,10 @@ func (a *Allocator) Assign(svc string, ip net.IP, ports []corev1.ServicePort, sh
 
 // Unassign frees the IP associated with service, if any.
 func (a *Allocator) Unassign(svc string) bool {
-	if a.allocated[svc] == nil {
+	al := a.allocated[svc]
+	if al == nil {
 		return false
 	}
-
-	al := a.allocated[svc]
 
 	// tell the pool that the address has been released. there might not
 	// be a pool, e.g., in the case of a config change that move
@@ -180,73 +179,11 @@ func (a *Allocator) AllocateFromPool(svc string, poolName string, ports []corev1
 	return ip, nil
 }
 
-// IP returns the IP address allocated to service, or nil if none are allocated.
-func (a *Allocator) IP(svc string) net.IP {
+// ip returns the ip address allocated to service, or nil if none are allocated.
+func (a *Allocator) ip(svc string) net.IP {
 	if alloc := a.allocated[svc]; alloc != nil {
 		return alloc.ip
 	}
-	return nil
-}
-
-// ValidateCreate checks whether the provided pool doesn't conflict with
-// any other pools. A nil return value is good; non-nil means that
-// this pool can't be used.
-func (a *Allocator) ValidateCreate(sp *epicv1.ServicePrefix) error {
-	poolName := sp.Name
-
-	// Validate the pool by itself
-	pool, err := parsePrefix(poolName, sp.Spec)
-	if err != nil {
-		return err
-	}
-
-	// Check that the pool isn't already defined
-	if _, duplicate := a.pools[poolName]; duplicate {
-		return fmt.Errorf("duplicate definition of pool \"%s\"", poolName)
-	}
-
-	// Check that the pool doesn't overlap with any of the previous
-	// ones
-	for name, r := range a.pools {
-		if pool.Overlaps(r) {
-			return fmt.Errorf("pool \"%q\" overlaps already defined pool \"%q\"", poolName, name)
-		}
-	}
-
-	return nil
-}
-
-// ValidateUpdate checks whether the provided pool doesn't conflict
-// with any other pools except itself. A nil return value is good;
-// non-nil means that this pool can't be used.
-func (a *Allocator) ValidateUpdate(sp *epicv1.ServicePrefix) error {
-	// Validate the pool by itself
-	pool, err := parsePrefix(sp.Name, sp.Spec)
-	if err != nil {
-		return err
-	}
-
-	// If the pool has any allocations then it can't be modified.
-	for _, alloc := range a.allocated {
-		if alloc.pool == sp.Name {
-			return fmt.Errorf("pool \"%s\" can't be modified, addresses have been allocated from it", sp.Name)
-		}
-	}
-
-	// Check that the pool doesn't overlap with any of the previous
-	// ones, but don't check the pool against itself
-	otherPools := make(map[string]Pool, len(a.pools)-1)
-	for k, v := range a.pools {
-		if k != sp.Name {
-			otherPools[k] = v
-		}
-	}
-	for name, r := range otherPools {
-		if pool.Overlaps(r) {
-			return fmt.Errorf("pool \"%q\" overlaps already defined pool \"%q\"", sp.Name, name)
-		}
-	}
-
 	return nil
 }
 
@@ -270,12 +207,4 @@ func poolFor(pools map[string]Pool, ip net.IP) string {
 		}
 	}
 	return ""
-}
-
-func parsePrefix(name string, prefix epicv1.ServicePrefixSpec) (Pool, error) {
-	ret, err := NewLocalPool(prefix.Pool, prefix.Subnet, prefix.Aggregation)
-	if err != nil {
-		return nil, err
-	}
-	return *ret, nil
 }
