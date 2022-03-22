@@ -129,7 +129,7 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// from the list of proxies
 	for _, proxy := range proxies.Items {
 		if existingIP := net.ParseIP(proxy.Spec.PublicAddress); existingIP != nil {
-			if _, err := r.Allocator.Assign(proxy.Name, existingIP, proxy.Spec.PublicPorts, ""); err != nil {
+			if _, err := r.Allocator.Assign(proxy.NamespacedName().String(), existingIP, proxy.Spec.PublicPorts, ""); err != nil {
 				l.Error(err, "Error assigning IP", "IP", existingIP)
 			} else {
 				l.Info("Previously allocated", "IP", existingIP, "proxy", proxy.Namespace+"/"+proxy.Name)
