@@ -13,18 +13,18 @@ func TestAggregateRoute(t *testing.T) {
 		network  net.IPNet
 		target   *net.IPNet
 		ip4, ip6 net.IP
-		sps      ServicePrefixSpec
+		sps      AddressPool
 	)
 
 	// A few error cases. Should return err, not crash
 	ip4, target, err = net.ParseCIDR("10.42.27.6/16")
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "blah",
 		Aggregation: "default",
 	}
 	_, err = sps.aggregateRoute(ip4)
 	assert.NotNil(t, err, "Should have received an error")
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "10.42.0.0/16",
 		Aggregation: "blorp",
 	}
@@ -32,7 +32,7 @@ func TestAggregateRoute(t *testing.T) {
 	assert.NotNil(t, err, "Should have received an error")
 
 	// Default aggregation
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "10.42.0.0/16",
 		Aggregation: "default",
 	}
@@ -41,7 +41,7 @@ func TestAggregateRoute(t *testing.T) {
 	assert.Nil(t, err, "error aggregating")
 	assert.Equal(t, *target, network)
 
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "fe80::fb2d:1eb8:0:0/96",
 		Aggregation: "default",
 	}
@@ -51,7 +51,7 @@ func TestAggregateRoute(t *testing.T) {
 	assert.Equal(t, *target, network)
 
 	// Explicit aggregation, more specific than the subnet
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "10.42.0.0/16",
 		Aggregation: "/32",
 	}
@@ -60,7 +60,7 @@ func TestAggregateRoute(t *testing.T) {
 	assert.Nil(t, err, "error aggregating")
 	assert.Equal(t, *target, network)
 
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "fe80::fb2d:1eb8:0:0/96",
 		Aggregation: "/128",
 	}
@@ -70,7 +70,7 @@ func TestAggregateRoute(t *testing.T) {
 	assert.Equal(t, *target, network)
 
 	// Explicit aggregation, less specific than the subnet
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "10.42.0.0/16",
 		Aggregation: "/8",
 	}
@@ -79,7 +79,7 @@ func TestAggregateRoute(t *testing.T) {
 	assert.Nil(t, err, "error aggregating")
 	assert.Equal(t, *target, network)
 
-	sps = ServicePrefixSpec{
+	sps = AddressPool{
 		Subnet:      "fe80::fb2d:1eb8:0:0/96",
 		Aggregation: "/64",
 	}

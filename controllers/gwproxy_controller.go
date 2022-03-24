@@ -220,7 +220,7 @@ func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1
 	if err != nil {
 		return nil
 	}
-	subnet, err := sp.Spec.SubnetIPNet()
+	subnet, err := sp.Spec.PublicPool.SubnetIPNet()
 	if err != nil {
 		return nil
 	}
@@ -232,7 +232,7 @@ func (r *GWProxyReconciler) deploymentForProxy(proxy *epicv1.GWProxy, sp *epicv1
 		if err != nil {
 			return nil
 		}
-		subnetAlt, err := sp.Spec.SubnetIPNetAlt()
+		subnetAlt, err := sp.Spec.AltPool.SubnetIPNet()
 		if err == nil {
 			addrAlt.Mask = subnetAlt.Mask
 			addresses = append(addresses, addrAlt.String())

@@ -87,6 +87,7 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if publicAddr == nil {
 		return done, fmt.Errorf("%s can't be parsed as an IP address", proxy.Spec.PublicAddress)
 	}
+	altAddr := net.ParseIP(proxy.Spec.AltAddress)
 
 	// Check if k8s wants to delete this object
 	if !proxy.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -94,8 +95,13 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// 	log.Error(err, "Failed to cleanup PFC")
 		// }
 
-		if err := cleanupLinux(ctx, l, r, prefix, proxy.Name, publicAddr, proxy.Spec.PublicPorts); err != nil {
+		if err := cleanupLinux(ctx, l, r, prefix.Name, prefix.Spec.PublicPool, proxy.Name, publicAddr, proxy.Spec.PublicPorts); err != nil {
 			l.Error(err, "Failed to cleanup Linux")
+		}
+		if altAddr != nil {
+			if err := cleanupLinux(ctx, l, r, prefix.Name, prefix.Spec.AltPool, proxy.Name, altAddr, proxy.Spec.PublicPorts); err != nil {
+				l.Error(err, "Failed to cleanup Linux")
+			}
 		}
 
 		// Remove our finalizer to ensure that we don't block it from
@@ -194,8 +200,13 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	} else {
 		l.V(1).Info("noProxy")
-		if err := cleanupLinux(ctx, l, r, prefix, proxy.Name, publicAddr, proxy.Spec.PublicPorts); err != nil {
+		if err := cleanupLinux(ctx, l, r, prefix.Name, prefix.Spec.PublicPool, proxy.Name, publicAddr, proxy.Spec.PublicPorts); err != nil {
 			l.Error(err, "Failed to cleanup Linux")
+		}
+		if altAddr != nil {
+			if err := cleanupLinux(ctx, l, r, prefix.Name, prefix.Spec.AltPool, proxy.Name, altAddr, proxy.Spec.PublicPorts); err != nil {
+				l.Error(err, "Failed to cleanup Linux")
+			}
 		}
 	}
 
@@ -214,11 +225,11 @@ func (r *GWProxyAgentReconciler) Scheme() *runtime.Scheme {
 	return r.RuntimeScheme
 }
 
-func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefix *epicv1.ServicePrefix, lbName string, publicAddr net.IP, ports []v1.ServicePort) error {
+func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefixName string, pool *epicv1.AddressPool, lbName string, publicAddr net.IP, ports []v1.ServicePort) error {
 	l.V(1).Info("cleanupLinux")
 
 	// remove route
-	if err := prefix.RemoveMultusRoute(ctx, r, l, lbName, publicAddr); err != nil {
+	if err := pool.RemoveMultusRoute(ctx, r, l, lbName, publicAddr, prefixName); err != nil {
 		l.Error(err, "Failed to delete bridge route")
 	}
 

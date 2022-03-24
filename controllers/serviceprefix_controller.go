@@ -181,7 +181,7 @@ func (r *ServicePrefixReconciler) netdefForSP(sp *epicv1.ServicePrefix, l logr.L
 		"plugins": []map[string]interface{}{{
 			"type":      "bridge",
 			"mtu":       1380,
-			"bridge":    sp.Spec.MultusBridge,
+			"bridge":    sp.Spec.PublicPool.MultusBridge,
 			"isGateway": false,
 			"ipam": map[string]interface{}{
 				"type": "static",

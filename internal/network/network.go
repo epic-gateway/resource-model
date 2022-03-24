@@ -88,10 +88,10 @@ func IPTablesCheck(log logr.Logger, brname string) error {
 // from the Envoy pods to the customer endpoints. It's called
 // "multus0" by default but that can be overridden in the
 // ServicePrefix CR.
-func ConfigureBridge(log logr.Logger, brname string, gateway *netlink.Addr) (*netlink.Bridge, error) {
+func ConfigureBridge(log logr.Logger, brname string) (*netlink.Bridge, error) {
 	var err error
 
-	bridge, err := ensureBridge(log, brname, gateway)
+	bridge, err := ensureBridge(log, brname)
 	if err != nil {
 		log.Error(err, "Multus", "unable to setup", brname)
 	}
@@ -108,7 +108,7 @@ func ConfigureBridge(log logr.Logger, brname string, gateway *netlink.Addr) (*ne
 }
 
 // ensureBridge creates the bridge if it's not there and configures it in either case.
-func ensureBridge(log logr.Logger, brname string, gateway *netlink.Addr) (*netlink.Bridge, error) {
+func ensureBridge(log logr.Logger, brname string) (*netlink.Bridge, error) {
 
 	br := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
@@ -137,13 +137,6 @@ func ensureBridge(log logr.Logger, brname string, gateway *netlink.Addr) (*netli
 	_, err = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", brname), "1")
 	if err != nil {
 		return nil, err
-	}
-
-	// add the gateway address to the bridge interface
-	if gateway != nil {
-		if err := netlink.AddrReplace(br, gateway); err != nil {
-			return nil, fmt.Errorf("could not add %v: to %v %w", gateway, br, err)
-		}
 	}
 
 	return br, nil

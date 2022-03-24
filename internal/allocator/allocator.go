@@ -47,7 +47,7 @@ func NewAllocator() *Allocator {
 // allocator. Each SP will have at least one pool, but if that pool is
 // IPV6 then it will also have an alternative pool of IPV4 addresses.
 func (a *Allocator) AddPrefix(sp epicv1.ServicePrefix) error {
-	pool, err := NewLocalPool(sp.Spec.Pool, sp.Spec.Subnet, sp.Spec.Aggregation)
+	pool, err := NewLocalPool(sp.Spec.PublicPool.Pool, sp.Spec.PublicPool.Subnet, sp.Spec.PublicPool.Aggregation)
 	if err != nil {
 		return fmt.Errorf("parsing address pool #%s: %s", sp.Name, err)
 	}

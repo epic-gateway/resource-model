@@ -203,7 +203,7 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 	if err != nil {
 		return nil
 	}
-	subnet, err := sp.Spec.SubnetIPNet()
+	subnet, err := sp.Spec.PublicPool.SubnetIPNet()
 	if err != nil {
 		return nil
 	}

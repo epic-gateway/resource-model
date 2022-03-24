@@ -5,9 +5,10 @@ metadata:
   name: default
   namespace: epic
 spec:
-  subnet: 192.168.77.0/24
-  pool: 192.168.77.2-192.168.77.8
-  aggregation: default
+  public-pool:
+    subnet: 192.168.77.0/24
+    pool: 192.168.77.2-192.168.77.8
+    aggregation: default
 ---
 apiVersion: epic.acnodal.io/v1
 kind: ServicePrefix
@@ -15,6 +16,7 @@ metadata:
   name: non-default
   namespace: epic
 spec:
-  subnet: 192.168.77.0/24
-  pool: 192.168.77.9-192.168.77.15
-  aggregation: default
+  public-pool:
+    subnet: 192.168.77.0/24
+    pool: 192.168.77.9-192.168.77.15
+    aggregation: default

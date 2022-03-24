@@ -807,8 +807,10 @@ func TestValidateDelete(t *testing.T) {
 		"test": mustLocalPool(t, "1.2.3.4/30"),
 	}
 	spec := epicv1.ServicePrefixSpec{
-		Subnet: "1.2.3.0/24",
-		Pool:   "1.2.3.4/30",
+		PublicPool: &epicv1.AddressPool{
+			Subnet: "1.2.3.0/24",
+			Pool:   "1.2.3.4/30",
+		},
 	}
 
 	// No allocations yet, so deletion is OK

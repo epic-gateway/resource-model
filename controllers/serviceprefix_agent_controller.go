@@ -46,7 +46,7 @@ func (r *ServicePrefixAgentReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// configure the Multus bridge interface
-	if _, err = network.ConfigureBridge(l, sp.Spec.MultusBridge, sp.Spec.GatewayAddr()); err != nil {
+	if _, err = network.ConfigureBridge(l, sp.Spec.PublicPool.MultusBridge); err != nil {
 		l.Error(err, "Failed to configure multus bridge")
 		return done, err
 	}

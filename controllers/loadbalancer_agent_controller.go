@@ -86,7 +86,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			l.Error(err, "Failed to cleanup PFC")
 		}
 
-		if err := cleanupLinux(ctx, l, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
+		if err := cleanupLinux(ctx, l, r, prefix.Name, prefix.Spec.PublicPool, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
 			l.Error(err, "Failed to cleanup Linux")
 		}
 
@@ -182,7 +182,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	} else {
 		l.Info("noProxy")
-		if err := cleanupLinux(ctx, l, r, prefix, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
+		if err := cleanupLinux(ctx, l, r, prefix.Name, prefix.Spec.PublicPool, lb.Name, publicAddr, lb.Spec.PublicPorts); err != nil {
 			l.Error(err, "Failed to cleanup Linux")
 		}
 	}

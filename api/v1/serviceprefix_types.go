@@ -35,68 +35,29 @@ type AddressPool struct {
 	// from the subnet mask to the specified mask. It can be "default"
 	// or an integer in the range 8-128.
 	Aggregation string `json:"aggregation"`
+
+	// +kubebuilder:default=multus0
+	MultusBridge string `json:"multus-bridge,omitempty"`
 }
 
 // ServicePrefixSpec defines the desired state of ServicePrefix
 type ServicePrefixSpec struct {
-	// Subnet is the subnet in which all of the pool addresses live. It
-	// must be in CIDR notation, e.g., "192.168.77.0/24".
-	Subnet string `json:"subnet"`
-	// Pool is the set of addresses to be allocated. It must be in
-	// from-to notation, e.g., "192.168.77.2-192.168.77.8".
-	Pool string `json:"pool"`
-	// Gateway is the gateway address of this ServicePrefix. It should
-	// be specified as an IP address alone, with no subnet. If no
-	// Gateway is provided the multus0 bridge won't have an IP address.
-	Gateway *string `json:"gateway,omitempty"`
+	// PublicAddress is a secondary IP address pool for this SP. When
+	// the Pool contains IPV6 addresses then we also need a pool of IPV4
+	// addresses to attach to the proxy pod (to enable IPV4 traffic in
+	// and out of the pod).
+	PublicPool *AddressPool `json:"public-pool,omitempty"`
 
 	// AltAddress is a secondary IP address pool for this SP. When the
 	// Pool contains IPV6 addresses then we also need a pool of IPV4
 	// addresses to attach to the proxy pod (to enable IPV4 traffic in
 	// and out of the pod).
 	AltPool *AddressPool `json:"alt-pool,omitempty"`
-
-	// +kubebuilder:default=default
-	Aggregation string `json:"aggregation,omitempty"`
-	// +kubebuilder:default=multus0
-	MultusBridge string `json:"multus-bridge,omitempty"`
 }
 
 // SubnetIPNet returns this ServicePrefix's subnet in the form of a net.IPNet.
-func (sps *ServicePrefixSpec) SubnetIPNet() (*net.IPNet, error) {
-	return netlink.ParseIPNet(sps.Subnet)
-}
-
-// SubnetIPNetAlt returns this ServicePrefix's subnet in the form of a net.IPNet.
-func (sps *ServicePrefixSpec) SubnetIPNetAlt() (*net.IPNet, error) {
-	if sps.AltPool == nil {
-		return nil, fmt.Errorf("Prefix has no alt pool")
-	}
-	return netlink.ParseIPNet(sps.AltPool.Subnet)
-}
-
-// GatewayAddr returns this ServicePrefix's gateway in the form of a netlink.Addr.
-func (sps *ServicePrefixSpec) GatewayAddr() *netlink.Addr {
-	if sps.Gateway == nil {
-		return nil
-	}
-
-	sn, err := netlink.ParseIPNet(sps.Subnet)
-	if err != nil {
-		return nil
-	}
-
-	// parse with a dummy /32 for now, we'll override later
-	addr, err := netlink.ParseAddr(*sps.Gateway + "/32")
-	if err != nil {
-		return nil
-	}
-
-	// the gateway is the address from the "gateway" field but with the
-	// subnet mask from the "subnet" field
-	addr.Mask = sn.Mask
-
-	return addr
+func (ap *AddressPool) SubnetIPNet() (*net.IPNet, error) {
+	return netlink.ParseIPNet(ap.Subnet)
 }
 
 // aggregateRoute determines the aggregated IP network for lbIP, given
@@ -104,14 +65,14 @@ func (sps *ServicePrefixSpec) GatewayAddr() *netlink.Addr {
 // use default aggregation or an override. If aggregation is "default"
 // then the mask from subnet will be used. Otherwise aggregation must
 // be the netmask part of a CIDR address, e.g., "/32".
-func (sps *ServicePrefixSpec) aggregateRoute(lbIP net.IP) (network net.IPNet, err error) {
+func (ap *AddressPool) aggregateRoute(lbIP net.IP) (network net.IPNet, err error) {
 	// Assume that the aggregation is "default"
-	rawCIDR := sps.Subnet
+	rawCIDR := ap.Subnet
 
 	// If aggregation is not "default" then use it instead of the
 	// default
-	if sps.Aggregation != "default" {
-		rawCIDR = fmt.Sprintf("%s%s", lbIP.String(), sps.Aggregation)
+	if ap.Aggregation != "default" {
+		rawCIDR = fmt.Sprintf("%s%s", lbIP.String(), ap.Aggregation)
 	}
 
 	// Parse the CIDR into a net.IPNet to return to the caller
@@ -141,7 +102,7 @@ type ServicePrefix struct {
 }
 
 // AddMultusRoute adds a route to dest to this SP's multus bridge.
-func (sp *ServicePrefix) AddMultusRoute(lbIP net.IP) error {
+func (ap *AddressPool) AddMultusRoute(lbIP net.IP) error {
 	var (
 		dest net.IPNet
 		link netlink.Link
@@ -149,12 +110,12 @@ func (sp *ServicePrefix) AddMultusRoute(lbIP net.IP) error {
 	)
 
 	// Find our Multus bridge Link
-	if link, err = netlink.LinkByName(sp.Spec.MultusBridge); err != nil {
+	if link, err = netlink.LinkByName(ap.MultusBridge); err != nil {
 		return err
 	}
 
 	// Aggregate the IP address
-	if dest, err = sp.Spec.aggregateRoute(lbIP); err != nil {
+	if dest, err = ap.aggregateRoute(lbIP); err != nil {
 		return err
 	}
 
@@ -171,7 +132,7 @@ func (sp *ServicePrefix) AddMultusRoute(lbIP net.IP) error {
 // route might attract traffic for more than one IP address. We don't
 // want to remove a route until *all* of the IPs that depend on it are
 // gone.
-func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader, l logr.Logger, proxyName string, lbIP net.IP) error {
+func (ap *AddressPool) RemoveMultusRoute(ctx context.Context, r client.Reader, l logr.Logger, proxyName string, lbIP net.IP, spName string) error {
 	var (
 		dest       net.IPNet
 		gwps       GWProxyList
@@ -180,14 +141,14 @@ func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader,
 	)
 
 	// Aggregate the IP address
-	if dest, err = sp.Spec.aggregateRoute(lbIP); err != nil {
+	if dest, err = ap.aggregateRoute(lbIP); err != nil {
 		return err
 	}
 
 	// List the set of proxies that belong to this SP
 	listOps := client.ListOptions{
 		Namespace:     "", // all namespaces (since SPs live in "epic")
-		LabelSelector: labels.SelectorFromSet(map[string]string{OwningServicePrefixLabel: sp.Name}),
+		LabelSelector: labels.SelectorFromSet(map[string]string{OwningServicePrefixLabel: spName}),
 	}
 	if err := r.List(ctx, &gwps, &listOps); err != nil {
 		return err
@@ -211,7 +172,7 @@ func (sp *ServicePrefix) RemoveMultusRoute(ctx context.Context, r client.Reader,
 		if otherAddr == nil {
 			continue
 		}
-		otherDest, err := sp.Spec.aggregateRoute(otherAddr)
+		otherDest, err := ap.aggregateRoute(otherAddr)
 		if err == nil && otherDest.String() == dest.String() {
 			l.Info("route in use, not removing", "route", dest.String())
 			routeInUse = true

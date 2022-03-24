@@ -71,8 +71,8 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	l.V(1).Info("Reconciling", "ifindex", ifIndex, "ifname", ifName)
 	var (
-		publicIP net.IP
-		sgName   types.NamespacedName
+		publicIP, altIP net.IP
+		sgName          types.NamespacedName
 	)
 
 	owningProxy, belongsToProxy := pod.Labels[epicv1.OwningProxyLabel]
@@ -81,15 +81,16 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		proxy := epicv1.GWProxy{}
 		proxyName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: owningProxy}
 		if err := r.Get(ctx, proxyName, &proxy); err != nil {
-			return done, err
+			return done, client.IgnoreNotFound(err)
 		}
 
-		// Calculate this proxy's public address which we use both when we
-		// add and when we delete
+		// Calculate this proxy's public and alt addresses which we use
+		// both when we add and when we delete
 		publicIP = net.ParseIP(proxy.Spec.PublicAddress)
 		if publicIP == nil {
 			return done, fmt.Errorf("%s can't be parsed as an IP address", proxy.Spec.PublicAddress)
 		}
+		altIP = net.ParseIP(proxy.Spec.AltAddress)
 
 		// Find the owning ServiceGroup's name.
 		sgName = types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: proxy.Labels[epicv1.OwningLBServiceGroupLabel]}
@@ -150,8 +151,15 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// the time that the PFC tunnel becomes fully ready.
 
 		// Attract LB traffic to this node
+		if altIP != nil {
+			l.Info("Adding route", "proxy-alt-address", altIP.String())
+			if err := prefix.Spec.AltPool.AddMultusRoute(altIP); err != nil {
+				return done, err
+			}
+		}
 		l.Info("Adding route", "proxy-public-address", publicIP.String())
-		if err := prefix.AddMultusRoute(publicIP); err != nil {
+		if err := prefix.Spec.PublicPool.AddMultusRoute(publicIP); err != nil {
+			l.Error(err, "Adding public address multus route", "publicIP", publicIP)
 			return done, err
 		}
 	}
