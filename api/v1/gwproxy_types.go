@@ -180,8 +180,10 @@ func (lb *GWProxy) AgentFinalizerName(nodeName string) string {
 
 // AddDNSEndpoint adds an external-dns Endpoint struct to the LB's
 // Spec.Endpoints. The Endpoint is based on the LBSG's template and
-// the DNS name is generated from a template. Two parameters are
-// provided to the template: .LBName and .LBSGName.
+// the DNS name is generated from a template. Parameters provided to
+// the template: .LBName, .LBSGName, .ClusterServiceName,
+// .ClusterServiceNS, .Account, .IPAddress (filtered to work in a DNS
+// name).
 func (proxy *GWProxy) AddDNSEndpoint(lbsg LBServiceGroup) error {
 	var (
 		tmpl *template.Template
@@ -194,14 +196,18 @@ func (proxy *GWProxy) AddDNSEndpoint(lbsg LBServiceGroup) error {
 		return err
 	}
 	params := struct {
-		LBName            string
-		LBSGName          string
-		PureLBServiceName string
-		IPAddress         string
+		LBName             string
+		LBSGName           string
+		ClusterServiceName string
+		ClusterServiceNS   string
+		Account            string
+		IPAddress          string
 	}{
 		proxy.Name,
 		lbsg.Name,
 		proxy.Spec.DisplayName,
+		proxy.Spec.ClientRef.Namespace,
+		proxy.Labels[OwningAccountLabel],
 		rfc1123Cleaner.Replace(proxy.Spec.PublicAddress),
 	}
 	err = tmpl.Execute(&doc, params)
