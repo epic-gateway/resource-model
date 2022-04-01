@@ -47,6 +47,18 @@ var (
 			return strings.ToUpper(string(protocol))
 		},
 
+		// PathTypeExact compares the provided matchType to
+		// PathMatchExact.
+		"PathTypeExact": func(matchType *gatewayv1a2.PathMatchType) bool {
+			return *matchType == gatewayv1a2.PathMatchExact
+		},
+
+		// PathTypePathPrefix compares the provided matchType to
+		// PathMatchPathPrefix.
+		"PathTypePathPrefix": func(matchType *gatewayv1a2.PathMatchType) bool {
+			return *matchType == gatewayv1a2.PathMatchPathPrefix
+		},
+
 		// HeaderTypeExact compares the provided matchType to
 		// HeaderMatchExact.
 		"HeaderTypeExact": func(matchType *gatewayv1a2.HeaderMatchType) bool {
