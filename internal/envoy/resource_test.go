@@ -9,6 +9,9 @@ import (
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 const (
@@ -108,4 +111,88 @@ func TestMakeHTTPListener(t *testing.T) {
 	})
 	assert.Nil(t, err, "template processing failed")
 	fmt.Println(listener)
+}
+
+func TestPreprocessRoutes(t *testing.T) {
+	exact := gatewayv1a2.PathMatchExact
+	// Trivial case: empty route slice
+	raw := []epicv1.GWRoute{}
+	want := []epicv1.GWRoute{}
+	cooked, err := PreprocessRoutes(raw)
+	assert.Nil(t, err, "route preprocessing failed")
+	assert.Equal(t, want, cooked)
+	rule1 := gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Path: &gatewayv1a2.HTTPPathMatch{
+				Type:  &exact,
+				Value: pointer.StringPtr("/"),
+			},
+		}},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+	}
+	rule2 := gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Path: &gatewayv1a2.HTTPPathMatch{
+				Type:  &exact,
+				Value: pointer.StringPtr("/rule2"),
+			},
+		}},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+	}
+
+	raw = []epicv1.GWRoute{
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: v1alpha2.HTTPRouteSpec{
+					Rules: []gatewayv1a2.HTTPRouteRule{rule1},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: v1alpha2.HTTPRouteSpec{
+					Hostnames: []v1alpha2.Hostname{"acnodal.io", "acnodal.com"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule1},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: v1alpha2.HTTPRouteSpec{
+					Hostnames: []v1alpha2.Hostname{"acnodal.com"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule2},
+				},
+			},
+		},
+	}
+	want = []epicv1.GWRoute{
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: v1alpha2.HTTPRouteSpec{
+					Hostnames: []v1alpha2.Hostname{"acnodal.com"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule1, rule2},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: v1alpha2.HTTPRouteSpec{
+					Hostnames: []v1alpha2.Hostname{"acnodal.io"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule1},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: v1alpha2.HTTPRouteSpec{
+					Hostnames: []v1alpha2.Hostname{"*"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule1},
+				},
+			},
+		},
+	}
+	cooked, err = PreprocessRoutes(raw)
+	assert.Nil(t, err, "route preprocessing failed")
+	assert.ElementsMatch(t, want, cooked) // FIXME: order matters here, need to use assert.Equal()
+
 }

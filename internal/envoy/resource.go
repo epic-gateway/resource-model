@@ -23,9 +23,14 @@ import (
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+)
+
+const (
+	allHosts = gatewayv1a2.Hostname("*")
 )
 
 var (
@@ -373,4 +378,61 @@ func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3
 			},
 		},
 	}, nil
+}
+
+// PreprocessRoutes rearranges the routes to make them work in Envoy
+// configurations.
+//
+// Each Route can have multiple Hostnames but Envoy allows only a
+// single hostname per virtual_host, so we need to create one output
+// Route for each input hostname.
+//
+// Each output route contains all of the rules that belong to any
+// input route with the same Hostname. Some rules might get duplicated
+// because an HTTPRoute can have multiple hostnames but each Envoy
+// virtual_host can have only a single hostname. A single output route
+// might contain rules from multiple input routes.
+func PreprocessRoutes(rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
+	// Make any route with an implicit wildcard host (i.e., no hostname)
+	// explicit (i.e., "*"). This helps below when we group rules by
+	// hostname.
+	for i, route := range rawRoutes {
+		if len(route.Spec.HTTP.Hostnames) == 0 {
+			rawRoutes[i].Spec.HTTP.Hostnames = []gatewayv1a2.Hostname{allHosts}
+		}
+	}
+
+	// Find the set of unique hostnames in the input routes and create
+	// one output Route for each hostname, which is how Envoy likes it.
+	hostnames := map[v1alpha2.Hostname]*epicv1.GWRoute{}
+	for _, route := range rawRoutes {
+		for _, hostname := range route.Spec.HTTP.Hostnames {
+			hostnames[hostname] = &epicv1.GWRoute{
+				Spec: epicv1.GWRouteSpec{
+					HTTP: gatewayv1a2.HTTPRouteSpec{
+						Hostnames: []gatewayv1a2.Hostname{hostname},
+						Rules:     []gatewayv1a2.HTTPRouteRule{},
+					},
+				},
+			}
+		}
+	}
+
+	// Build each output route by adding the rules from each input route
+	// that contains its hostname.
+	for _, route := range rawRoutes {
+		for _, hostname := range route.Spec.HTTP.Hostnames {
+			for _, rule := range route.Spec.HTTP.Rules {
+				hostnames[hostname].Spec.HTTP.Rules = append(hostnames[hostname].Spec.HTTP.Rules, rule)
+			}
+		}
+	}
+
+	// Flatten the map into a slice to return to the caller.
+	cooked := []epicv1.GWRoute{}
+	for _, route := range hostnames {
+		cooked = append(cooked, *route)
+	}
+
+	return cooked, nil
 }

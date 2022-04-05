@@ -163,15 +163,22 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return done, err
 	}
 
-	// Find any Routes that point to this Proxy
-	routes, err := proxy.GetChildRoutes(ctx, r.Client, l)
+	// Find any Routes that reference this Proxy.
+	inputRoutes, err := proxy.GetChildRoutes(ctx, r.Client, l)
 	if err != nil {
 		return done, err
 	}
-	l.Info("Routes for Proxy", "count", len(routes), "routes", routes)
+	l.V(1).Info("Input routes", "count", len(inputRoutes), "routes", inputRoutes)
+
+	// Pre-process Routes before templating them.
+	templateRoutes, err := envoy.PreprocessRoutes(inputRoutes)
+	if err != nil {
+		return done, err
+	}
+	l.V(1).Info("Preprocessed routes", "count", len(templateRoutes), "routes", templateRoutes)
 
 	// Build a new EnvoyConfig
-	envoyConfig, err := envoy.GWProxyToEnvoyConfig(*proxy, routes)
+	envoyConfig, err := envoy.GWProxyToEnvoyConfig(*proxy, templateRoutes)
 	if err != nil {
 		return done, err
 	}
