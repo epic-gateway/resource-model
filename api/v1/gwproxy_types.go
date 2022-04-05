@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net"
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	"github.com/go-logr/logr"
+	"github.com/vishvananda/netlink/nl"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -215,11 +217,23 @@ func (proxy *GWProxy) AddDNSEndpoint(lbsg LBServiceGroup) error {
 		return err
 	}
 
+	// Assume that the IP address is a V4 so its address record type is
+	// "A".
+	addrType := "A"
+	// If the addr is actually a V6 then the corresponding DNS address
+	// record is "AAAA".
+	if addrFamily(net.ParseIP(proxy.Spec.PublicAddress)) == nl.FAMILY_V6 {
+		addrType = "AAAA"
+	}
+
 	// Fill in the Endpoint
 	ep := Endpoint{}
 	lbsg.Spec.EndpointTemplate.DeepCopyInto(&ep)
 	ep.DNSName = doc.String()
 	ep.Targets = append(ep.Targets, proxy.Spec.PublicAddress)
+	if ep.RecordType == "" {
+		ep.RecordType = addrType
+	}
 
 	// Add the Endpoint to the list
 	proxy.Spec.Endpoints = append(proxy.Spec.Endpoints, &ep)

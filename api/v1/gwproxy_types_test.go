@@ -71,7 +71,7 @@ func TestGWAddDNSEndpoint(t *testing.T) {
 			expected: "TestSG",
 		},
 		{
-			template: "{{.IPAddress}}.{{.PureLBServiceName}}.{{.LBSGName}}.example.com",
+			template: "{{.IPAddress}}.{{.ClusterServiceName}}.{{.LBSGName}}.example.com",
 			expected: "10-42-27-9-70b4.TestService.TestSG.example.com",
 		},
 	} {
