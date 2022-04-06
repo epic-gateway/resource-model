@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"sort"
 	"strings"
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
@@ -428,11 +429,52 @@ func PreprocessRoutes(rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
 		}
 	}
 
-	// Flatten the map into a slice to return to the caller.
+	// Flatten the map into a slice to return to the caller. While we're
+	// doing that we sort the rules within each Route so they end up in
+	// a Gateway-spec-compliant order (i.e., catch-all match last).
 	cooked := []epicv1.GWRoute{}
 	for _, route := range hostnames {
-		cooked = append(cooked, *route)
+		ordered, err := sortRouteRules(*route)
+		if err != nil {
+			return cooked, err
+		}
+		cooked = append(cooked, ordered)
 	}
 
 	return cooked, nil
+}
+
+// sortRouteRules puts the "catch-all" match last so other matches get
+// a chance to do their thing. Envoy checks the matches in order so if
+// the first one in the list matches the others don't get checked. If
+// the first match is the "/" prefix it will always match.
+func sortRouteRules(route epicv1.GWRoute) (epicv1.GWRoute, error) {
+	sorted := route.DeepCopy()
+
+	sort.SliceStable(sorted.Spec.HTTP.Rules, func(i, j int) bool {
+		// Override the order if the first candidate is the catchall path
+		// match, i.e. prefix "/" with no other matches.
+		iRule := sorted.Spec.HTTP.Rules[i]
+		if len(iRule.Matches) == 1 && isCatchall(iRule.Matches[0]) {
+			return false
+		}
+		return true
+	})
+
+	return *sorted, nil
+}
+
+// isCatchall indicates whether match is the catchall match, i.e., a
+// prefix match of "/" with no other criteria. This match needs to be
+// the last one since it always matches.
+func isCatchall(match gatewayv1a2.HTTPRouteMatch) bool {
+	if len(match.Headers) == 0 &&
+		len(match.QueryParams) == 0 &&
+		match.Method == nil &&
+		match.Path != nil &&
+		*match.Path.Type == gatewayv1a2.PathMatchPathPrefix &&
+		*match.Path.Value == "/" {
+		return true
+	}
+	return false
 }

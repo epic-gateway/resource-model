@@ -14,6 +14,11 @@ import (
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
+var (
+	prefix gatewayv1a2.PathMatchType = gatewayv1a2.PathMatchPathPrefix
+	exact  gatewayv1a2.PathMatchType = gatewayv1a2.PathMatchExact
+)
+
 const (
 	clusterConfigSample = `name: purelb
 connect_timeout: 2s
@@ -114,17 +119,15 @@ func TestMakeHTTPListener(t *testing.T) {
 }
 
 func TestPreprocessRoutes(t *testing.T) {
-	exact := gatewayv1a2.PathMatchExact
 	// Trivial case: empty route slice
 	raw := []epicv1.GWRoute{}
 	want := []epicv1.GWRoute{}
 	cooked, err := PreprocessRoutes(raw)
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.Equal(t, want, cooked)
-	rule1 := gatewayv1a2.HTTPRouteRule{
+	catchall := gatewayv1a2.HTTPRouteRule{
 		Matches: []gatewayv1a2.HTTPRouteMatch{{
 			Path: &gatewayv1a2.HTTPPathMatch{
-				Type:  &exact,
 				Value: pointer.StringPtr("/"),
 			},
 		}},
@@ -144,7 +147,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		{
 			Spec: epicv1.GWRouteSpec{
 				HTTP: v1alpha2.HTTPRouteSpec{
-					Rules: []gatewayv1a2.HTTPRouteRule{rule1},
+					Rules: []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
@@ -152,7 +155,7 @@ func TestPreprocessRoutes(t *testing.T) {
 			Spec: epicv1.GWRouteSpec{
 				HTTP: v1alpha2.HTTPRouteSpec{
 					Hostnames: []v1alpha2.Hostname{"acnodal.io", "acnodal.com"},
-					Rules:     []gatewayv1a2.HTTPRouteRule{rule1},
+					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
@@ -170,7 +173,7 @@ func TestPreprocessRoutes(t *testing.T) {
 			Spec: epicv1.GWRouteSpec{
 				HTTP: v1alpha2.HTTPRouteSpec{
 					Hostnames: []v1alpha2.Hostname{"acnodal.com"},
-					Rules:     []gatewayv1a2.HTTPRouteRule{rule1, rule2},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, catchall}, // NOTE: catchall rule is now last
 				},
 			},
 		},
@@ -178,7 +181,7 @@ func TestPreprocessRoutes(t *testing.T) {
 			Spec: epicv1.GWRouteSpec{
 				HTTP: v1alpha2.HTTPRouteSpec{
 					Hostnames: []v1alpha2.Hostname{"acnodal.io"},
-					Rules:     []gatewayv1a2.HTTPRouteRule{rule1},
+					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
@@ -186,7 +189,7 @@ func TestPreprocessRoutes(t *testing.T) {
 			Spec: epicv1.GWRouteSpec{
 				HTTP: v1alpha2.HTTPRouteSpec{
 					Hostnames: []v1alpha2.Hostname{"*"},
-					Rules:     []gatewayv1a2.HTTPRouteRule{rule1},
+					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
@@ -195,4 +198,20 @@ func TestPreprocessRoutes(t *testing.T) {
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.ElementsMatch(t, want, cooked) // FIXME: order matters here, need to use assert.Equal()
 
+}
+
+func TestIsCatchallMatch(t *testing.T) {
+	assert.False(t, isCatchall(gatewayv1a2.HTTPRouteMatch{
+		Path: &gatewayv1a2.HTTPPathMatch{
+			Type:  &prefix,
+			Value: pointer.StringPtr("/not-catchall"),
+		},
+	}))
+
+	assert.True(t, isCatchall(gatewayv1a2.HTTPRouteMatch{
+		Path: &gatewayv1a2.HTTPPathMatch{
+			Type:  &prefix,
+			Value: pointer.StringPtr("/"),
+		},
+	}))
 }
