@@ -447,17 +447,34 @@ func PreprocessRoutes(rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
 // sortRouteRules puts the "catch-all" match last so other matches get
 // a chance to do their thing. Envoy checks the matches in order so if
 // the first one in the list matches the others don't get checked. If
-// the first match is the "/" prefix it will always match.
+// the first match is the "/" path prefix it will always match.
 func sortRouteRules(route epicv1.GWRoute) (epicv1.GWRoute, error) {
 	sorted := route.DeepCopy()
 
 	sort.SliceStable(sorted.Spec.HTTP.Rules, func(i, j int) bool {
+		iRule := sorted.Spec.HTTP.Rules[i]
+		jRule := sorted.Spec.HTTP.Rules[j]
+
 		// Override the order if the first candidate is the catchall path
 		// match, i.e. prefix "/" with no other matches.
-		iRule := sorted.Spec.HTTP.Rules[i]
-		if len(iRule.Matches) == 1 && isCatchall(iRule.Matches[0]) {
+		if isCatchall(iRule) {
 			return false
 		}
+
+		// Simpler criteria are easier to match so they need to be checked
+		// later than more complex criteria. You might have two criteria
+		// with the same path but one of them also has a header. The one
+		// with two different matches needs to be first because otherwise
+		// it will never even get checked because the simpler one will
+		// match in every case that the complex one would.
+		//
+		// This is a simple approach that probably won't handle every case
+		// but will handle many of them.
+		if criteriaCount(iRule.Matches[0]) < criteriaCount(jRule.Matches[0]) { // FIXME: handle multi-match rules
+			return false
+		}
+
+		// We haven't seen anything to cause us to change the order.
 		return true
 	})
 
@@ -467,14 +484,40 @@ func sortRouteRules(route epicv1.GWRoute) (epicv1.GWRoute, error) {
 // isCatchall indicates whether match is the catchall match, i.e., a
 // prefix match of "/" with no other criteria. This match needs to be
 // the last one since it always matches.
-func isCatchall(match gatewayv1a2.HTTPRouteMatch) bool {
-	if len(match.Headers) == 0 &&
-		len(match.QueryParams) == 0 &&
-		match.Method == nil &&
+func isCatchall(rule gatewayv1a2.HTTPRouteRule) bool {
+	// The catchall rule contains only one match so if this one has more
+	// or fewer then it's not the catchall
+	if len(rule.Matches) != 1 {
+		return false
+	}
+
+	match := rule.Matches[0]
+	if criteriaCount(match) == 1 &&
 		match.Path != nil &&
 		*match.Path.Type == gatewayv1a2.PathMatchPathPrefix &&
 		*match.Path.Value == "/" {
 		return true
 	}
 	return false
+}
+
+// criteriaCount returns the count of active criteria in match. This
+// can be used when ordering the matches since matches with more
+// criteria are more specific and therefore should be checked after
+// matches with fewer criteria.
+func criteriaCount(match gatewayv1a2.HTTPRouteMatch) (count int) {
+	if len(match.Headers) > 0 {
+		count++
+	}
+	if len(match.QueryParams) > 0 {
+		count++
+	}
+	if match.Method != nil {
+		count++
+	}
+	if match.Path != nil {
+		count++
+	}
+
+	return
 }

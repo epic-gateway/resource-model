@@ -1,6 +1,7 @@
 package envoy
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -15,8 +16,10 @@ import (
 )
 
 var (
-	prefix gatewayv1a2.PathMatchType = gatewayv1a2.PathMatchPathPrefix
-	exact  gatewayv1a2.PathMatchType = gatewayv1a2.PathMatchExact
+	prefix gatewayv1a2.PathMatchType       = gatewayv1a2.PathMatchPathPrefix
+	exact  gatewayv1a2.PathMatchType       = gatewayv1a2.PathMatchExact
+	get    gatewayv1a2.HTTPMethod          = gatewayv1a2.HTTPMethodGet
+	regex  gatewayv1a2.QueryParamMatchType = gatewayv1a2.QueryParamMatchRegularExpression
 )
 
 const (
@@ -86,6 +89,16 @@ var (
 			UpstreamClusters: []string{"fred", "barney", "betty"},
 		},
 	}
+
+	catchall = gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Path: &gatewayv1a2.HTTPPathMatch{
+				Type:  &prefix,
+				Value: pointer.StringPtr("/"),
+			},
+		}},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+	}
 )
 
 func TestServiceToCluster(t *testing.T) {
@@ -118,6 +131,46 @@ func TestMakeHTTPListener(t *testing.T) {
 	fmt.Println(listener)
 }
 
+func TestSortRouteRules(t *testing.T) {
+	one_match := gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/api")},
+		}},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+	}
+	two_matches := gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Method: &get,
+			Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
+		}},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+	}
+
+	// This Route has a more specific match after a less specific one so
+	// they should be reversed
+	raw := epicv1.GWRoute{
+		Spec: epicv1.GWRouteSpec{
+			HTTP: v1alpha2.HTTPRouteSpec{
+				Rules: []gatewayv1a2.HTTPRouteRule{catchall, two_matches, one_match},
+			},
+		},
+	}
+	want := epicv1.GWRoute{
+		Spec: epicv1.GWRouteSpec{
+			HTTP: v1alpha2.HTTPRouteSpec{
+				Rules: []gatewayv1a2.HTTPRouteRule{two_matches, one_match, catchall},
+			},
+		},
+	}
+	cooked, err := sortRouteRules(raw)
+	assert.Nil(t, err, "sortRouteRules failed")
+
+	cookedBytes, err := json.Marshal(cooked.Spec.HTTP.Rules)
+	wantBytes, err := json.Marshal(want.Spec.HTTP.Rules)
+
+	assert.Equal(t, string(wantBytes), string(cookedBytes))
+}
+
 func TestPreprocessRoutes(t *testing.T) {
 	// Trivial case: empty route slice
 	raw := []epicv1.GWRoute{}
@@ -125,14 +178,6 @@ func TestPreprocessRoutes(t *testing.T) {
 	cooked, err := PreprocessRoutes(raw)
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.Equal(t, want, cooked)
-	catchall := gatewayv1a2.HTTPRouteRule{
-		Matches: []gatewayv1a2.HTTPRouteMatch{{
-			Path: &gatewayv1a2.HTTPPathMatch{
-				Value: pointer.StringPtr("/"),
-			},
-		}},
-		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
-	}
 	rule2 := gatewayv1a2.HTTPRouteRule{
 		Matches: []gatewayv1a2.HTTPRouteMatch{{
 			Path: &gatewayv1a2.HTTPPathMatch{
@@ -201,17 +246,40 @@ func TestPreprocessRoutes(t *testing.T) {
 }
 
 func TestIsCatchallMatch(t *testing.T) {
-	assert.False(t, isCatchall(gatewayv1a2.HTTPRouteMatch{
-		Path: &gatewayv1a2.HTTPPathMatch{
-			Type:  &prefix,
-			Value: pointer.StringPtr("/not-catchall"),
-		},
+	assert.False(t, isCatchall(gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Path: &gatewayv1a2.HTTPPathMatch{
+				Type:  &prefix,
+				Value: pointer.StringPtr("/not-catchall"),
+			},
+		}},
 	}))
 
-	assert.True(t, isCatchall(gatewayv1a2.HTTPRouteMatch{
-		Path: &gatewayv1a2.HTTPPathMatch{
-			Type:  &prefix,
-			Value: pointer.StringPtr("/"),
-		},
+	assert.True(t, isCatchall(gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Path: &gatewayv1a2.HTTPPathMatch{
+				Type:  &prefix,
+				Value: pointer.StringPtr("/"),
+			},
+		}},
+	}))
+}
+
+func TestCriteriaCount(t *testing.T) {
+	assert.Equal(t, 1, criteriaCount(gatewayv1a2.HTTPRouteMatch{
+		Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/prefix")},
+	}))
+	assert.Equal(t, 1, criteriaCount(gatewayv1a2.HTTPRouteMatch{
+		Headers: []gatewayv1a2.HTTPHeaderMatch{{Name: "test", Value: "unit"}},
+	}))
+	assert.Equal(t, 2, criteriaCount(gatewayv1a2.HTTPRouteMatch{
+		Path:    &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/prefix")},
+		Headers: []gatewayv1a2.HTTPHeaderMatch{{Name: "test", Value: "unit"}},
+	}))
+	assert.Equal(t, 4, criteriaCount(gatewayv1a2.HTTPRouteMatch{
+		QueryParams: []gatewayv1a2.HTTPQueryParamMatch{{Type: &regex, Name: "test", Value: "^unit$"}},
+		Method:      &get,
+		Path:        &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/prefix")},
+		Headers:     []gatewayv1a2.HTTPHeaderMatch{{Name: "test", Value: "unit"}},
 	}))
 }
