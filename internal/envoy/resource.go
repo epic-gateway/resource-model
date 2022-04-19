@@ -382,7 +382,9 @@ func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3
 }
 
 // PreprocessRoutes rearranges the routes to make them work in Envoy
-// configurations.
+// configurations. The idea is to do the heavy lifting that's better
+// suited for Go which allows the templates to be more
+// straightforward.
 //
 // Each Route can have multiple Hostnames but Envoy allows only a
 // single hostname per virtual_host, so we need to create one output
@@ -419,13 +421,11 @@ func PreprocessRoutes(rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
 		}
 	}
 
-	// Build each output route by adding the rules from each input route
-	// that contains its hostname.
+	// Build each output route by adding the split rules from each input
+	// route that contains its hostname.
 	for _, route := range rawRoutes {
 		for _, hostname := range route.Spec.HTTP.Hostnames {
-			for _, rule := range route.Spec.HTTP.Rules {
-				hostnames[hostname].Spec.HTTP.Rules = append(hostnames[hostname].Spec.HTTP.Rules, rule)
-			}
+			hostnames[hostname].Spec.HTTP.Rules = append(hostnames[hostname].Spec.HTTP.Rules, splitMatches(route.Spec.HTTP.Rules)...)
 		}
 	}
 
@@ -520,4 +520,32 @@ func criteriaCount(match gatewayv1a2.HTTPRouteMatch) (count int) {
 	}
 
 	return
+}
+
+// splitMatches splits multi-match rules into multiple single-match
+// rules. We do this because we need to re-order the matches from
+// most-specific to least-specific for Envoy to do its job. A single
+// rule might have several matches, but some of the matches might be
+// more specific and some might be less specific. In this case some of
+// the matches need to be early in the list, and some need to be
+// later, but if they all belong to one rule then they end up in the
+// same place.
+//
+// We're able to do this because matches within a rule are "OR-ed",
+// i.e., the rule matches if *any* of its matches matches. We can
+// therefore take a rule with two matches and turn it into two rules,
+// each with one match. This allows us to sort them into different
+// places in the list.
+func splitMatches(rules []gatewayv1a2.HTTPRouteRule) []gatewayv1a2.HTTPRouteRule {
+	splits := []gatewayv1a2.HTTPRouteRule{}
+
+	for _, rule := range rules {
+		for _, match := range rule.Matches {
+			split := rule.DeepCopy()
+			split.Matches = []gatewayv1a2.HTTPRouteMatch{match}
+			splits = append(splits, *split)
+		}
+	}
+
+	return splits
 }

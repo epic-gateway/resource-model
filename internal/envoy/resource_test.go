@@ -99,6 +99,21 @@ var (
 		}},
 		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
 	}
+
+	one_match = gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/api")},
+		}},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+	}
+
+	two_matches = gatewayv1a2.HTTPRouteRule{
+		Matches: []gatewayv1a2.HTTPRouteMatch{{
+			Method: &get,
+			Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
+		}},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+	}
 )
 
 func TestServiceToCluster(t *testing.T) {
@@ -132,20 +147,6 @@ func TestMakeHTTPListener(t *testing.T) {
 }
 
 func TestSortRouteRules(t *testing.T) {
-	one_match := gatewayv1a2.HTTPRouteRule{
-		Matches: []gatewayv1a2.HTTPRouteMatch{{
-			Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/api")},
-		}},
-		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
-	}
-	two_matches := gatewayv1a2.HTTPRouteRule{
-		Matches: []gatewayv1a2.HTTPRouteMatch{{
-			Method: &get,
-			Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
-		}},
-		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
-	}
-
 	// This Route has a more specific match after a less specific one so
 	// they should be reversed
 	raw := epicv1.GWRoute{
@@ -165,10 +166,7 @@ func TestSortRouteRules(t *testing.T) {
 	cooked, err := sortRouteRules(raw)
 	assert.Nil(t, err, "sortRouteRules failed")
 
-	cookedBytes, err := json.Marshal(cooked.Spec.HTTP.Rules)
-	wantBytes, err := json.Marshal(want.Spec.HTTP.Rules)
-
-	assert.Equal(t, string(wantBytes), string(cookedBytes))
+	assert.Equal(t, jsonify(t, want), jsonify(t, cooked))
 }
 
 func TestPreprocessRoutes(t *testing.T) {
@@ -282,4 +280,35 @@ func TestCriteriaCount(t *testing.T) {
 		Path:        &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/prefix")},
 		Headers:     []gatewayv1a2.HTTPHeaderMatch{{Name: "test", Value: "unit"}},
 	}))
+}
+
+func TestSplitMatches(t *testing.T) {
+	got := []gatewayv1a2.HTTPRouteRule{{
+		Matches: []gatewayv1a2.HTTPRouteMatch{
+			{Method: &get},
+			{Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")}},
+		},
+	}}
+	want := []gatewayv1a2.HTTPRouteRule{{
+		Matches: []gatewayv1a2.HTTPRouteMatch{
+			{Method: &get},
+		},
+	}, {
+		Matches: []gatewayv1a2.HTTPRouteMatch{
+			{Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")}},
+		},
+	}}
+
+	split := splitMatches(got)
+	assert.Equal(t, 2, len(split))
+
+	assert.Equal(t, jsonify(t, want), jsonify(t, split))
+}
+
+func jsonify(t *testing.T, obj interface{}) string {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		assert.Fail(t, "Failure marshaling to json", obj)
+	}
+	return string(bytes)
 }
