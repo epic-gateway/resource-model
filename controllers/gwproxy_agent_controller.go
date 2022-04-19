@@ -230,12 +230,12 @@ func cleanupLinux(ctx context.Context, l logr.Logger, r client.Reader, prefixNam
 
 	// remove route
 	if err := pool.RemoveMultusRoute(ctx, r, l, lbName, publicAddr, prefixName); err != nil {
-		l.Error(err, "Failed to delete bridge route")
+		l.Info("Failed to delete bridge route", "message", err.Error())
 	}
 
 	// remove IPSet entry
 	if err := network.DelIpsetEntry(l, publicAddr.String(), ports); err != nil {
-		l.Error(err, "Failed to delete ipset entry")
+		l.Info("Failed to delete ipset entry", "message", err.Error())
 	}
 
 	return nil
