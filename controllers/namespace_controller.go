@@ -41,61 +41,63 @@ type NamespaceReconciler struct {
 // Request is asking for.
 func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
-	var err error
-	result := ctrl.Result{}
+	l.V(1).Info("reconciling")
 
 	// read the object that caused the event
 	ns := &v1.Namespace{}
-	err = r.Get(ctx, req.NamespacedName, ns)
-	if err != nil {
-		return result, err
+	if err := r.Get(ctx, req.NamespacedName, ns); err != nil {
+		l.Info("can't get resource, probably deleted", "namespace", req.NamespacedName)
+		// ignore not-found errors, since they can't be fixed by an
+		// immediate requeue (we'll need to wait for a new notification),
+		// and we can get them on deleted requests.
+		return done, client.IgnoreNotFound(err)
 	}
 
 	if ns.Status.Phase == v1.NamespaceTerminating {
 		l.Info("namespace is Terminating")
-		return result, nil
+		return done, nil
 	}
 
 	// Check that the NS has the labels that indicate that it's an EPIC
 	// client NameSpace
 	if !nsHasLabels(ns, epicv1.UserNSLabels) {
-		return result, nil
+		return done, nil
 	}
 
 	// read the configuration singleton
 	config := &epicv1.EPIC{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}, config); err != nil {
 		l.Info("can't get config singleton")
-		return result, err
+		return done, err
 	}
 
 	// Create the Marin3r DiscoveryService that will configure this
 	// namespace's Envoys
 	if err := r.maybeCreateMarin3r(ctx, l, ns.Name, config.Spec.XDSImage, true); err != nil {
-		return result, err
+		return done, err
 	}
 
 	// Create the EDS server deployment and RBAC cruft
 	if err := maybeCreateServiceAccount(ctx, r, l, ns.Name); err != nil {
-		return result, err
+		return done, err
 	}
 	if err := maybeCreateRole(ctx, r, l, ns.Name); err != nil {
-		return result, err
+		return done, err
 	}
 	if err := maybeCreateEDSRoleBinding(ctx, r, l, ns.Name); err != nil {
-		return result, err
+		return done, err
 	}
 	if err := maybeCreateDefaultClusterRoleBinding(ctx, r, l, ns.Name); err != nil {
-		return result, err
+		return done, err
 	}
 	if err := maybeCreateService(ctx, r, l, ns.Name); err != nil {
-		return result, err
+		return done, err
 	}
 	if err := maybeCreateDeployment(ctx, r, l, ns.Name, config.Spec.EDSImage); err != nil {
-		return result, err
+		return done, err
 	}
 
-	return result, err
+	return done, nil
 }
 
 // SetupWithManager sets up this controller to work with the mgr.
