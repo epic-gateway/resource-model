@@ -22,7 +22,6 @@ import (
 // NamespaceReconciler reconciles a Namespace object
 type NamespaceReconciler struct {
 	client.Client
-	Log           logr.Logger
 	RuntimeScheme *runtime.Scheme
 }
 
@@ -49,7 +48,6 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	ns := &v1.Namespace{}
 	err = r.Get(ctx, req.NamespacedName, ns)
 	if err != nil {
-		r.Log.Error(err, "reading Namespace")
 		return result, err
 	}
 
