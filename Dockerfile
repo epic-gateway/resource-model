@@ -1,5 +1,4 @@
-# Build the manager binary
-FROM golang:1.16-bullseye as builder
+FROM golang:1.17-alpine as builder
 
 # Configure golang for our private modules at gitlab
 ENV GONOPROXY=gitlab.com/acnodal
@@ -8,9 +7,12 @@ ENV GOPRIVATE=gitlab.com/acnodal
 ARG GITLAB_USER
 ARG GITLAB_PASSWORD
 
+# install and configure git. we need it because some of our modules
+# (e.g., packet-forwarding-component) are private
+RUN apk add git
 RUN echo "machine gitlab.com login ${GITLAB_USER} password ${GITLAB_PASSWORD}" > ~/.netrc
 
-WORKDIR /workspace
+WORKDIR /opt/acnodal/src
 
 # Copy the Go Modules manifests
 COPY go.mod go.sum ./
@@ -28,4 +30,4 @@ FROM ubuntu:20.04
 
 RUN apt-get update && apt-get install -y curl ipset iptables iproute2 linux-tools-generic
 
-COPY --from=builder /workspace/manager /usr/local/bin/manager
+COPY --from=builder /opt/acnodal/src/manager /usr/local/bin/manager
