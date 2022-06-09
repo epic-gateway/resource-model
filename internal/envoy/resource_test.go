@@ -2,14 +2,10 @@ package envoy
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
-	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -70,26 +66,6 @@ filter_chains:
 )
 
 var (
-	testService = epicv1.LoadBalancer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "test",
-		},
-		Spec: epicv1.LoadBalancerSpec{
-			EnvoyTemplate: &marin3r.EnvoyConfigSpec{
-				EnvoyResources: &marin3r.EnvoyResources{
-					Clusters: []marin3r.EnvoyResource{{
-						Value: clusterConfigSample,
-					}},
-					Listeners: []marin3r.EnvoyResource{{
-						Value: listenerConfigSample,
-					}},
-				},
-			},
-			UpstreamClusters: []string{"fred", "barney", "betty"},
-		},
-	}
-
 	catchall = gatewayv1a2.HTTPRouteRule{
 		Matches: []gatewayv1a2.HTTPRouteMatch{{
 			Path: &gatewayv1a2.HTTPPathMatch{
@@ -115,36 +91,6 @@ var (
 		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
 	}
 )
-
-func TestServiceToCluster(t *testing.T) {
-	cluster, err := ServiceToCluster(testService, []epicv1.RemoteEndpoint{})
-	assert.Nil(t, err, "template processing failed")
-	fmt.Println(cluster)
-
-	cluster, err = ServiceToCluster(testService, []epicv1.RemoteEndpoint{{
-		Spec: epicv1.RemoteEndpointSpec{
-			Address: "1.1.1.1",
-			Port: corev1.EndpointPort{
-				Port:     42,
-				Protocol: "udp",
-			},
-		},
-	}})
-	if err != nil {
-		fmt.Printf("********************** %#v\n\n", err.Error())
-	}
-	assert.Nil(t, err, "template processing failed")
-	fmt.Println(cluster)
-}
-
-func TestMakeHTTPListener(t *testing.T) {
-	listener, err := makeHTTPListener(listenerConfigSample, testService, corev1.ServicePort{
-		Protocol: "tcp",
-		Port:     42,
-	})
-	assert.Nil(t, err, "template processing failed")
-	fmt.Println(listener)
-}
 
 func TestSortRouteRules(t *testing.T) {
 	// This Route has a more specific match after a less specific one so

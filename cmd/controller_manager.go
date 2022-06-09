@@ -185,7 +185,7 @@ func listProxyPods(ctx context.Context, cl client.Client) (v1.PodList, error) {
 	// We want to find *all* of the Envoy proxy pods so we use the
 	// standard set of labels but delete the owning load balancer.
 	envoyLabels := epicv1.LabelsForEnvoy("placeholder")
-	delete(envoyLabels, epicv1.OwningLoadBalancerLabel)
+	delete(envoyLabels, epicv1.OwningProxyLabel)
 
 	listOps := client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(envoyLabels),

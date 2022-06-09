@@ -26,8 +26,8 @@ type LBServiceGroupSpec struct {
 	EnvoyImage *string `json:"envoy-image,omitempty"`
 
 	// EnvoyReplicaCount determines the number of Envoy proxy pod
-	// replicas that will be launched for each LoadBalancer. It can be
-	// overridden by the LoadBalancer CR.
+	// replicas that will be launched for each GWProxy. It can be
+	// overridden by the GWProxy CR.
 	// +kubebuilder:default=1
 	EnvoyReplicaCount int32 `json:"envoy-replica-count"`
 

@@ -97,26 +97,6 @@ func (r *ServicePrefixReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return result, err
 	}
 
-	// Read the set of LBs that belong to this SP
-	labelSelector := labels.SelectorFromSet(map[string]string{epicv1.OwningServicePrefixLabel: req.Name})
-	listOps := client.ListOptions{Namespace: "", LabelSelector: labelSelector}
-	lbs := epicv1.LoadBalancerList{}
-	if err := r.List(ctx, &lbs, &listOps); err != nil {
-		return result, err
-	}
-
-	// "Warm up" the allocator with the previously-allocated addresses
-	// from the list of LBs
-	for _, lb := range lbs.Items {
-		if existingIP := net.ParseIP(lb.Spec.PublicAddress); existingIP != nil {
-			if _, err := r.Allocator.Assign(lb.Name, existingIP, lb.Spec.PublicPorts, ""); err != nil {
-				l.Error(err, "Error assigning IP", "IP", existingIP)
-			} else {
-				l.Info("Previously allocated", "IP", existingIP, "service", lb.Namespace+"/"+lb.Name)
-			}
-		}
-	}
-
 	// Read the set of proxies that belong to this SP
 	proxySelector := labels.SelectorFromSet(map[string]string{epicv1.OwningServicePrefixLabel: req.Name})
 	proxyListOpts := client.ListOptions{Namespace: "", LabelSelector: proxySelector}
