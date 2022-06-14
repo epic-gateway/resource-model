@@ -24,7 +24,6 @@ import (
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
@@ -283,7 +282,7 @@ func PreprocessRoutes(rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
 
 	// Find the set of unique hostnames in the input routes and create
 	// one output Route for each hostname, which is how Envoy likes it.
-	hostnames := map[v1alpha2.Hostname]*epicv1.GWRoute{}
+	hostnames := map[gatewayv1a2.Hostname]*epicv1.GWRoute{}
 	for _, route := range rawRoutes {
 		for _, hostname := range route.Spec.HTTP.Hostnames {
 			hostnames[hostname] = &epicv1.GWRoute{

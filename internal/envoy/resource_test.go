@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"k8s.io/utils/pointer"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
@@ -97,14 +96,14 @@ func TestSortRouteRules(t *testing.T) {
 	// they should be reversed
 	raw := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
-			HTTP: v1alpha2.HTTPRouteSpec{
+			HTTP: gatewayv1a2.HTTPRouteSpec{
 				Rules: []gatewayv1a2.HTTPRouteRule{catchall, two_matches, one_match},
 			},
 		},
 	}
 	want := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
-			HTTP: v1alpha2.HTTPRouteSpec{
+			HTTP: gatewayv1a2.HTTPRouteSpec{
 				Rules: []gatewayv1a2.HTTPRouteRule{two_matches, one_match, catchall},
 			},
 		},
@@ -135,23 +134,23 @@ func TestPreprocessRoutes(t *testing.T) {
 	raw = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: v1alpha2.HTTPRouteSpec{
+				HTTP: gatewayv1a2.HTTPRouteSpec{
 					Rules: []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: v1alpha2.HTTPRouteSpec{
-					Hostnames: []v1alpha2.Hostname{"acnodal.io", "acnodal.com"},
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "acnodal.com"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: v1alpha2.HTTPRouteSpec{
-					Hostnames: []v1alpha2.Hostname{"acnodal.com"},
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"acnodal.com"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2},
 				},
 			},
@@ -160,24 +159,24 @@ func TestPreprocessRoutes(t *testing.T) {
 	want = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: v1alpha2.HTTPRouteSpec{
-					Hostnames: []v1alpha2.Hostname{"acnodal.com"},
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"acnodal.com"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, catchall}, // NOTE: catchall rule is now last
 				},
 			},
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: v1alpha2.HTTPRouteSpec{
-					Hostnames: []v1alpha2.Hostname{"acnodal.io"},
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"acnodal.io"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: v1alpha2.HTTPRouteSpec{
-					Hostnames: []v1alpha2.Hostname{"*"},
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"*"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
