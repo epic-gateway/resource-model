@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func init() {
@@ -96,7 +97,14 @@ type GWProxySpec struct {
 	// gwproxy controller.
 	ProxyInterfaces map[string]ProxyInterfaceInfo `json:"proxy-if-info,omitempty"`
 
+	// Endpoints is a slice of DNS entries that external-dns will push
+	// to our DNS provider. For now it typically holds one entry which
+	// is generated from a template.
 	Endpoints []*Endpoint `json:"endpoints,omitempty"`
+
+	// Gateway is the client-side gatewayv1a2.GatewaySpec that
+	// corresponds to this GWP.
+	Gateway gatewayv1a2.GatewaySpec `json:"gateway,omitempty"`
 }
 
 // GWProxyStatus defines the observed state of GWProxy

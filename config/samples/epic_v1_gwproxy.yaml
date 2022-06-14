@@ -104,6 +104,12 @@ spec:
                     - name: envoy.filters.http.router
     nodeID: SET_BY_EPIC
     serialization: yaml
+  gateway:
+    gatewayClassName: gatewayhttp
+    listeners:
+    - name: web
+      protocol: TCP
+      port: 8088
   public-address: 192.168.79.2
   public-ports:
   - port: 8088
