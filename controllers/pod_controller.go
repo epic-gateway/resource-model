@@ -23,7 +23,6 @@ type PodReconciler struct {
 }
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
-// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;update;patch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies/status,verbs=get;update;patch
 
@@ -122,7 +121,7 @@ func (r *PodReconciler) Scheme() *runtime.Scheme {
 }
 
 // addProxyTunnels adds a tunnel from proxy to each client node running an
-// endpoint and patches lb with the tunnel info.
+// endpoint and patches proxy with the tunnel info.
 func (r *PodReconciler) addProxyTunnels(ctx context.Context, l logr.Logger, proxy *epicv1.GWProxy, pod *v1.Pod) error {
 	var (
 		err        error

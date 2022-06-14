@@ -429,3 +429,48 @@ func (proxy *GWProxy) Nudge(ctx context.Context, cl client.Client, l logr.Logger
 
 	return nil
 }
+
+// RemovePodInfo removes podName's info from name's ProxyInterfaces
+// map.
+func RemovePodInfo(ctx context.Context, cl client.Client, ns string, name string, podName string) error {
+	var p GWProxy
+
+	key := client.ObjectKey{Namespace: ns, Name: name}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Fetch the resource here; you need to refetch it on every try,
+		// since if you got a conflict on the last update attempt then
+		// you need to get the current version before making your own
+		// changes.
+		if err := cl.Get(ctx, key, &p); err != nil {
+			return err
+		}
+
+		if podInfo, hasPod := p.Spec.ProxyInterfaces[podName]; hasPod {
+			// Remove this pod's entry from the ProxyInterfaces map
+			delete(p.Spec.ProxyInterfaces, podName)
+
+			// Find out if any remaining Envoy pods are running on the same
+			// node as the one we've deleted.
+			hasPods := false
+			for _, nodeInfo := range p.Spec.ProxyInterfaces {
+				if podInfo.EPICNodeAddress == nodeInfo.EPICNodeAddress {
+					hasPods = true
+				}
+			}
+
+			// If this node has no more Envoy pods then remove this node's
+			// entry from any of the EPICEndpointMaps that have it.
+			if !hasPods {
+				for _, epTunnelMap := range p.Spec.GUETunnelMaps {
+					delete(epTunnelMap.EPICEndpoints, podInfo.EPICNodeAddress)
+				}
+			}
+
+			// Try to update
+			return cl.Update(ctx, &p)
+		}
+
+		return nil
+	})
+}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -50,6 +51,46 @@ type EPICSpec struct {
 	// NodeBase is the "base" configuration for all nodes in the
 	// cluster.
 	NodeBase Node `json:"base"`
+}
+
+// EPICEndpointMap contains a map of the EPIC endpoints that connect
+// to one PureLB endpoint, keyed by Node IP address.
+type EPICEndpointMap struct {
+	EPICEndpoints map[string]GUETunnelEndpoint `json:"epic-endpoints,omitempty"`
+}
+
+// GUETunnelEndpoint is an Endpoint on the EPIC.
+type GUETunnelEndpoint struct {
+	// Address is the IP address on the EPIC for this endpoint.
+	Address string `json:"epic-address,omitempty"`
+
+	// Port is the port on which this endpoint listens.
+	// +kubebuilder:default={"port":6080,"protocol":"UDP","appProtocol":"gue"}
+	Port corev1.EndpointPort `json:"epic-port,omitempty"`
+
+	// TunnelID is used to route traffic to the correct tunnel.
+	TunnelID uint32 `json:"tunnel-id,omitempty"`
+}
+
+// ProxyInterfaceInfo contains information about the Envoy proxy pod's
+// network interfaces.
+type ProxyInterfaceInfo struct {
+	// EPICNodeAddress is the IP address of the EPIC node that hosts
+	// this proxy pod.
+	EPICNodeAddress string `json:"epic-node-address,omitempty"`
+
+	// Port is the port on which this endpoint listens.
+	// +kubebuilder:default={"port":6080,"protocol":"UDP","appProtocol":"gue"}
+	Port corev1.EndpointPort `json:"epic-port,omitempty"`
+
+	// Index is the ifindex of the Envoy proxy pod's veth interface on
+	// the CRI side of this service's proxy pod. In other words, it's
+	// the end of the veth that's inside the container (i.e., on the
+	// other side from the end that's attached to the multus bridge).
+	Index int `json:"index,omitempty"`
+
+	// Name is the name of the interface whose index is ProxyIfindex.
+	Name string `json:"name,omitempty"`
 }
 
 // EPICStatus defines the observed state of EPIC

@@ -30,21 +30,20 @@ type RemoteEndpointSpec struct {
 
 // RemoteEndpointStatus defines the observed state of RemoteEndpoint
 type RemoteEndpointStatus struct {
-	// The ProxyIfindex in the LoadBalancer Status is canonical but we
+	// The ProxyIfindex in the GWProxy Status is canonical but we
 	// cache it here so we can cleanup the PFC service without having to
-	// lookup the LB since it might have been deleted.
+	// lookup the GWP since it might have been deleted.
 	ProxyIfindex int `json:"proxy-ifindex,omitempty"`
 
-	// The TunnelID in the LoadBalancer Status is canonical but we cache
+	// The TunnelID in the GWProxy Status is canonical but we cache
 	// it here so we can cleanup the PFC service without having to
-	// lookup the LB since it might have been deleted.
+	// lookup the GWP since it might have been deleted.
 	TunnelID uint32 `json:"tunnel-id,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=rep;reps
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:JSONPath=".metadata.labels.epic\\.acnodal\\.io/owning-loadbalancer",name=Load Balancer,type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.address",name=Address,type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.node-address",name=Node Address,type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port.port",name=Port,type=integer

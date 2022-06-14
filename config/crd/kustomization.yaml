@@ -4,7 +4,6 @@
 resources:
 - bases/epic.acnodal.io_accounts.yaml
 - bases/epic.acnodal.io_lbservicegroups.yaml
-- bases/epic.acnodal.io_loadbalancers.yaml
 - bases/epic.acnodal.io_serviceprefixes.yaml
 - bases/epic.acnodal.io_epics.yaml
 - bases/epic.acnodal.io_remoteendpoints.yaml
@@ -18,7 +17,6 @@ patchesStrategicMerge:
 # patches here are for enabling the conversion webhook for each CRD
 #- patches/webhook_in_accounts.yaml
 #- patches/webhook_in_lbservicegroups.yaml
-- patches/webhook_in_loadbalancers.yaml
 #- patches/webhook_in_serviceprefixes.yaml
 #- patches/webhook_in_epics.yaml
 #- patches/webhook_in_remoteendpoints.yaml
@@ -30,7 +28,6 @@ patchesStrategicMerge:
 # patches here are for enabling the CA injection for each CRD
 #- patches/cainjection_in_accounts.yaml
 #- patches/cainjection_in_lbservicegroups.yaml
-- patches/cainjection_in_loadbalancers.yaml
 #- patches/cainjection_in_serviceprefixes.yaml
 #- patches/cainjection_in_epics.yaml
 #- patches/cainjection_in_remoteendpoints.yaml

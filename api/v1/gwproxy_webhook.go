@@ -2,9 +2,13 @@ package v1
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
+	"net"
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,6 +25,22 @@ var (
 	// crtclient looks up objects related to the one we're defaulting.
 	crtclient client.Client
 )
+
+// PoolAllocator allocates addresses. We use an interface to avoid
+// import loops between the v1 package and the allocator package.
+//
+// +kubebuilder:object:generate=false
+type PoolAllocator interface {
+	AllocateFromPool(string, string, []corev1.ServicePort, string) (net.IP, error)
+}
+
+// generateTunnelKey generates a 128-bit tunnel key and returns it as
+// a base64-encoded string.
+func generateTunnelKey() string {
+	raw := make([]byte, 16, 16)
+	_, _ = rand.Read(raw)
+	return base64.StdEncoding.EncodeToString(raw)
+}
 
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
 func (r *GWProxy) SetupWebhookWithManager(mgr ctrl.Manager, alloc PoolAllocator) error {

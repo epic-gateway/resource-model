@@ -25,7 +25,6 @@ type PodAgentReconciler struct {
 }
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
-// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=lbservicegroups,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=serviceprefixes,verbs=get;list
