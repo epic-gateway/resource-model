@@ -107,7 +107,7 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
-		l.Info("removing finalizer")
+		l.V(1).Info("removing finalizer")
 		if err := RemoveFinalizer(ctx, r.Client, proxy, proxy.AgentFinalizerName(os.Getenv("EPIC_NODE_NAME"))); err != nil {
 			return done, err
 		}

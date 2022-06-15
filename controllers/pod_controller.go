@@ -65,7 +65,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 		// Remove our finalizer to ensure that we don't block it from
 		// being deleted.
-		l.Info("removing finalizer")
+		l.V(1).Info("removing finalizer")
 		if err := RemoveFinalizer(ctx, r.Client, &pod, epicv1.FinalizerName); err != nil {
 			return done, err
 		}
@@ -94,7 +94,9 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		proxy := epicv1.GWProxy{}
 		proxyName := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: owningProxy}
 		if err := r.Get(ctx, proxyName, &proxy); err != nil {
-			return done, err
+			// Ignore not-found errors, since the most likely cause is that
+			// the GWP was deleted.
+			return done, client.IgnoreNotFound(err)
 		}
 
 		// Allocate tunnels for this pod
