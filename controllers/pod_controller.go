@@ -131,14 +131,6 @@ func (r *PodReconciler) addProxyTunnels(ctx context.Context, l logr.Logger, prox
 		tunnelMaps map[string]epicv1.EPICEndpointMap = map[string]epicv1.EPICEndpointMap{}
 	)
 
-	// prepare a patch to set this rep's tunnel endpoints in the proxy
-	// status
-	patch := epicv1.GWProxy{
-		Spec: epicv1.GWProxySpec{
-			GUETunnelMaps: tunnelMaps,
-		},
-	}
-
 	// fetch the node config; it tells us the GUEEndpoint for this node
 	config := &epicv1.EPIC{}
 	if err := r.Get(ctx, types.NamespacedName{Name: epicv1.ConfigName, Namespace: epicv1.ConfigNamespace}, config); err != nil {
@@ -170,13 +162,23 @@ func (r *PodReconciler) addProxyTunnels(ctx context.Context, l logr.Logger, prox
 		}
 	}
 
+	// Prepare a patch to set this rep's tunnel endpoints in the proxy
+	// CR.
+	patch := map[string]interface{}{
+		"proxy": map[string]interface{}{
+			"spec": map[string]interface{}{
+				"gue-tunnel-endpoints": tunnelMaps,
+			},
+		},
+	}
+
 	// apply the patch
 	if patchBytes, err = json.Marshal(patch); err != nil {
 		return err
 	}
 	l.Info(string(patchBytes))
 	if err := r.Patch(ctx, proxy, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
-		l.Error(err, "patching tunnel maps", "proxy", proxy)
+		l.Error(err, "patching tunnel maps", "proxy", proxy, "patch", string(patchBytes))
 		return err
 	}
 	l.Info("tunnel maps patched", "proxy", proxy)
