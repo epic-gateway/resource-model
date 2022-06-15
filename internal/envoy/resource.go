@@ -27,6 +27,7 @@ import (
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	"gitlab.com/acnodal/epic/resource-model/internal/contour/dag"
 )
 
 const (
@@ -177,59 +178,90 @@ func routesToClusters(proxy epicv1.GWProxy, routes []epicv1.GWRoute) ([]marin3r.
 	return clusters, err
 }
 
-// makeGWListeners translates a GWProxy's ports into Envoy Resource
-// objects.
-func makeGWListeners(service epicv1.GWProxy, routes []epicv1.GWRoute) ([]marin3r.EnvoyResource, error) {
+// makeGWListeners translates a GWProxy's listeners and routes into
+// Envoy Resources.
+func makeGWListeners(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (resources []marin3r.EnvoyResource, err error) {
 	var (
-		resources = []marin3r.EnvoyResource{}
+		referents = []epicv1.GWRoute{}
+		raw       = map[gatewayv1a2.Listener][]epicv1.GWRoute{}
+		collapsed = map[gatewayv1a2.Listener][]epicv1.GWRoute{}
 	)
 
+	// Pre-process Routes before templating them into Listeners.
+	for _, listener := range proxy.Spec.Gateway.Listeners {
+		referents, err = filterReferentRoutes(listener, routes)
+		if err != nil {
+			return resources, err
+		}
+		raw[listener], err = preprocessRoutes(listener, referents)
+		if err != nil {
+			return resources, err
+		}
+	}
+
+	// "Collapse" compatible listeners
+	collapsed, err = collapse(raw)
+	if err != nil {
+		return resources, err
+	}
+
 	// Process each template.
-	for _, listener := range service.Spec.EnvoyTemplate.EnvoyResources.Listeners {
-		for _, port := range service.Spec.PublicPorts {
-			listener, err := makeGWListener(listener.Value, service, port, routes)
+	for _, template := range proxy.Spec.EnvoyTemplate.EnvoyResources.Listeners {
+		for listener, listenerRoutes := range collapsed {
+			listenerResource, err := executeListenerTemplate(template.Value, proxy, listener, listenerRoutes)
 			if err != nil {
 				return resources, err
 			}
-			resources = append(resources, listener)
+			resources = append(resources, listenerResource)
 		}
 	}
 
 	return resources, nil
 }
 
-func makeGWListener(listenerConfigFragment string, service epicv1.GWProxy, port v1.ServicePort, routes []epicv1.GWRoute) (marin3r.EnvoyResource, error) {
+// executeListenerTemplate executes listenerTemplate to generate an
+// Envoy Resource.
+func executeListenerTemplate(listenerTemplate string, proxy epicv1.GWProxy, listener gatewayv1a2.Listener, routes []epicv1.GWRoute) (marin3r.EnvoyResource, error) {
 	var (
 		tmpl *template.Template
 		err  error
 		doc  bytes.Buffer
 	)
 
+	// "wash" the Gateway protocol into a core/v1 protocol.
+	proto, err := washProtocol(listener.Protocol)
+	if err != nil {
+		return marin3r.EnvoyResource{}, err
+	}
+
 	params := listenerParams{
-		ServiceNamespace:  service.Namespace,
-		ServiceName:       service.Name,
-		PureLBServiceName: service.Spec.DisplayName,
-		PortName:          fmt.Sprintf("%s-%d", port.Protocol, port.Port),
-		Port:              port.Port,
-		Protocol:          port.Protocol,
+		ServiceNamespace:  proxy.Namespace,
+		ServiceName:       proxy.Name,
+		PureLBServiceName: proxy.Spec.DisplayName,
+		PortName:          fmt.Sprintf("%s-%d", listener.Protocol, listener.Port),
+		Port:              int32(listener.Port),
+		Protocol:          proto,
 		TotalWeight:       100,
 		ClusterWeight:     100,
 		Routes:            routes,
 	}
-	if tmpl, err = template.New("listener").Funcs(funcMap).Parse(listenerConfigFragment); err != nil {
+	if tmpl, err = template.New("listener").Funcs(funcMap).Parse(listenerTemplate); err != nil {
 		return marin3r.EnvoyResource{}, err
 	}
 	err = tmpl.Execute(&doc, params)
 	return marin3r.EnvoyResource{Name: params.PortName, Value: doc.String()}, err
 }
 
-// GWProxyToEnvoyConfigServiceToEnvoyConfig translates one of our
-// epicv1.GWproxy resources into a Marin3r EnvoyConfig.
+// GWProxyToEnvoyConfig translates one of our epicv1.GWproxy resources
+// into a Marin3r EnvoyConfig.
 func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3r.EnvoyConfig, error) {
-	cluster, err := routesToClusters(proxy, routes)
+	// Build a cluster for each Route back-end reference.
+	clusters, err := routesToClusters(proxy, routes)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
 	}
+
+	// Build an Envoy listener for each Gateway listener.
 	listeners, err := makeGWListeners(proxy, routes)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
@@ -246,7 +278,7 @@ func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3
 			Serialization: proxy.Spec.EnvoyTemplate.Serialization,
 			EnvoyResources: &marin3r.EnvoyResources{
 				Endpoints: []marin3r.EnvoyResource{},
-				Clusters:  cluster,
+				Clusters:  clusters,
 				Routes:    proxy.Spec.EnvoyTemplate.EnvoyResources.Routes,
 				Listeners: listeners,
 				Runtimes:  proxy.Spec.EnvoyTemplate.EnvoyResources.Runtimes,
@@ -256,7 +288,104 @@ func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3
 	}, nil
 }
 
-// PreprocessRoutes rearranges the routes to make them work in Envoy
+// collapse "collapses" compatible listeners together, i.e.,
+// combines them to form a single listener. The input and output are
+// maps from listeners to their routes.
+// https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.GatewaySpec
+func collapse(listeners map[gatewayv1a2.Listener][]epicv1.GWRoute) (map[gatewayv1a2.Listener][]epicv1.GWRoute, error) {
+	// Trivial case: if there's zero or one listener then it can't be
+	// collapsed.
+	if len(listeners) <= 1 {
+		return listeners, nil
+	}
+
+	collapsed := map[gatewayv1a2.Listener][]epicv1.GWRoute{}
+
+	for l1, r1 := range listeners {
+		// Seed the output map with the first listener.
+		if len(collapsed) == 0 {
+			fmt.Printf("collapsed seeding set with %s\n", l1.Name)
+			collapsed[l1] = r1
+		} else {
+			// For every listener except the first one, compare it to each
+			// of the already-collapsed listeners to see if they're
+			// compatible.
+			for l2 := range collapsed {
+				if l1 != l2 {
+					if compatibleListeners(l1, l2) {
+						fmt.Printf("collapsed collapsing %s into %s\n", l1.Name, l2.Name)
+						collapsed[l2] = append(collapsed[l2], listeners[l1]...)
+					} else {
+						fmt.Printf("collapsed adding %s to set\n", l1.Name)
+						collapsed[l1] = r1
+					}
+				}
+			}
+		}
+	}
+	return collapsed, nil
+}
+
+// compatibleListeners figures out whether l1 and l2 are "compatible"
+// per the rules in
+// https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.Gateway
+// . If it returns true then l1 and l2 can be "collapsed" into one
+// listener.
+func compatibleListeners(l1 gatewayv1a2.Listener, l2 gatewayv1a2.Listener) bool {
+	// If the ports don't match then they're not compatible.
+	if l1.Port != l2.Port {
+		fmt.Printf("collapsed %s and %s are NOT compatible: port mismatch\n", l1.Name, l2.Name)
+		return false
+	}
+
+	// If the two protocols match then they're compatible
+	if l1.Protocol == l2.Protocol {
+		fmt.Printf("collapsed %s and %s are compatible\n", l1.Name, l2.Name)
+		return true
+	}
+
+	if (l1.Protocol == gatewayv1a2.HTTPSProtocolType || l1.Protocol == gatewayv1a2.TLSProtocolType) && (l2.Protocol == gatewayv1a2.HTTPSProtocolType || l2.Protocol == gatewayv1a2.TLSProtocolType) {
+		fmt.Printf("collapsed %s and %s are compatible\n", l1.Name, l2.Name)
+		return true
+	}
+
+	fmt.Printf("collapsed %s and %s are NOT compatible\n", l1.Name, l2.Name)
+	return false
+}
+
+// filterReferentRoutes returns the set of routes that reference
+// listener. rawRoutes were chosen because each references at least
+// one listener in the Gateway, but it might not be *this*
+// listener. We need to eliminate routes that might reference other
+// listeners but don't reference this one.
+func filterReferentRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute) (refs []epicv1.GWRoute, err error) {
+	refs = []epicv1.GWRoute{}
+
+	for _, route := range rawRoutes {
+		if refersToSection(route.Spec.HTTP.ParentRefs, listener) {
+			refs = append(refs, route)
+		}
+	}
+	return refs, err
+}
+
+// refersToSection returns true if any of the routeRefs refer to the
+// listener's section, either by explicit matching or by having an
+// empty SectionName.
+func refersToSection(routeRefs []gatewayv1a2.ParentRef, listener gatewayv1a2.Listener) bool {
+	// Look for any of the route's parentRefs that match. Since we've
+	// already checked the reference at the route level we don't need to
+	// do that again, but we do need to check the section reference.
+	for _, ref := range routeRefs {
+		if ref.SectionName == nil || (ref.SectionName != nil && *ref.SectionName == listener.Name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// preprocessRoutes rearranges the routes to make them work in Envoy
 // configurations. The idea is to do the heavy lifting that's better
 // suited for Go which allows the templates to be more
 // straightforward.
@@ -270,20 +399,41 @@ func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3
 // because an HTTPRoute can have multiple hostnames but each Envoy
 // virtual_host can have only a single hostname. A single output route
 // might contain rules from multiple input routes.
-func PreprocessRoutes(rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
-	// Make any route with an implicit wildcard host (i.e., no hostname)
-	// explicit (i.e., "*"). This helps below when we group rules by
-	// hostname.
+func preprocessRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
+	// If the Proxy has a hostname then we'll use that as a default,
+	// otherwise we'll use an explicit "all hosts".
+	defaultHost := allHosts
+	if listener.Hostname != nil {
+		defaultHost = *listener.Hostname
+	}
+
+	// Make a copy of the matching input routes since we're going to
+	// modify some of them.  Any input route with an implicit host
+	// (i.e., no hostname) will be made explicit, using
+	// defaultHost. This helps below when we group rules by hostname.
+	routes := make([]epicv1.GWRoute, len(rawRoutes))
 	for i, route := range rawRoutes {
-		if len(route.Spec.HTTP.Hostnames) == 0 {
-			rawRoutes[i].Spec.HTTP.Hostnames = []gatewayv1a2.Hostname{allHosts}
+		matchingNames, err := dag.ComputeHosts(route.Spec.HTTP.Hostnames, listener.Hostname)
+		if err != nil {
+			fmt.Printf("Invalid hostname: %s", err)
+		} else {
+			if len(matchingNames) == 0 {
+				fmt.Printf("No matching hostnames")
+			} else {
+				maybe := rawRoutes[i].DeepCopy()
+				maybe.Spec.HTTP.Hostnames = matchingNames
+				routes[i] = *maybe
+				if len(route.Spec.HTTP.Hostnames) == 0 {
+					routes[i].Spec.HTTP.Hostnames = []gatewayv1a2.Hostname{defaultHost}
+				}
+			}
 		}
 	}
 
 	// Find the set of unique hostnames in the input routes and create
 	// one output Route for each hostname, which is how Envoy likes it.
 	hostnames := map[gatewayv1a2.Hostname]*epicv1.GWRoute{}
-	for _, route := range rawRoutes {
+	for _, route := range routes {
 		for _, hostname := range route.Spec.HTTP.Hostnames {
 			hostnames[hostname] = &epicv1.GWRoute{
 				Spec: epicv1.GWRouteSpec{
@@ -298,7 +448,7 @@ func PreprocessRoutes(rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
 
 	// Build each output route by adding the split rules from each input
 	// route that contains its hostname.
-	for _, route := range rawRoutes {
+	for _, route := range routes {
 		for _, hostname := range route.Spec.HTTP.Hostnames {
 			hostnames[hostname].Spec.HTTP.Rules = append(hostnames[hostname].Spec.HTTP.Rules, splitMatches(route.Spec.HTTP.Rules)...)
 		}
@@ -423,4 +573,22 @@ func splitMatches(rules []gatewayv1a2.HTTPRouteRule) []gatewayv1a2.HTTPRouteRule
 	}
 
 	return splits
+}
+
+// washProtocol "washes" proto, optionally upcasing if necessary. If
+// error is non-nil then the input protocol wasn't valid.
+func washProtocol(proto gatewayv1a2.ProtocolType) (v1.Protocol, error) {
+	upper := strings.ToUpper(string(proto))
+	if upper == "HTTP" || upper == "HTTPS" || upper == "TLS" {
+		upper = "TCP"
+	}
+
+	switch upper {
+	case "TCP":
+		return v1.ProtocolTCP, nil
+	case "UDP":
+		return v1.ProtocolUDP, nil
+	default:
+		return v1.ProtocolTCP, fmt.Errorf("Protocol %s is unsupported", proto)
+	}
 }

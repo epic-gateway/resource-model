@@ -159,15 +159,8 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	l.V(1).Info("Input routes", "count", len(inputRoutes), "routes", inputRoutes)
 
-	// Pre-process Routes before templating them.
-	templateRoutes, err := envoy.PreprocessRoutes(inputRoutes)
-	if err != nil {
-		return done, err
-	}
-	l.V(1).Info("Preprocessed routes", "count", len(templateRoutes), "routes", templateRoutes)
-
 	// Build a new EnvoyConfig
-	envoyConfig, err := envoy.GWProxyToEnvoyConfig(*proxy, templateRoutes)
+	envoyConfig, err := envoy.GWProxyToEnvoyConfig(*proxy, inputRoutes)
 	if err != nil {
 		return done, err
 	}
