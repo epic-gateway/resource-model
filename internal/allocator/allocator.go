@@ -135,7 +135,9 @@ func (a *Allocator) Assign(svc string, ip net.IP, ports []corev1.ServicePort, sh
 func (a *Allocator) Unassign(svc string) bool {
 	al := a.allocated[svc]
 	if al == nil {
-		return false
+		// We don't know about the address but since the user asked us to
+		// unassign it that's OK.
+		return true
 	}
 
 	// tell the pool that the address has been released. there might not
