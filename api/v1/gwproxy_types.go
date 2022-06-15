@@ -291,7 +291,7 @@ func RemoveProxyInfo(ctx context.Context, cl client.Client, namespace string, pr
 		// you need to get the current version before making your own
 		// changes.
 		if err := cl.Get(ctx, key, &proxy); err != nil {
-			return err
+			return client.IgnoreNotFound(err)
 		}
 
 		if podInfo, hasProxy := proxy.Spec.ProxyInterfaces[podName]; hasProxy {
