@@ -15,7 +15,7 @@ package gatewayapi
 
 import (
 	"k8s.io/utils/pointer"
-	gatewayapi_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayapi_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func SectionNamePtr(sectionName string) *gatewayapi_v1alpha2.SectionName {
