@@ -372,7 +372,7 @@ func filterReferentRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRo
 // refersToSection returns true if any of the routeRefs refer to the
 // listener's section, either by explicit matching or by having an
 // empty SectionName.
-func refersToSection(routeRefs []gatewayv1a2.ParentRef, listener gatewayv1a2.Listener) bool {
+func refersToSection(routeRefs []gatewayv1a2.ParentReference, listener gatewayv1a2.Listener) bool {
 	// Look for any of the route's parentRefs that match. Since we've
 	// already checked the reference at the route level we don't need to
 	// do that again, but we do need to check the section reference.

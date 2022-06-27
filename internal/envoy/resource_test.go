@@ -412,7 +412,7 @@ func TestFilterReferentRoutes(t *testing.T) {
 	matches := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
 			HTTP: gatewayv1a2.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1a2.CommonRouteSpec{ParentRefs: []gatewayv1a2.ParentRef{{}}},
+				CommonRouteSpec: gatewayv1a2.CommonRouteSpec{ParentRefs: []gatewayv1a2.ParentReference{{}}},
 			},
 		},
 	}
@@ -434,7 +434,7 @@ func TestFilterReferentRoutes(t *testing.T) {
 			Spec: epicv1.GWRouteSpec{
 				HTTP: gatewayv1a2.HTTPRouteSpec{
 					CommonRouteSpec: gatewayv1a2.CommonRouteSpec{
-						ParentRefs: []gatewayv1a2.ParentRef{{SectionName: gatewayapi.SectionNamePtr("not-unit-test")}},
+						ParentRefs: []gatewayv1a2.ParentReference{{SectionName: gatewayapi.SectionNamePtr("not-unit-test")}},
 					},
 				},
 			},
