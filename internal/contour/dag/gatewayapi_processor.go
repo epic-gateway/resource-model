@@ -20,7 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
-	gatewayapi_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayapi_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"gitlab.com/acnodal/epic/resource-model/internal/contour/gatewayapi"
 )

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/pointer"
-	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/contour/gatewayapi"
