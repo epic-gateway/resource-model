@@ -87,6 +87,34 @@ var (
 			}
 			return []gatewayv1a2.Hostname{"*"}
 		},
+
+		// RuleRedirect indicates whether this rule should be represented
+		// in Envoy's config structure as a "redirect", i.e., a request to
+		// be responded to immediately by Envoy. Rules fall into one of
+		// two families: redirect, and route. Routes are forwarded to
+		// upstream clusters and redirects aren't.
+		"RuleRedirect": func(rule gatewayv1a2.HTTPRouteRule) bool {
+			// If we can find a RequestRedirect filter in the rule then it
+			// should be an envoy "redirect".
+			for _, filter := range rule.Filters {
+				if filter.RequestRedirect != nil {
+					return true
+				}
+			}
+
+			// No RequestRedirect found so it's a "route".
+			return false
+		},
+
+		// StatusToResponse maps Gateway's numeric statusCode to Envoy's
+		// text RedirectResponseCode.
+		"StatusToResponse": func(status int) string {
+			if status == 301 {
+				return "MOVED_PERMANENTLY"
+			}
+
+			return "FOUND"
+		},
 	}
 )
 
