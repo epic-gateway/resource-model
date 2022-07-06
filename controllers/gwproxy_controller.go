@@ -20,6 +20,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
@@ -55,6 +56,13 @@ type GWProxyReconciler struct {
 func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 	l.V(1).Info("Reconciling")
+
+	// Back-compatibility with v0.17.1. This is the minimum necessary to
+	// get the CRD validation to succeed. FIXME: We can remove this when
+	// the couple of users who currently have v0.17.1 upgrade.
+	if err := kludgeProxy(ctx, r.Client, req.NamespacedName); err != nil {
+		return done, err
+	}
 
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
@@ -412,5 +420,44 @@ func updateDeployment(ctx context.Context, cl client.Client, updated *marin3rope
 
 		// Try to update
 		return cl.Update(ctx, existing)
+	})
+}
+
+func kludgeProxy(ctx context.Context, cl client.Client, proxy types.NamespacedName) error {
+	key := client.ObjectKey{Namespace: proxy.Namespace, Name: proxy.Name}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		needsUpdate := false
+		existing := epicv1.GWProxy{}
+
+		// Fetch the resource here; you need to refetch it on every try,
+		// since if you got a conflict on the last update attempt then
+		// you need to get the current version before making your own
+		// changes.
+		if err := cl.Get(ctx, key, &existing); err != nil {
+			return err
+		}
+		// Back-compatibility with v0.17.1. This is the minimum necessary to
+		// get the CRD validation to succeed. FIXME: We can remove this when
+		// the couple of users who currently have v0.17.1 upgrade.
+		if existing.Spec.Gateway.GatewayClassName == "" {
+			existing.Spec.Gateway.GatewayClassName = "compatibility"
+			needsUpdate = true
+		}
+		if existing.Spec.Gateway.Listeners == nil {
+			existing.Spec.Gateway.Listeners = []v1alpha2.Listener{{
+				Name:     "compatibility",
+				Port:     v1alpha2.PortNumber(existing.Spec.PublicPorts[0].Port),
+				Protocol: v1alpha2.HTTPProtocolType,
+			}}
+			needsUpdate = true
+		}
+
+		if !needsUpdate {
+			return nil
+		}
+
+		// Try to update
+		return cl.Update(ctx, &existing)
 	})
 }

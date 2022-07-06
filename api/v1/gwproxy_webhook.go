@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 // log is for logging in this package.
@@ -117,6 +118,20 @@ func (r *GWProxy) Default() {
 			gwLog.V(1).Info("alt address", "address", address)
 			r.Spec.AltAddress = address.String()
 		}
+	}
+
+	// Back-compatibility with v0.17.1. This is the minimum necessary to
+	// get the CRD validation to succeed. FIXME: We can remove this when
+	// the couple of users who currently have v0.17.1 upgrade.
+	if r.Spec.Gateway.GatewayClassName == "" {
+		r.Spec.Gateway.GatewayClassName = "compatibility"
+	}
+	if r.Spec.Gateway.Listeners == nil {
+		r.Spec.Gateway.Listeners = []v1alpha2.Listener{{
+			Name:     "compatibility",
+			Port:     v1alpha2.PortNumber(r.Spec.PublicPorts[0].Port),
+			Protocol: v1alpha2.HTTPProtocolType,
+		}}
 	}
 
 	gwLog.V(1).Info("defaulted", "proxyName", r.Name, "contents", r)
