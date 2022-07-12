@@ -46,7 +46,7 @@ spec:
           name: run
       hostNetwork: true
       nodeSelector:
-        beta.kubernetes.io/os: linux
+        kubernetes.io/os: linux
       terminationGracePeriodSeconds: 2
       tolerations:
       - effect: NoSchedule
