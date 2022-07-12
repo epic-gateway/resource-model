@@ -46,7 +46,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// If it's not an Envoy Pod then do nothing
 	if !epicv1.HasEnvoyLabels(pod) {
-		l.Info("is not a proxy pod")
+		l.V(1).Info("is not a proxy pod")
 		return done, nil
 	}
 
