@@ -57,13 +57,6 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	l := log.FromContext(ctx)
 	l.V(1).Info("Reconciling")
 
-	// Back-compatibility with v0.17.1. This is the minimum necessary to
-	// get the CRD validation to succeed. FIXME: We can remove this when
-	// the couple of users who currently have v0.17.1 upgrade.
-	if err := kludgeProxy(ctx, r.Client, req.NamespacedName); err != nil {
-		return done, err
-	}
-
 	prefix := &epicv1.ServicePrefix{}
 	account := &epicv1.Account{}
 	sg := &epicv1.LBServiceGroup{}
@@ -77,6 +70,13 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
 		return done, client.IgnoreNotFound(err)
+	}
+
+	// Back-compatibility with v0.17.1. This is the minimum necessary to
+	// get the CRD validation to succeed. FIXME: We can remove this when
+	// the couple of users who currently have v0.17.1 upgrade.
+	if err := kludgeProxy(ctx, r.Client, req.NamespacedName); err != nil {
+		return done, err
 	}
 
 	// Now that we know the resource version we can use it in our log
