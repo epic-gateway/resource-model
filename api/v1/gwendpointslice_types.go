@@ -84,9 +84,15 @@ func (slice *GWEndpointSlice) ReferencingProxies(ctx context.Context, cl client.
 						proxy := GWProxy{}
 						proxyName := types.NamespacedName{Namespace: slice.Namespace, Name: string(parent.Name)}
 						if err := cl.Get(ctx, proxyName, &proxy); err != nil {
-							return refs, err
+							// If there's an error other than "not found" then bail
+							// out and report it. If we can't find the Proxy that's
+							// probably because it was deleted which isn't an error.
+							if client.IgnoreNotFound(err) != nil {
+								return refs, err
+							}
+						} else {
+							refs = append(refs, &proxy)
 						}
-						refs = append(refs, &proxy)
 					}
 				}
 			}

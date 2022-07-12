@@ -48,6 +48,7 @@ func (r *GWEndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		// and we can get them on deleted requests.
 		return done, client.IgnoreNotFound(err)
 	}
+	l = l.WithValues("clientName", slice.Spec.ClientRef.Name)
 
 	if !slice.ObjectMeta.DeletionTimestamp.IsZero() {
 		// This rep is marked for deletion. We need to clean up where
