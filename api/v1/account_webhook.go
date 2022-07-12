@@ -14,9 +14,6 @@ func (r *Account) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(r).Complete()
 }
 
-// +kubebuilder:rbac:groups=epic.acnodal.io,resources=epics,verbs=get;list;watch
-// +kubebuilder:rbac:groups=epic.acnodal.io,resources=epics/status,verbs=get;update;patch
-
 // +kubebuilder:webhook:path=/mutate-epic-acnodal-io-v1-account,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=accounts,verbs=create,versions=v1,name=maccount.kb.io,sideEffects=None,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Account{}

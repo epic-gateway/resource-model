@@ -23,6 +23,8 @@ type PodReconciler struct {
 }
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=epics,verbs=get;list;watch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=epics/status,verbs=get;update
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;update;patch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies/status,verbs=get;update;patch
 
@@ -151,7 +153,7 @@ func (r *PodReconciler) addProxyTunnels(ctx context.Context, l logr.Logger, prox
 			envoyEndpoint := epicv1.GUETunnelEndpoint{}
 			config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
 			envoyEndpoint.Address = pod.Status.HostIP
-			if envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, r.Client); err != nil {
+			if envoyEndpoint.TunnelID, err = epicv1.AllocateTunnelID(ctx, l, r.Client); err != nil {
 				return err
 			}
 			tunnelMaps[epAddr] = epicv1.EPICEndpointMap{

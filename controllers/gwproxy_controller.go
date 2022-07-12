@@ -44,6 +44,8 @@ type GWProxyReconciler struct {
 	RuntimeScheme *runtime.Scheme
 }
 
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=epics,verbs=get;list;watch
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=epics/status,verbs=get;update
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=remoteendpoints,verbs=get;list;delete;deletecollection
@@ -337,7 +339,7 @@ func allocateProxyTunnels(ctx context.Context, cl client.Client, l logr.Logger, 
 				envoyEndpoint := epicv1.GUETunnelEndpoint{}
 				config.Spec.NodeBase.GUEEndpoint.DeepCopyInto(&envoyEndpoint)
 				envoyEndpoint.Address = proxyPod.EPICNodeAddress
-				if envoyEndpoint.TunnelID, err = allocateTunnelID(ctx, l, cl); err != nil {
+				if envoyEndpoint.TunnelID, err = epicv1.AllocateTunnelID(ctx, l, cl); err != nil {
 					return err
 				}
 				newMap[clientPod.Spec.NodeAddress].EPICEndpoints[proxyPod.EPICNodeAddress] = envoyEndpoint

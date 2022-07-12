@@ -1,13 +1,17 @@
 package v1
 
 import (
+	"context"
 	"net"
 	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -161,4 +165,27 @@ func addrFamily(lbIP net.IP) (lbIPFamily int) {
 	}
 
 	return
+}
+
+// AllocateTunnelID allocates a tunnel ID from the EPIC singleton. If
+// this call succeeds (i.e., error is nil) then the returned ID will
+// be unique.
+func AllocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelID uint32, err error) {
+	return tunnelID, retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var epic EPIC
+
+		// Fetch the resource here; you need to refetch it on every try,
+		// since if you got a conflict on the last update attempt then
+		// you need to get the current version before making your own
+		// changes.
+		if err = cl.Get(ctx, client.ObjectKey{Namespace: ConfigNamespace, Name: ConfigName}, &epic); err != nil {
+			return err
+		}
+
+		tunnelID = epic.Status.CurrentTunnelID
+		epic.Status.CurrentTunnelID++
+
+		// Try to update
+		return cl.Status().Update(ctx, &epic)
+	})
 }
