@@ -8,4 +8,8 @@ const (
 	// configuration objects like the EPIC singleton and the service
 	// prefixes.
 	ConfigNamespace string = ProductName
+
+	// UserNamespacePrefix is the prefix used by all namespaces that are
+	// EPIC User Namespaces.
+	UserNamespacePrefix string = ProductName + "-"
 )
