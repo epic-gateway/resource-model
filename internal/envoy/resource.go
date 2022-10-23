@@ -16,8 +16,10 @@ package envoy
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -446,7 +448,7 @@ func preprocessRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute)
 			fmt.Printf("Invalid hostname: %s", err)
 		} else {
 			if len(matchingNames) == 0 {
-				fmt.Printf("No matching hostnames")
+				fmt.Println("No matching hostnames")
 			} else {
 				maybe := rawRoutes[i].DeepCopy()
 				maybe.Spec.HTTP.Hostnames = matchingNames
@@ -487,7 +489,18 @@ func preprocessRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute)
 	// a Gateway-spec-compliant order (i.e., catch-all match last).
 	cooked := []epicv1.GWRoute{}
 	for _, route := range hostnames {
-		ordered, err := sortRouteRules(*route)
+		// Combine this Route's rules so Envoy will round-robin among the
+		// backends. If we don't do this then we end up with multiple
+		// rules and Envoy only uses the first so the others never get
+		// reached.
+		combined, err := combineRouteRules(*route)
+		if err != nil {
+			return cooked, err
+		}
+
+		// Sort the rules so more complex rules are earlier and simpler
+		// rules are later.
+		ordered, err := sortRouteRules(combined)
 		if err != nil {
 			return cooked, err
 		}
@@ -534,17 +547,87 @@ func sortRouteRules(route epicv1.GWRoute) (epicv1.GWRoute, error) {
 	return *sorted, nil
 }
 
-// isCatchall indicates whether match is the catchall match, i.e., a
-// prefix match of "/" with no other criteria. This match needs to be
-// the last one since it always matches.
-func isCatchall(rule gatewayv1a2.HTTPRouteRule) bool {
-	// The catchall rule contains only one match so if this one has more
-	// or fewer then it's not the catchall
-	if len(rule.Matches) != 1 {
+// combineRouteRules combines the RouteRules contained in
+// unmerged. See shouldMerge() for more info on why we do this. If
+// error is non-nil then the returned GWRoute is undefined.
+func combineRouteRules(unmerged epicv1.GWRoute) (epicv1.GWRoute, error) {
+	// Trivial case: if there are fewer than two rules then we don't
+	// need to combine.
+	if len(unmerged.Spec.HTTP.Rules) < 2 {
+		return unmerged, nil
+	}
+
+	// There are at least two rules so we need to combine.
+
+	// Start with a deep copy of the input but with no rules. We'll
+	// add/merge each input rule as needed.
+	output := unmerged.DeepCopy()
+	output.Spec.HTTP.Rules = []gatewayv1a2.HTTPRouteRule{}
+
+	for _, inputRule := range unmerged.Spec.HTTP.Rules {
+		addRule := true
+
+		// For each input rule, check it against all of the output rules
+		// to see if it can be merged with any of them.
+		for i, possibleMerge := range output.Spec.HTTP.Rules {
+			if shouldMerge(possibleMerge, inputRule) {
+				output.Spec.HTTP.Rules[i].BackendRefs = append(possibleMerge.BackendRefs, inputRule.BackendRefs...)
+
+				bytes, _ := json.MarshalIndent(output.Spec.HTTP.Rules, "", " ")
+				fmt.Println("***** Merged: " + string(bytes))
+
+				// Since we merged the inputRule into another output rule, we
+				// don't want to add it to the output.
+				addRule = false
+				break
+			}
+		}
+
+		if addRule {
+			// The input rule wasn't merged so add it as-is to the output.
+			output.Spec.HTTP.Rules = append(output.Spec.HTTP.Rules, inputRule)
+
+			bytes, _ := json.MarshalIndent(output.Spec.HTTP.Rules, "", " ")
+			fmt.Println("***** Added: " + string(bytes))
+		}
+
+	}
+
+	return *output, nil
+}
+
+// shouldMerge determines whether or not we should merge two
+// RouteRules. This happens when their Matches and Filters are the
+// same, in which case we should combine their BackendRefs so Envoy
+// will round-robin among them. We need to do this because we might
+// have Rules from different Routes which would ordinarily be treated
+// separately, but we want to treat them as a single round-robin.
+func shouldMerge(route1, route2 gatewayv1a2.HTTPRouteRule) bool {
+	// If the Matches are different then we can't merge.
+	if !reflect.DeepEqual(route1.Matches, route2.Matches) {
 		return false
 	}
 
-	match := rule.Matches[0]
+	// If the Filters are different then we can't merge.
+	if !reflect.DeepEqual(route1.Filters, route2.Filters) {
+		return false
+	}
+
+	// The parts we care about are the same so we can merge.
+	return true
+}
+
+// isCatchall indicates whether match is the catchall match, i.e., a
+// prefix match of "/" with no other criteria. This match needs to be
+// the last one since it always matches.
+func isCatchall(inputRule gatewayv1a2.HTTPRouteRule) bool {
+	// The catchall rule contains only one match so if this one has more
+	// or fewer then it's not the catchall
+	if len(inputRule.Matches) != 1 {
+		return false
+	}
+
+	match := inputRule.Matches[0]
 	if criteriaCount(match) == 1 &&
 		match.Path != nil &&
 		*match.Path.Type == gatewayv1a2.PathMatchPathPrefix &&

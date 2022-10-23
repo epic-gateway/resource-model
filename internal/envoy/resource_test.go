@@ -82,7 +82,17 @@ var (
 		Matches: []gatewayv1a2.HTTPRouteMatch{{
 			Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/api")},
 		}},
-		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{
+			gatewayv1a2.HTTPBackendRef{
+				BackendRef: gatewayv1a2.BackendRef{
+					BackendObjectReference: gatewayv1a2.BackendObjectReference{
+						Name: "one_match",
+					},
+					Weight: pointer.Int32(1),
+				},
+				Filters: []gatewayv1a2.HTTPRouteFilter{},
+			},
+		},
 	}
 
 	two_matches = gatewayv1a2.HTTPRouteRule{
@@ -90,7 +100,14 @@ var (
 			Method: &get,
 			Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
 		}},
-		BackendRefs: []gatewayv1a2.HTTPBackendRef{},
+		BackendRefs: []gatewayv1a2.HTTPBackendRef{
+			gatewayv1a2.HTTPBackendRef{
+				BackendRef: gatewayv1a2.BackendRef{
+					BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "two_matches"},
+					Weight:                 pointer.Int32(1),
+				},
+			},
+		},
 	}
 )
 
@@ -198,6 +215,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	// Test Routes "borrowing" Proxy hostnames, i.e., Routes that have
 	// no Hostname referencing a Listener that does have a Hostname.
 	listener = gatewayv1a2.Listener{
+		Name:     "unit-test",
 		Hostname: &proxyName,
 	}
 	raw = []epicv1.GWRoute{
@@ -260,6 +278,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	// Test pruning Route hostnames to only ones that match the
 	// listener.
 	listener = gatewayv1a2.Listener{
+		Name:     "prune-test",
 		Hostname: &proxyName,
 	}
 	raw = []epicv1.GWRoute{
@@ -328,6 +347,157 @@ func TestPreprocessRoutes(t *testing.T) {
 	cooked, err = preprocessRoutes(listener, raw)
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.ElementsMatch(t, want, cooked) // FIXME: order matters here, need to use assert.Equal()
+
+	// Test combining Route Rules. If two Rules within a Route have the
+	// same Filters and Hostnames then they can be combined, i.e.,
+	// we'll create one output Route with both of the input Routes'
+	// BackendRefs.
+	listener = gatewayv1a2.Listener{
+		Name:     "combine-test",
+		Hostname: &proxyName,
+	}
+	two_matches_alt := two_matches.DeepCopy()
+	two_matches_alt.BackendRefs[0].BackendObjectReference.Name = "alt_match"
+	raw = []epicv1.GWRoute{
+
+		// These two GWRoutes should combine to a single GWRoute with one
+		// HTTPRouteRule that has two HTTPBackendRefs.
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "host1.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{two_matches},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "host1.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{*two_matches_alt},
+				},
+			},
+		},
+
+		// This GWRoute should pass through to the output.
+		{
+			Spec: epicv1.GWRouteSpec{ // This should combine with the first one
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"foo.bar", "host2.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, two_matches},
+				},
+			},
+		},
+	}
+	want = []epicv1.GWRoute{
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
+					Rules: []gatewayv1a2.HTTPRouteRule{
+						gatewayv1a2.HTTPRouteRule{
+							Matches: []gatewayv1a2.HTTPRouteMatch{{
+								Method: &get,
+								Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
+							}},
+							BackendRefs: []gatewayv1a2.HTTPBackendRef{
+								gatewayv1a2.HTTPBackendRef{
+									BackendRef: gatewayv1a2.BackendRef{
+										BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "two_matches"},
+										Weight:                 pointer.Int32(1),
+									},
+								},
+								gatewayv1a2.HTTPBackendRef{
+									BackendRef: gatewayv1a2.BackendRef{
+										BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "alt_match"},
+										Weight:                 pointer.Int32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"host2.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{two_matches, rule2}, // NOTE: catchall rule is now last
+				},
+			},
+		},
+	}
+	cooked, err = preprocessRoutes(listener, raw)
+	assert.NoError(t, err, "route preprocessing failed")
+	assert.Equal(t, jsonify(t, want), jsonify(t, cooked))
+}
+
+func TestCombineRouteRules(t *testing.T) {
+	// If two Rules within a Route have the same Filters and Hostnames
+	// then they can be combined, i.e., we'll create one output Route
+	// with both of the input Routes' BackendRefs.
+	two_matches_alt := two_matches.DeepCopy()
+	two_matches_alt.BackendRefs[0].BackendObjectReference.Name = "alt_match"
+	two_matches_bis := two_matches.DeepCopy()
+	two_matches_bis.BackendRefs[0].BackendObjectReference.Name = "bis_match"
+	raw := epicv1.GWRoute{
+		Spec: epicv1.GWRouteSpec{
+			HTTP: gatewayv1a2.HTTPRouteSpec{
+				Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
+				Rules:     []gatewayv1a2.HTTPRouteRule{two_matches, *two_matches_alt, *two_matches_bis},
+			},
+		},
+	}
+	want := epicv1.GWRoute{
+		Spec: epicv1.GWRouteSpec{
+			HTTP: gatewayv1a2.HTTPRouteSpec{
+				Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
+				Rules: []gatewayv1a2.HTTPRouteRule{
+					gatewayv1a2.HTTPRouteRule{
+						Matches: []gatewayv1a2.HTTPRouteMatch{{
+							Method: &get,
+							Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
+						}},
+						BackendRefs: []gatewayv1a2.HTTPBackendRef{
+							gatewayv1a2.HTTPBackendRef{
+								BackendRef: gatewayv1a2.BackendRef{
+									BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "two_matches"},
+									Weight:                 pointer.Int32(1),
+								},
+							},
+							gatewayv1a2.HTTPBackendRef{
+								BackendRef: gatewayv1a2.BackendRef{
+									BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "alt_match"},
+									Weight:                 pointer.Int32(1),
+								},
+							},
+							gatewayv1a2.HTTPBackendRef{
+								BackendRef: gatewayv1a2.BackendRef{
+									BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "bis_match"},
+									Weight:                 pointer.Int32(1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	cooked, err := combineRouteRules(raw)
+	assert.NoError(t, err, "route preprocessing failed")
+	assert.Equal(t, jsonify(t, want), jsonify(t, cooked))
+}
+
+func TestShouldMerge(t *testing.T) {
+	// one_match and two_matches have different HTTPRouteMatch so they
+	// can't merge.
+	assert.False(t, shouldMerge(one_match, two_matches))
+
+	// The same object should merge (although this would probably never
+	// happen IRL).
+	one_match_alt := one_match.DeepCopy()
+	assert.True(t, shouldMerge(one_match, *one_match_alt))
 }
 
 func TestIsCatchallMatch(t *testing.T) {
@@ -449,7 +619,7 @@ func TestFilterReferentRoutes(t *testing.T) {
 }
 
 func jsonify(t *testing.T, obj interface{}) string {
-	bytes, err := json.Marshal(obj)
+	bytes, err := json.MarshalIndent(obj, "", " ")
 	if err != nil {
 		assert.Fail(t, "Failure marshaling to json", obj)
 	}
