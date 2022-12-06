@@ -1,6 +1,6 @@
 module gitlab.com/acnodal/epic/resource-model
 
-go 1.17
+go 1.18
 
 replace (
 	github.com/3scale-ops/marin3r => gitlab.com/acnodal/epic/marin3r v0.9.1-epic7

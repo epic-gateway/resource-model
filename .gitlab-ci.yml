@@ -10,7 +10,7 @@
   fi
 
 manifest:
-  image: golang:1.17-bullseye
+  image: golang:1.18-bullseye
 
   before_script:
   - *set-tag

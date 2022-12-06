@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine as builder
+FROM golang:1.18-alpine as builder
 
 # Configure golang for our private modules at gitlab
 ENV GONOPROXY=gitlab.com/acnodal
