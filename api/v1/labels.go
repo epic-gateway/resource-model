@@ -18,6 +18,11 @@ const (
 	// ServicePrefix they belong.
 	OwningServicePrefixLabel string = GroupName + "/owning-serviceprefix"
 
+	// OwningLoadBalancerLabel is the name of the label that we apply to
+	// endpoints to indicate in a query-friendly way to which
+	// LoadBalancer they belong.
+	OwningLoadBalancerLabel string = GroupName + "/owning-loadbalancer"
+
 	// OwningProxyLabel is the name of the label that we apply to
 	// endpoints to indicate in a query-friendly way to which
 	// Proxy they belong.
@@ -52,9 +57,8 @@ func LabelsForEnvoy(name string) map[string]string {
 		labels[k] = v
 	}
 
-	// Override the owning proxy placeholder with our actual owning
-	// proxy
-	labels[OwningProxyLabel] = name
+	// Override the owning LB placeholder with our actual owning LB
+	labels[OwningLoadBalancerLabel] = name
 
 	return labels
 }

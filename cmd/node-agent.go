@@ -138,7 +138,7 @@ func prebootNodeCleanup(ctx context.Context, l logr.Logger) error {
 		cleanIntfAnnotations(ctx, cl, proxyPod.Namespace, proxyPod.Name)
 		// Remove the pod's info from the LB but continue even if there's
 		// an error.
-		epicv1.RemovePodInfo(ctx, cl, proxyPod.Namespace, proxyPod.Labels[epicv1.OwningProxyLabel], proxyPod.Name)
+		epicv1.RemovePodInfo(ctx, cl, proxyPod.Namespace, proxyPod.Labels[epicv1.OwningLoadBalancerLabel], proxyPod.Name)
 	}
 	return nil
 }

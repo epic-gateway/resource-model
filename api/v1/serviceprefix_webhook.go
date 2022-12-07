@@ -17,11 +17,11 @@ func (r *ServicePrefix) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // +kubebuilder:webhook:verbs=create,path=/mutate-epic-acnodal-io-v1-serviceprefix,mutating=true,failurePolicy=fail,groups=epic.acnodal.io,resources=serviceprefixes,versions=v1,name=vserviceprefix.kb.io,sideEffects=None,admissionReviewVersions=v1
 
-// Default sets default values for this object.
+// Default sets default values for this LoadBalancer object.
 func (r *ServicePrefix) Default() {
 	spLog.Info("default", "prefixName", r.Name)
 
 	// Add the controller as a finalizer so we can clean up when this
-	// object is deleted.
+	// LoadBalancer is deleted.
 	r.Finalizers = append(r.Finalizers, FinalizerName)
 }

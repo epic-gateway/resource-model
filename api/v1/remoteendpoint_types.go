@@ -1,7 +1,14 @@
 package v1
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"net"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -66,6 +73,19 @@ type RemoteEndpointList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []RemoteEndpoint `json:"items"`
+}
+
+// RemoteEndpointName makes a name for this rep that will be unique
+// within this customer's namespace. It should also be somewhat
+// human-readable which will hopefully help with debugging.
+func RemoteEndpointName(address net.IP, port int32, protocol v1.Protocol) string {
+	raw := make([]byte, 8, 8)
+	_, _ = rand.Read(raw)
+	return fmt.Sprintf("%s-%d-%s-%s", rfc1123Cleaner.Replace(address.String()), port, toLower(protocol), hex.EncodeToString(raw))
+}
+
+func toLower(protocol v1.Protocol) string {
+	return strings.ToLower(string(protocol))
 }
 
 func init() {

@@ -95,9 +95,29 @@ func (r *PodAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		sgName = types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: proxy.Labels[epicv1.OwningLBServiceGroupLabel]}
 	}
 
-	// Get the "stack" of CRs to which this Proxy belongs:
-	// LBServiceGroup, and ServicePrefix. They provide configuration
-	// data that we need but that isn't contained in the pod or Proxy.
+	owningLB, belongsToLB := pod.Labels[epicv1.OwningLoadBalancerLabel]
+	if belongsToLB {
+		// Get the LB to which this rep belongs
+		lb := epicv1.LoadBalancer{}
+		lbname := types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: owningLB}
+		if err := r.Get(ctx, lbname, &lb); err != nil {
+			return done, err
+		}
+
+		// Calculate this LB's public address which we use both when we add
+		// and when we delete
+		publicIP = net.ParseIP(lb.Spec.PublicAddress)
+		if publicIP == nil {
+			return done, fmt.Errorf("%s can't be parsed as an IP address", lb.Spec.PublicAddress)
+		}
+
+		// Find the owning ServiceGroup's name.
+		sgName = types.NamespacedName{Namespace: req.NamespacedName.Namespace, Name: lb.Labels[epicv1.OwningLBServiceGroupLabel]}
+	}
+
+	// Get the "stack" of CRs to which this LB/Proxy belongs: LBServiceGroup,
+	// and ServicePrefix. They provide configuration data that we need
+	// but that isn't contained in the pod or LB/Proxy.
 	if err := r.Get(ctx, sgName, &sg); err != nil {
 		l.Error(err, "Failed to find owning service group", "sgName", sgName)
 		return done, err
