@@ -249,16 +249,16 @@ func TestPreprocessRoutes(t *testing.T) {
 		{
 			Spec: epicv1.GWRouteSpec{
 				HTTP: gatewayv1a2.HTTPRouteSpec{
-					Hostnames: []gatewayv1a2.Hostname{"host2.unit-test"},
-					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, catchall}, // NOTE: catchall rule is now last
+					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
 			},
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
 				HTTP: gatewayv1a2.HTTPRouteSpec{
-					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
-					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
+					Hostnames: []gatewayv1a2.Hostname{"host2.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, catchall}, // NOTE: catchall rule is now last
 				},
 			},
 		},

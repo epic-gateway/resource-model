@@ -21,6 +21,12 @@ resources:
 - controller: true
   domain: acnodal.io
   group: epic
+  kind: LoadBalancer
+  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  version: v1
+- controller: true
+  domain: acnodal.io
+  group: epic
   kind: ServicePrefix
   path: gitlab.com/acnodal/epic/resource-model/api/v1
   version: v1

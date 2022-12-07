@@ -69,6 +69,47 @@ status:
 The ```current-tunnel-id``` field is the most recent value that we
 assigned to a tunnel ID (within a Service object).
 
+```
+$ kubectl get -n epic-root loadbalancers.epic.acnodal.io sample-acnodal -o yaml
+apiVersion: epic.acnodal.io/v1
+kind: LoadBalancer
+metadata:
+  ... snip ...
+  name: sample-acnodal
+  namespace: epic-root
+  resourceVersion: "2584"
+  uid: 1a8522b9-70a4-4a9c-bdd7-ba912a61170a
+spec:
+  service-id: 1
+  public-address: 192.168.77.2
+  public-ports:
+  - nodePort: 30390
+    port: 8888
+    protocol: TCP
+    targetPort: 8080
+  service-group: sample
+status:
+  gue-tunnel-endpoints:
+    192.168.1.16:
+      epic-address: 192.168.1.40
+      epic-port:
+        appProtocol: gue
+        port: 6080
+        protocol: UDP
+      tunnel-id: 2
+    192.168.1.25:
+      epic-address: 192.168.1.40
+      epic-port:
+        appProtocol: gue
+        port: 6080
+        protocol: UDP
+      tunnel-id: 1
+  proxy-ifindex: 16
+  proxy-ifname: veth67060f1f
+```
+
+Each tunnel in the status has a tunnel ID that was allocated from the
+EPIC configuration singleton.
 
 ### Allocation Algorithm
 
@@ -97,3 +138,6 @@ Service Groups are stored in their owning accounts' namespaces.
 
 ### GWProxy
 Proxies are stored in their owning accounts' namespaces.
+
+### LoadBalancer
+Load Balancers are stored in their owning accounts' namespaces.

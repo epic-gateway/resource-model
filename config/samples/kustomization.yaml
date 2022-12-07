@@ -2,6 +2,7 @@
 resources:
 - epic_v1_account.yaml
 - epic_v1_lbservicegroup.yaml
+- epic_v1_loadbalancer.yaml
 - epic_v1_serviceprefix.yaml
 - epic_v1_epic.yaml
 - epic_v1_gwproxy.yaml

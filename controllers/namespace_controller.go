@@ -195,7 +195,7 @@ func maybeCreateRole(ctx context.Context, cl client.Client, l logr.Logger, names
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{epicv1.GroupName},
-				Resources: []string{"lbservicegroups", "gwproxies", "gwroutes", "gwendpointslices"},
+				Resources: []string{"loadbalancers", "remoteendpoints", "lbservicegroups", "gwproxies", "gwroutes", "gwendpointslices"},
 				Verbs:     []string{"get", "list", "watch", "update", "patch"},
 			},
 			{
