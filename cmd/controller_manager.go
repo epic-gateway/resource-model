@@ -38,6 +38,8 @@ var (
 )
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch;update
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers,verbs=get;list
+// +kubebuilder:rbac:groups=epic.acnodal.io,resources=loadbalancers/status,verbs=get;update
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies,verbs=get;list
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies/status,verbs=get;update
 
@@ -110,6 +112,17 @@ func runControllers(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err = (&controllers.LoadBalancerReconciler{
+		Client:        mgr.GetClient(),
+		RuntimeScheme: mgr.GetScheme(),
+		Allocator:     alloc,
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err = (&epicv1.LoadBalancer{}).SetupWebhookWithManager(mgr, alloc); err != nil {
+		return err
+	}
+
 	if err = (&controllers.GWProxyReconciler{
 		Client:        mgr.GetClient(),
 		RuntimeScheme: mgr.GetScheme(),
@@ -130,6 +143,16 @@ func runControllers(cmd *cobra.Command, args []string) error {
 	if err = (&controllers.GWEndpointSliceReconciler{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err = (&controllers.RemoteEndpointReconciler{
+		Client:        mgr.GetClient(),
+		RuntimeScheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err = (&epicv1.RemoteEndpoint{}).SetupWebhookWithManager(mgr); err != nil {
 		return err
 	}
 	// +kubebuilder:scaffold:builder

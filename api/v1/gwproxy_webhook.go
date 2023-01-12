@@ -23,8 +23,6 @@ import (
 var (
 	gwLog       = logf.Log.WithName("gwproxy-resource")
 	gwallocator PoolAllocator
-	// crtclient looks up objects related to the one we're defaulting.
-	crtclient client.Client
 )
 
 // PoolAllocator allocates addresses. We use an interface to avoid
@@ -45,8 +43,6 @@ func generateTunnelKey() string {
 
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
 func (r *GWProxy) SetupWebhookWithManager(mgr ctrl.Manager, alloc PoolAllocator) error {
-	crtclient = mgr.GetClient()
-
 	gwallocator = alloc
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
