@@ -149,7 +149,7 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return done, err
 		}
 		l.Info("deployment created previously, will update", "namespace", dep.Namespace, "name", dep.Name, "replicas", dep.Spec.Replicas)
-		if err := updateDeployment(ctx, r.Client, dep); err != nil {
+		if err := updateEnvoyDeployment(ctx, r.Client, dep); err != nil {
 			l.Info("Failed to update Deployment", "message", err.Error(), "namespace", dep.Namespace, "name", dep.Name)
 			return done, err
 		}
@@ -405,7 +405,7 @@ func washProtocol(proto corev1.Protocol) corev1.Protocol {
 	return corev1.Protocol(strings.ToUpper(string(proto)))
 }
 
-func updateDeployment(ctx context.Context, cl client.Client, updated *marin3roperator.EnvoyDeployment) error {
+func updateEnvoyDeployment(ctx context.Context, cl client.Client, updated *marin3roperator.EnvoyDeployment) error {
 	key := client.ObjectKey{Namespace: updated.GetNamespace(), Name: updated.GetName()}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {

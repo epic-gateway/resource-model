@@ -93,7 +93,7 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := maybeCreateService(ctx, r, l, ns.Name); err != nil {
 		return done, err
 	}
-	if err := maybeCreateDeployment(ctx, r, l, ns.Name, config.Spec.EDSImage); err != nil {
+	if err := maybeCreateEDSDeployment(ctx, r, l, ns.Name, config.Spec.EDSImage); err != nil {
 		return done, err
 	}
 
@@ -314,9 +314,9 @@ func maybeCreateService(ctx context.Context, cl client.Client, l logr.Logger, na
 	return nil
 }
 
-// maybeCreateDeployment creates a new Deployment of our EDS server if
+// maybeCreateEDSDeployment creates a new Deployment of our EDS server if
 // one doesn't exist, or does nothing if one already exists.
-func maybeCreateDeployment(ctx context.Context, cl client.Client, l logr.Logger, namespace string, edsImage string) error {
+func maybeCreateEDSDeployment(ctx context.Context, cl client.Client, l logr.Logger, namespace string, edsImage string) error {
 	labels := map[string]string{
 		"app":       "epic",
 		"component": epicv1.EDSServerName,
