@@ -570,15 +570,11 @@ func preprocessRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute)
 		if err != nil {
 			fmt.Printf("Invalid hostname: %s", err)
 		} else {
-			if len(matchingNames) == 0 {
-				fmt.Println("No matching hostnames")
-			} else {
-				maybe := rawRoutes[i].DeepCopy()
-				maybe.Spec.HTTP.Hostnames = matchingNames
-				routes[i] = *maybe
-				if len(route.Spec.HTTP.Hostnames) == 0 {
-					routes[i].Spec.HTTP.Hostnames = []gatewayv1a2.Hostname{defaultHost}
-				}
+			maybe := rawRoutes[i].DeepCopy()
+			maybe.Spec.HTTP.Hostnames = matchingNames
+			routes[i] = *maybe
+			if len(route.Spec.HTTP.Hostnames) == 0 {
+				routes[i].Spec.HTTP.Hostnames = []gatewayv1a2.Hostname{defaultHost}
 			}
 		}
 	}
@@ -590,7 +586,7 @@ func preprocessRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute)
 		for _, hostname := range route.Spec.HTTP.Hostnames {
 			hostnames[hostname] = &epicv1.GWRoute{
 				Spec: epicv1.GWRouteSpec{
-					HTTP: gatewayv1a2.HTTPRouteSpec{
+					HTTP: &gatewayv1a2.HTTPRouteSpec{
 						Hostnames: []gatewayv1a2.Hostname{hostname},
 						Rules:     []gatewayv1a2.HTTPRouteRule{},
 					},

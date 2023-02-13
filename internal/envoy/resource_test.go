@@ -170,14 +170,14 @@ func TestSortRouteRules(t *testing.T) {
 	// they should be reversed
 	raw := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
-			HTTP: gatewayv1a2.HTTPRouteSpec{
+			HTTP: &gatewayv1a2.HTTPRouteSpec{
 				Rules: []gatewayv1a2.HTTPRouteRule{catchall, two_matches, one_match},
 			},
 		},
 	}
 	want := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
-			HTTP: gatewayv1a2.HTTPRouteSpec{
+			HTTP: &gatewayv1a2.HTTPRouteSpec{
 				Rules: []gatewayv1a2.HTTPRouteRule{two_matches, one_match, catchall},
 			},
 		},
@@ -212,7 +212,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	raw = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					// This route has no hostname, and neither does the
 					// listener, so this should get "*" added to it
 					Rules: []gatewayv1a2.HTTPRouteRule{catchall},
@@ -221,7 +221,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "acnodal.com"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -229,7 +229,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"acnodal.com"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2},
 				},
@@ -239,7 +239,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	want = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"acnodal.com"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, catchall}, // NOTE: catchall rule is now last
 				},
@@ -247,7 +247,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"acnodal.io"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -255,7 +255,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"*"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -275,7 +275,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	raw = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					// This route has no hostname but the listener does so this
 					// should "borrow" the listener's hostname
 					Rules: []gatewayv1a2.HTTPRouteRule{catchall},
@@ -284,7 +284,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test", "host2.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -292,7 +292,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host2.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2},
 				},
@@ -302,7 +302,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	want = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -310,7 +310,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host2.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, catchall}, // NOTE: catchall rule is now last
 				},
@@ -318,7 +318,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{proxyName},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -338,7 +338,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	raw = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					// This route has no hostname but the listener does so this
 					// should "borrow" the listener's hostname
 					Rules: []gatewayv1a2.HTTPRouteRule{catchall},
@@ -347,7 +347,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					// This route won't appear at all in the output since its
 					// Hostname doesn't match.
 					Hostnames: []gatewayv1a2.Hostname{"example.com"},
@@ -357,7 +357,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "host1.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -365,7 +365,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"foo.bar", "host2.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2},
 				},
@@ -375,7 +375,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	want = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -383,7 +383,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host2.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2}, // NOTE: catchall rule is now last
 				},
@@ -391,7 +391,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{proxyName},
 					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
 				},
@@ -418,7 +418,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		// HTTPRouteRule that has two HTTPBackendRefs.
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "host1.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{two_matches},
 				},
@@ -426,7 +426,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "host1.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{*two_matches_alt},
 				},
@@ -436,7 +436,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		// This GWRoute should pass through to the output.
 		{
 			Spec: epicv1.GWRouteSpec{ // This should combine with the first one
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"foo.bar", "host2.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{rule2, two_matches},
 				},
@@ -446,7 +446,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	want = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
 					Rules: []gatewayv1a2.HTTPRouteRule{
 						gatewayv1a2.HTTPRouteRule{
@@ -475,7 +475,7 @@ func TestPreprocessRoutes(t *testing.T) {
 		},
 		{
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host2.unit-test"},
 					Rules:     []gatewayv1a2.HTTPRouteRule{two_matches, rule2}, // NOTE: catchall rule is now last
 				},
@@ -484,7 +484,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	}
 	cooked, err = preprocessRoutes(listener, raw)
 	assert.NoError(t, err, "route preprocessing failed")
-	assert.Equal(t, jsonify(t, want), jsonify(t, cooked))
+	assert.ElementsMatch(t, want, cooked)
 }
 
 func TestCombineRouteRules(t *testing.T) {
@@ -497,7 +497,7 @@ func TestCombineRouteRules(t *testing.T) {
 	two_matches_bis.BackendRefs[0].BackendObjectReference.Name = "bis_match"
 	raw := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
-			HTTP: gatewayv1a2.HTTPRouteSpec{
+			HTTP: &gatewayv1a2.HTTPRouteSpec{
 				Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
 				Rules:     []gatewayv1a2.HTTPRouteRule{two_matches, *two_matches_alt, *two_matches_bis},
 			},
@@ -505,7 +505,7 @@ func TestCombineRouteRules(t *testing.T) {
 	}
 	want := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
-			HTTP: gatewayv1a2.HTTPRouteSpec{
+			HTTP: &gatewayv1a2.HTTPRouteSpec{
 				Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
 				Rules: []gatewayv1a2.HTTPRouteRule{
 					gatewayv1a2.HTTPRouteRule{
@@ -635,7 +635,7 @@ func TestFilterReferentRoutes(t *testing.T) {
 	listener := gatewayv1a2.Listener{Name: "unit-test"}
 	matches := epicv1.GWRoute{
 		Spec: epicv1.GWRouteSpec{
-			HTTP: gatewayv1a2.HTTPRouteSpec{
+			HTTP: &gatewayv1a2.HTTPRouteSpec{
 				CommonRouteSpec: gatewayv1a2.CommonRouteSpec{ParentRefs: []gatewayv1a2.ParentReference{{}}},
 			},
 		},
@@ -656,7 +656,7 @@ func TestFilterReferentRoutes(t *testing.T) {
 			// This should not be in the output since its sectionName
 			// doesn't match.
 			Spec: epicv1.GWRouteSpec{
-				HTTP: gatewayv1a2.HTTPRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					CommonRouteSpec: gatewayv1a2.CommonRouteSpec{
 						ParentRefs: []gatewayv1a2.ParentReference{{SectionName: gatewayapi.SectionNamePtr("not-unit-test")}},
 					},

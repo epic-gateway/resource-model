@@ -14,12 +14,14 @@ func init() {
 	SchemeBuilder.Register(&GWRoute{}, &GWRouteList{})
 }
 
-// GWRouteSpec defines the desired state of GWRoute
+// GWRouteSpec is our wrapper for the various types of Gateway
+// RouteSpecs.
 type GWRouteSpec struct {
 	// ClientRef points back to the client-side object that corresponds
 	// to this one.
-	ClientRef ClientRef                 `json:"clientRef,omitempty"`
-	HTTP      gatewayv1a2.HTTPRouteSpec `json:"http,omitempty"`
+	ClientRef ClientRef                  `json:"clientRef,omitempty"`
+	HTTP      *gatewayv1a2.HTTPRouteSpec `json:"http,omitempty"`
+	TCP       *gatewayv1a2.TCPRouteSpec  `json:"tcp,omitempty"`
 }
 
 // GWRouteStatus defines the observed state of GWRoute
