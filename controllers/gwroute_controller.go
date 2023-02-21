@@ -81,7 +81,7 @@ func (r *GWRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// This route can reference multiple parent GWProxies. Nudge each of
 	// them.
-	for _, parent := range route.Spec.HTTP.ParentRefs {
+	for _, parent := range route.Parents() {
 		proxyName := types.NamespacedName{Namespace: route.Namespace, Name: string(parent.Name)}
 		pl := l.WithValues("parent", proxyName)
 		pl.Info("Updating")

@@ -268,7 +268,7 @@ func (proxy *GWProxy) GetChildRoutes(ctx context.Context, cl client.Client, l lo
 	children := []GWRoute{}
 	// build a new list with only routes that reference this proxy
 	for _, route := range list.Items {
-		for _, ref := range route.Spec.HTTP.ParentRefs {
+		for _, ref := range route.Parents() {
 			if string(ref.Name) == proxy.Name && route.ObjectMeta.DeletionTimestamp.IsZero() {
 				children = append(children, route)
 			}

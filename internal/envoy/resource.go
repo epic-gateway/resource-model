@@ -515,7 +515,7 @@ func filterReferentRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRo
 	refs = []epicv1.GWRoute{}
 
 	for _, route := range rawRoutes {
-		if refersToSection(route.Spec.HTTP.ParentRefs, listener) {
+		if refersToSection(route.Parents(), listener) {
 			refs = append(refs, route)
 		}
 	}

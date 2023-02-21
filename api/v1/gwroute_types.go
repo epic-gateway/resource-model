@@ -64,10 +64,22 @@ type GWRouteList struct {
 	Items           []GWRoute `json:"items"`
 }
 
+// Parents returns a slice containing this GWR's ParentReferences.
+func (gwr *GWRoute) Parents() (parents []gatewayv1a2.ParentReference) {
+	if gwr.Spec.HTTP != nil {
+		parents = append(parents, gwr.Spec.HTTP.ParentRefs...)
+	}
+	if gwr.Spec.TCP != nil {
+		parents = append(parents, gwr.Spec.TCP.ParentRefs...)
+	}
+
+	return
+}
+
 // isChildOf indicates whether this GWRoute has a ParentRef that
 // references gateway.
 func (gwr *GWRoute) isChildOf(gateway types.NamespacedName) bool {
-	for _, ref := range gwr.Spec.HTTP.ParentRefs {
+	for _, ref := range gwr.Parents() {
 		if string(ref.Name) == gateway.Name {
 			return true
 		}

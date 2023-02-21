@@ -80,7 +80,7 @@ func (slice *GWEndpointSlice) ReferencingProxies(ctx context.Context, cl client.
 			for _, ref := range rule.BackendRefs {
 				backendName := string(ref.Name)
 				if backendName == slice.Spec.ParentRef.UID {
-					for _, parent := range route.Spec.HTTP.ParentRefs {
+					for _, parent := range route.Parents() {
 						proxy := GWProxy{}
 						proxyName := types.NamespacedName{Namespace: slice.Namespace, Name: string(parent.Name)}
 						if err := cl.Get(ctx, proxyName, &proxy); err != nil {
