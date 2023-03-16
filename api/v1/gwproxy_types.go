@@ -351,31 +351,29 @@ func (proxy *GWProxy) ActiveProxyEndpoints(ctx context.Context, cl client.Client
 
 	for _, route := range routes.Items {
 		if route.ObjectMeta.DeletionTimestamp.IsZero() && route.isChildOf(gwName) {
-			for _, rule := range route.Spec.HTTP.Rules {
-				for _, ref := range rule.BackendRefs {
+			for _, ref := range route.Backends() {
 
-					// clusterName is the "glue" that binds GWRoute and GWEndpointSlice together
-					clusterName := string(ref.Name)
+				// clusterName is the "glue" that binds GWRoute and GWEndpointSlice together
+				clusterName := string(ref.Name)
 
-					for _, slice := range slices.Items {
-						if slice.Spec.ParentRef.UID == clusterName && slice.ObjectMeta.DeletionTimestamp.IsZero() {
-							// FIXME: call slice.ToEndpoints() here
-							for _, endpoint := range slice.Spec.Endpoints {
-								for _, address := range endpoint.Addresses {
-									// 'sup dawg? I heard you like loops so I put some
-									// loops in your loops
-									activeEPs = append(activeEPs, RemoteEndpoint{
-										Spec: RemoteEndpointSpec{
-											Cluster:     clusterName,
-											Address:     address,
-											NodeAddress: slice.Spec.NodeAddresses[*endpoint.NodeName],
-											Port: v1.EndpointPort{
-												Port:     *slice.Spec.Ports[0].Port,
-												Protocol: *slice.Spec.Ports[0].Protocol,
-											},
+				for _, slice := range slices.Items {
+					if slice.Spec.ParentRef.UID == clusterName && slice.ObjectMeta.DeletionTimestamp.IsZero() {
+						// FIXME: call slice.ToEndpoints() here
+						for _, endpoint := range slice.Spec.Endpoints {
+							for _, address := range endpoint.Addresses {
+								// 'sup dawg? I heard you like loops so I put some
+								// loops in your loops
+								activeEPs = append(activeEPs, RemoteEndpoint{
+									Spec: RemoteEndpointSpec{
+										Cluster:     clusterName,
+										Address:     address,
+										NodeAddress: slice.Spec.NodeAddresses[*endpoint.NodeName],
+										Port: v1.EndpointPort{
+											Port:     *slice.Spec.Ports[0].Port,
+											Protocol: *slice.Spec.Ports[0].Protocol,
 										},
-									})
-								}
+									},
+								})
 							}
 						}
 					}

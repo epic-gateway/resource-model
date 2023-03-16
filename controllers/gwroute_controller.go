@@ -210,13 +210,11 @@ func (r *GWRouteReconciler) backendRefs(ctx context.Context, l logr.Logger, rout
 		return activeSlices, err
 	}
 
-	for _, rule := range route.Spec.HTTP.Rules {
-		for _, ref := range rule.BackendRefs {
-			clusterName := string(ref.Name)
-			for _, slice := range slices.Items {
-				if slice.Spec.ParentRef.UID == clusterName && slice.ObjectMeta.DeletionTimestamp.IsZero() {
-					activeSlices = append(activeSlices, slice)
-				}
+	for _, ref := range route.Backends() {
+		clusterName := string(ref.Name)
+		for _, slice := range slices.Items {
+			if slice.Spec.ParentRef.UID == clusterName && slice.ObjectMeta.DeletionTimestamp.IsZero() {
+				activeSlices = append(activeSlices, slice)
 			}
 		}
 	}

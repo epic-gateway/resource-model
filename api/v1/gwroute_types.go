@@ -76,6 +76,24 @@ func (gwr *GWRoute) Parents() (parents []gatewayv1a2.ParentReference) {
 	return
 }
 
+// Backends returns a slice containing this GWR's BackendReferences.
+func (gwr *GWRoute) Backends() (backends []gatewayv1a2.BackendRef) {
+	if gwr.Spec.HTTP != nil {
+		for _, rule := range gwr.Spec.HTTP.Rules {
+			for _, backend := range rule.BackendRefs {
+				backends = append(backends, backend.BackendRef)
+			}
+		}
+	}
+	if gwr.Spec.TCP != nil {
+		for _, rule := range gwr.Spec.TCP.Rules {
+			backends = append(backends, rule.BackendRefs...)
+		}
+	}
+
+	return
+}
+
 // isChildOf indicates whether this GWRoute has a ParentRef that
 // references gateway.
 func (gwr *GWRoute) isChildOf(gateway types.NamespacedName) bool {

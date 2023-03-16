@@ -210,11 +210,9 @@ func routesToClusters(proxy epicv1.GWProxy, routes []epicv1.GWRoute) ([]marin3r.
 	// Find the set of clusters that are referenced by the routes.
 	clusterNames := map[string]struct{}{}
 	for _, route := range routes {
-		for _, rule := range route.Spec.HTTP.Rules {
-			for _, ref := range rule.BackendRefs {
-				clusterName := string(ref.Name)
-				clusterNames[clusterName] = struct{}{}
-			}
+		for _, ref := range route.Backends() {
+			clusterName := string(ref.Name)
+			clusterNames[clusterName] = struct{}{}
 		}
 	}
 

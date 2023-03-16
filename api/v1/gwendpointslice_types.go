@@ -76,23 +76,21 @@ func (slice *GWEndpointSlice) ReferencingProxies(ctx context.Context, cl client.
 	}
 
 	for _, route := range routes.Items {
-		for _, rule := range route.Spec.HTTP.Rules {
-			for _, ref := range rule.BackendRefs {
-				backendName := string(ref.Name)
-				if backendName == slice.Spec.ParentRef.UID {
-					for _, parent := range route.Parents() {
-						proxy := GWProxy{}
-						proxyName := types.NamespacedName{Namespace: slice.Namespace, Name: string(parent.Name)}
-						if err := cl.Get(ctx, proxyName, &proxy); err != nil {
-							// If there's an error other than "not found" then bail
-							// out and report it. If we can't find the Proxy that's
-							// probably because it was deleted which isn't an error.
-							if client.IgnoreNotFound(err) != nil {
-								return refs, err
-							}
-						} else {
-							refs = append(refs, &proxy)
+		for _, ref := range route.Backends() {
+			backendName := string(ref.Name)
+			if backendName == slice.Spec.ParentRef.UID {
+				for _, parent := range route.Parents() {
+					proxy := GWProxy{}
+					proxyName := types.NamespacedName{Namespace: slice.Namespace, Name: string(parent.Name)}
+					if err := cl.Get(ctx, proxyName, &proxy); err != nil {
+						// If there's an error other than "not found" then bail
+						// out and report it. If we can't find the Proxy that's
+						// probably because it was deleted which isn't an error.
+						if client.IgnoreNotFound(err) != nil {
+							return refs, err
 						}
+					} else {
+						refs = append(refs, &proxy)
 					}
 				}
 			}
