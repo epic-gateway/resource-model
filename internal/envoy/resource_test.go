@@ -188,8 +188,7 @@ func TestSortRouteRules(t *testing.T) {
 	assert.Equal(t, jsonify(t, want), jsonify(t, cooked))
 }
 
-func TestPreprocessRoutes(t *testing.T) {
-	listener := gatewayv1a2.Listener{Name: "unit-test"}
+func TestPreprocessHTTPRoutes(t *testing.T) {
 	rule2 := gatewayv1a2.HTTPRouteRule{
 		Matches: []gatewayv1a2.HTTPRouteMatch{{
 			Path: &gatewayv1a2.HTTPPathMatch{
@@ -203,7 +202,7 @@ func TestPreprocessRoutes(t *testing.T) {
 	// Trivial case: empty route slice
 	raw := []epicv1.GWRoute{}
 	want := []epicv1.GWRoute{}
-	cooked, err := preprocessRoutes(listener, raw)
+	cooked, err := preprocessHTTPRoutes(nil, raw)
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.Equal(t, want, cooked)
 
@@ -262,16 +261,12 @@ func TestPreprocessRoutes(t *testing.T) {
 			},
 		},
 	}
-	cooked, err = preprocessRoutes(listener, raw)
+	cooked, err = preprocessHTTPRoutes(nil, raw)
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.ElementsMatch(t, want, cooked) // FIXME: order matters here, need to use assert.Equal()
 
 	// Test Routes "borrowing" Proxy hostnames, i.e., Routes that have
 	// no Hostname referencing a Listener that does have a Hostname.
-	listener = gatewayv1a2.Listener{
-		Name:     "unit-test",
-		Hostname: &proxyName,
-	}
 	raw = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
@@ -325,16 +320,12 @@ func TestPreprocessRoutes(t *testing.T) {
 			},
 		},
 	}
-	cooked, err = preprocessRoutes(listener, raw)
+	cooked, err = preprocessHTTPRoutes(&proxyName, raw)
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.ElementsMatch(t, want, cooked) // FIXME: order matters here, need to use assert.Equal()
 
 	// Test pruning Route hostnames to only ones that match the
 	// listener.
-	listener = gatewayv1a2.Listener{
-		Name:     "prune-test",
-		Hostname: &proxyName,
-	}
 	raw = []epicv1.GWRoute{
 		{
 			Spec: epicv1.GWRouteSpec{
@@ -398,7 +389,7 @@ func TestPreprocessRoutes(t *testing.T) {
 			},
 		},
 	}
-	cooked, err = preprocessRoutes(listener, raw)
+	cooked, err = preprocessHTTPRoutes(&proxyName, raw)
 	assert.Nil(t, err, "route preprocessing failed")
 	assert.ElementsMatch(t, want, cooked) // FIXME: order matters here, need to use assert.Equal()
 
@@ -406,10 +397,6 @@ func TestPreprocessRoutes(t *testing.T) {
 	// same Filters and Hostnames then they can be combined, i.e.,
 	// we'll create one output Route with both of the input Routes'
 	// BackendRefs.
-	listener = gatewayv1a2.Listener{
-		Name:     "combine-test",
-		Hostname: &proxyName,
-	}
 	two_matches_alt := two_matches.DeepCopy()
 	two_matches_alt.BackendRefs[0].BackendObjectReference.Name = "alt_match"
 	raw = []epicv1.GWRoute{
@@ -482,9 +469,101 @@ func TestPreprocessRoutes(t *testing.T) {
 			},
 		},
 	}
-	cooked, err = preprocessRoutes(listener, raw)
+	cooked, err = preprocessHTTPRoutes(&proxyName, raw)
 	assert.NoError(t, err, "route preprocessing failed")
 	assert.ElementsMatch(t, want, cooked)
+}
+
+func TestPreprocessRoutes(t *testing.T) {
+	listener := gatewayv1a2.Listener{Name: "unit-test"}
+
+	// Trivial case: empty route slice
+	raw := []epicv1.GWRoute{}
+	want := []epicv1.GWRoute{}
+	cooked, err := preprocessRoutes(listener, raw)
+	assert.Nil(t, err, "route preprocessing failed")
+	assert.Equal(t, want, cooked)
+
+	// TCPRoutes are passed through
+	raw = []epicv1.GWRoute{
+		{
+			Spec: epicv1.GWRouteSpec{
+				TCP: &gatewayv1a2.TCPRouteSpec{
+					// This route has no hostname, and neither does the
+					// listener, so this should get "*" added to it
+					Rules: []gatewayv1a2.TCPRouteRule{},
+				},
+			},
+		},
+	}
+	want = []epicv1.GWRoute{*raw[0].DeepCopy()}
+	cooked, err = preprocessRoutes(listener, raw)
+	assert.Nil(t, err, "route preprocessing failed")
+	assert.Equal(t, want, cooked)
+
+	// HTTPRoutes are pre-processed
+	listener = gatewayv1a2.Listener{
+		Name:     "prune-test",
+		Hostname: &proxyName,
+	}
+	raw = []epicv1.GWRoute{
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
+					// This route has no hostname but the listener does so this
+					// should "borrow" the listener's hostname
+					Rules: []gatewayv1a2.HTTPRouteRule{catchall},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"acnodal.io", "host1.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				TCP: &gatewayv1a2.TCPRouteSpec{
+					// This route has no hostname, and neither does the
+					// listener, so this should get "*" added to it
+					Rules: []gatewayv1a2.TCPRouteRule{},
+				},
+			},
+		},
+	}
+	want = []epicv1.GWRoute{
+		{
+			Spec: epicv1.GWRouteSpec{
+				TCP: &gatewayv1a2.TCPRouteSpec{
+					// This route has no hostname, and neither does the
+					// listener, so this should get "*" added to it
+					Rules: []gatewayv1a2.TCPRouteRule{},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
+					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
+				},
+			},
+		},
+		{
+			Spec: epicv1.GWRouteSpec{
+				HTTP: &gatewayv1a2.HTTPRouteSpec{
+					Hostnames: []gatewayv1a2.Hostname{proxyName},
+					Rules:     []gatewayv1a2.HTTPRouteRule{catchall},
+				},
+			},
+		},
+	}
+	cooked, err = preprocessRoutes(listener, raw)
+	assert.Nil(t, err, "route preprocessing failed")
+	assert.ElementsMatch(t, want, cooked) // FIXME: order matters here, need to use assert.Equal()
 }
 
 func TestCombineRouteRules(t *testing.T) {

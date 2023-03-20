@@ -536,9 +536,45 @@ func refersToSection(routeRefs []gatewayv1a2.ParentReference, listener gatewayv1
 	return false
 }
 
-// preprocessRoutes rearranges the routes to make them work in Envoy
+// preprocessRoutes rearranges GWRoutes to make them work in Envoy
 // configurations. The idea is to do the heavy lifting that's better
 // suited for Go which allows the templates to be more
+// straightforward.
+//
+// HTTPRoutes require preprocessing but other types of Routes don't so
+// this function collates the routes, preprocesses the HTTPRoutes, and
+// then returns a slice with the non-HTTP Routes first and then the
+// pre-processed HTTPRoutes.
+//
+// If error is non-nil then the []GWRoute contents are undefined.
+func preprocessRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
+	var (
+		httpRoutes   = []epicv1.GWRoute{}
+		outputRoutes = []epicv1.GWRoute{}
+	)
+
+	// Separate the routes into HTTP and "other". HTTP routes need to be
+	// pre-processed but other routes (like TCP and UDP) don't.
+	for _, route := range rawRoutes {
+		if route.Spec.HTTP != nil {
+			httpRoutes = append(httpRoutes, *route.DeepCopy())
+		} else {
+			outputRoutes = append(outputRoutes, *route.DeepCopy())
+		}
+	}
+
+	// Preprocess the HTTP Routes and add the results to the output
+	// routes after the non-http routes.
+	if cookedRoutes, error := preprocessHTTPRoutes(listener.Hostname, httpRoutes); error != nil {
+		return []epicv1.GWRoute{}, error
+	} else {
+		return append(outputRoutes, cookedRoutes...), nil
+	}
+}
+
+// preprocessHTTPRoutes rearranges HTTPRoutes to make them work in
+// Envoy configurations. The idea is to do the heavy lifting that's
+// better suited for Go which allows the templates to be more
 // straightforward.
 //
 // Each Route can have multiple Hostnames but Envoy allows only a
@@ -550,25 +586,25 @@ func refersToSection(routeRefs []gatewayv1a2.ParentReference, listener gatewayv1
 // because an HTTPRoute can have multiple hostnames but each Envoy
 // virtual_host can have only a single hostname. A single output route
 // might contain rules from multiple input routes.
-func preprocessRoutes(listener gatewayv1a2.Listener, rawRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
+func preprocessHTTPRoutes(hostname *gatewayv1a2.Hostname, rawHTTPRoutes []epicv1.GWRoute) ([]epicv1.GWRoute, error) {
 	// If the Proxy has a hostname then we'll use that as a default,
 	// otherwise we'll use an explicit "all hosts".
 	defaultHost := allHosts
-	if listener.Hostname != nil {
-		defaultHost = *listener.Hostname
+	if hostname != nil {
+		defaultHost = *hostname
 	}
 
 	// Make a copy of the matching input routes since we're going to
 	// modify some of them.  Any input route with an implicit host
 	// (i.e., no hostname) will be made explicit, using
 	// defaultHost. This helps below when we group rules by hostname.
-	routes := make([]epicv1.GWRoute, len(rawRoutes))
-	for i, route := range rawRoutes {
-		matchingNames, err := dag.ComputeHosts(route.Spec.HTTP.Hostnames, listener.Hostname)
+	routes := make([]epicv1.GWRoute, len(rawHTTPRoutes))
+	for i, route := range rawHTTPRoutes {
+		matchingNames, err := dag.ComputeHosts(route.Spec.HTTP.Hostnames, hostname)
 		if err != nil {
 			fmt.Printf("Invalid hostname: %s", err)
 		} else {
-			maybe := rawRoutes[i].DeepCopy()
+			maybe := rawHTTPRoutes[i].DeepCopy()
 			maybe.Spec.HTTP.Hostnames = matchingNames
 			routes[i] = *maybe
 			if len(route.Spec.HTTP.Hostnames) == 0 {
