@@ -107,7 +107,7 @@ var (
 			Path: &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/api")},
 		}},
 		BackendRefs: []gatewayv1a2.HTTPBackendRef{
-			gatewayv1a2.HTTPBackendRef{
+			{
 				BackendRef: gatewayv1a2.BackendRef{
 					BackendObjectReference: gatewayv1a2.BackendObjectReference{
 						Name: "one_match",
@@ -125,7 +125,7 @@ var (
 			Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
 		}},
 		BackendRefs: []gatewayv1a2.HTTPBackendRef{
-			gatewayv1a2.HTTPBackendRef{
+			{
 				BackendRef: gatewayv1a2.BackendRef{
 					BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "two_matches"},
 					Weight:                 pointer.Int32(1),
@@ -449,19 +449,19 @@ func TestPreprocessRoutes(t *testing.T) {
 				HTTP: &gatewayv1a2.HTTPRouteSpec{
 					Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
 					Rules: []gatewayv1a2.HTTPRouteRule{
-						gatewayv1a2.HTTPRouteRule{
+						{
 							Matches: []gatewayv1a2.HTTPRouteMatch{{
 								Method: &get,
 								Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
 							}},
 							BackendRefs: []gatewayv1a2.HTTPBackendRef{
-								gatewayv1a2.HTTPBackendRef{
+								{
 									BackendRef: gatewayv1a2.BackendRef{
 										BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "two_matches"},
 										Weight:                 pointer.Int32(1),
 									},
 								},
-								gatewayv1a2.HTTPBackendRef{
+								{
 									BackendRef: gatewayv1a2.BackendRef{
 										BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "alt_match"},
 										Weight:                 pointer.Int32(1),
@@ -508,25 +508,25 @@ func TestCombineRouteRules(t *testing.T) {
 			HTTP: &gatewayv1a2.HTTPRouteSpec{
 				Hostnames: []gatewayv1a2.Hostname{"host1.unit-test"},
 				Rules: []gatewayv1a2.HTTPRouteRule{
-					gatewayv1a2.HTTPRouteRule{
+					{
 						Matches: []gatewayv1a2.HTTPRouteMatch{{
 							Method: &get,
 							Path:   &gatewayv1a2.HTTPPathMatch{Type: &prefix, Value: pointer.StringPtr("/web")},
 						}},
 						BackendRefs: []gatewayv1a2.HTTPBackendRef{
-							gatewayv1a2.HTTPBackendRef{
+							{
 								BackendRef: gatewayv1a2.BackendRef{
 									BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "two_matches"},
 									Weight:                 pointer.Int32(1),
 								},
 							},
-							gatewayv1a2.HTTPBackendRef{
+							{
 								BackendRef: gatewayv1a2.BackendRef{
 									BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "alt_match"},
 									Weight:                 pointer.Int32(1),
 								},
 							},
-							gatewayv1a2.HTTPBackendRef{
+							{
 								BackendRef: gatewayv1a2.BackendRef{
 									BackendObjectReference: gatewayv1a2.BackendObjectReference{Name: "bis_match"},
 									Weight:                 pointer.Int32(1),
