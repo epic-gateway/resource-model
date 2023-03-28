@@ -117,6 +117,24 @@ var (
 
 			return "FOUND"
 		},
+
+		"TCPRoutes": func(routes []epicv1.GWRoute) (tcpRoutes []gatewayv1a2.TCPRouteSpec) {
+			for _, route := range routes {
+				if route.Spec.TCP != nil {
+					tcpRoutes = append(tcpRoutes, *route.Spec.TCP)
+				}
+			}
+			return
+		},
+
+		"HTTPRoutes": func(routes []epicv1.GWRoute) (httpRoutes []gatewayv1a2.HTTPRouteSpec) {
+			for _, route := range routes {
+				if route.Spec.HTTP != nil {
+					httpRoutes = append(httpRoutes, *route.Spec.HTTP)
+				}
+			}
+			return
+		},
 	}
 )
 
@@ -133,8 +151,6 @@ type clusterParams struct {
 	// ServiceName is the name of the Gateway object on the client
 	// cluster.
 	ServiceName string
-
-	Route epicv1.GWRoute
 }
 type listenerParams struct {
 	Clusters []string

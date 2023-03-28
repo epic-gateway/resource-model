@@ -52,6 +52,8 @@ address:
     protocol: {{.Protocol | ToUpper}}
 filter_chains:
   - filters:
+    {{- $httpRoutes := (.Routes | HTTPRoutes) }}
+    {{- if (gt ($httpRoutes | len) 0) }}
     - name: envoy.http_connection_manager
       typed_config:
         "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
@@ -66,6 +68,7 @@ filter_chains:
                     prefix: "/"
                   route:
                     cluster: purelb
+    {{- end }}{{- /* if len */}}
         http_filters:
           - name: envoy.filters.http.router
 `
@@ -161,7 +164,7 @@ func TestMakeHTTPListener(t *testing.T) {
 		Protocol: "tcp",
 		Port:     42,
 	})
-	assert.Nil(t, err, "template processing failed")
+	assert.NoError(t, err, "template processing failed")
 	fmt.Println(listener)
 }
 
