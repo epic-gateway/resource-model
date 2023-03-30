@@ -2,10 +2,7 @@ module gitlab.com/acnodal/epic/resource-model
 
 go 1.19
 
-replace (
-	github.com/3scale-ops/marin3r => gitlab.com/acnodal/epic/marin3r v0.9.1-epic7
-	sigs.k8s.io/gateway-api => github.com/purelb/gateway-api v0.5.0-rc1-epic0
-)
+replace github.com/3scale-ops/marin3r => gitlab.com/acnodal/epic/marin3r v0.9.1-epic7
 
 require (
 	github.com/3scale-ops/marin3r v0.9.1
@@ -24,7 +21,7 @@ require (
 	k8s.io/client-go v0.24.2
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	sigs.k8s.io/controller-runtime v0.12.3
-	sigs.k8s.io/gateway-api v0.5.0-rc1
+	sigs.k8s.io/gateway-api v0.5.0
 )
 
 require (
