@@ -681,8 +681,8 @@ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1
 github.com/yuin/goldmark v1.4.1/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 gitlab.com/acnodal/epic/marin3r v0.9.1-epic7 h1:lezEEYtuSvcPZuwvX5Sb4fgtR72rq9Ck+tM80a8Mm8A=
 gitlab.com/acnodal/epic/marin3r v0.9.1-epic7/go.mod h1:bVIvwvEFiAtfPZnjDUJBt4Ujb6jvfeqzemOBmaEw750=
-gitlab.com/acnodal/packet-forwarding-component/src/go v0.0.0-20201020212529-ed4982208c08 h1:ash0kj++W04QTMonOE40qpGVwJSp/x4STnJe8Fr8C0k=
-gitlab.com/acnodal/packet-forwarding-component/src/go v0.0.0-20201020212529-ed4982208c08/go.mod h1:SDPfSIpwi0eaR90u+CSnzctMM/JOjOJFA+QFnljtC7M=
+gitlab.com/acnodal/epic/true-ingress v0.16.2 h1:RN01xQc3v/gPAaW3OVa0xYLovhfZr/YS2+1keWmtw5I=
+gitlab.com/acnodal/epic/true-ingress v0.16.2/go.mod h1:S+uue1HGho5wOAGWZCwMv1DqhVUmhNwfv6RLCFcbYKE=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.5/go.mod h1:G5EMThwa9y8QZGBClrRx5EY+Yw9kAhnjy3bSjsnlVTQ=

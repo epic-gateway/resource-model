@@ -11,7 +11,7 @@ import (
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/controllers"
 	"gitlab.com/acnodal/epic/resource-model/internal/exec"
-	"gitlab.com/acnodal/packet-forwarding-component/src/go/pfc"
+	"gitlab.com/acnodal/epic/true-ingress/pfc"
 	// +kubebuilder:scaffold:imports
 )
 
