@@ -2,6 +2,7 @@
 package network
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"syscall"
@@ -140,4 +141,40 @@ func ensureBridge(log logr.Logger, brname string) (*netlink.Bridge, error) {
 	}
 
 	return br, nil
+}
+
+// Get preferred outbound ip of this machine.
+// https://stackoverflow.com/a/37382208/5967960
+func GetOutboundIP() (net.IP, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	return conn.LocalAddr().(*net.UDPAddr).IP, nil
+}
+
+// https://stackoverflow.com/a/63205544/5967960
+func GetInterfaceByIP(ip net.IP) (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range interfaces {
+		if addrs, err := iface.Addrs(); err == nil {
+			for _, addr := range addrs {
+				if iip, _, err := net.ParseCIDR(addr.String()); err == nil {
+					if iip.Equal(ip) {
+						return iface.Name, nil
+					}
+				} else {
+					continue
+				}
+			}
+		} else {
+			continue
+		}
+	}
+	return "", errors.New("couldn't find a interface for the ip")
 }
