@@ -33,36 +33,36 @@ func (r *GWProxyAdhocReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	l := log.FromContext(ctx).WithValues("node address", r.NodeAddress)
 	proxy := &epicv1.GWProxy{}
 
-	l.V(1).Info("Reconciling...")
-
 	// read the object that caused the event
 	if err := r.Get(ctx, req.NamespacedName, proxy); err != nil {
-		l.Info("can't get resource, probably deleted")
+		l.Info("Can't get resource, probably deleted")
 		// ignore not-found errors, since they can't be fixed by an
 		// immediate requeue (we'll need to wait for a new notification),
 		// and we can get them on deleted requests.
 		return done, client.IgnoreNotFound(err)
 	}
 
+	l.Info("Reconciling")
+
 	// Set up each proxy pod belonging to this proxy
 	endpointMap, hasMap := proxy.Spec.GUETunnelMaps[r.NodeAddress]
 	if hasMap {
 		for _, tunnelInfo := range endpointMap.EPICEndpoints {
-			l.Info("setting up tunnel", "tunnel-id", tunnelInfo.TunnelID, "epicIP", tunnelInfo.Address, "port", tunnelInfo.Port.Port)
+			l.Info("Setting up tunnel", "tunnel-id", tunnelInfo.TunnelID, "epicIP", tunnelInfo.Address, "port", tunnelInfo.Port.Port)
 
 			// Configure the tunnel between the EPIC node and this one.
 			if err := setTunnel(l, tunnelInfo.TunnelID, tunnelInfo.Address, r.NodeAddress, tunnelInfo.Port.Port); err != nil {
-				l.Error(err, "setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
+				l.Error(err, "Setting up tunnel", "epic-ip", os.Getenv("EPIC_HOST"), "client-info", tunnelInfo)
 			}
 
 			// Set up a service gateway from this proxy to this rep.
 			if err := setService(l, proxy.Spec.TunnelKey, tunnelInfo.TunnelID); err != nil {
-				l.Error(err, "setting up service gateway")
+				l.Error(err, "Setting up service gateway")
 			}
 
 		}
 	} else {
-		l.V(1).Info("No tunnels ending at this node")
+		l.Info("No tunnels ending at this node")
 	}
 
 	return done, nil

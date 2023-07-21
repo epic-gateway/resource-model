@@ -16,7 +16,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	"gitlab.com/acnodal/epic/resource-model/controllers"
@@ -54,10 +53,7 @@ func init() {
 	controllerManCmd.Flags().BoolVar(&leaderElect, "leader-elect", false,
 		"Enabling this will ensure that there is only one active controller manager instance")
 
-	rootCmd.AddCommand(controllerManCmd)
-
-	opts := zap.Options{Development: true}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	Root.AddCommand(controllerManCmd)
 }
 
 func runControllers(cmd *cobra.Command, args []string) error {

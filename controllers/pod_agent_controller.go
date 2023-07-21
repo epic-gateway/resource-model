@@ -179,9 +179,9 @@ func (r *PodAgentReconciler) Scheme() *runtime.Scheme {
 }
 
 func (r *PodAgentReconciler) configureTagging(l logr.Logger, ifname string) error {
-	err := pfc.AddQueueDiscipline(ifname)
+	err := pfc.AddQueueDiscipline(l, ifname)
 	if err != nil {
 		return err
 	}
-	return pfc.AddFilter(ifname, "ingress", "tag_rx")
+	return pfc.AddFilter(l, ifname, "ingress", "tag_rx")
 }

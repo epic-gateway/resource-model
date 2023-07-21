@@ -47,7 +47,7 @@ func init() {
 
 	adhocAgentCmd.PersistentFlags().StringVar(&accountName, "account-name", "root", "name of the user account")
 
-	rootCmd.AddCommand(adhocAgentCmd)
+	Root.AddCommand(adhocAgentCmd)
 }
 
 func runAdhocAgent(cmd *cobra.Command, args []string) error {
@@ -83,10 +83,10 @@ func runAdhocAgent(cmd *cobra.Command, args []string) error {
 	setupLog.V(1).Info("Setting up TrueIngress")
 
 	// Hook TrueIngress into the network interface.
-	if err := pfc.SetupNIC(nicName, "decap", "ingress", 0, 9); err != nil {
+	if err := pfc.SetupNIC(setupLog, nicName, "decap", "ingress", 0, 9); err != nil {
 		setupLog.Error(err, "Failed to setup NIC "+nicName)
 	}
-	if err := pfc.SetupNIC(nicName, "encap", "egress", 1, 28); err != nil {
+	if err := pfc.SetupNIC(setupLog, nicName, "encap", "egress", 1, 28); err != nil {
 		setupLog.Error(err, "Failed to setup NIC "+nicName)
 	}
 

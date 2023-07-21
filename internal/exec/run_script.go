@@ -13,9 +13,9 @@ func RunScript(log logr.Logger, script string) error {
 
 	cmd := exec.Command("/bin/sh", "-c", script)
 	if stdoutStderr, err := cmd.CombinedOutput(); err != nil {
-		log.Info("Script FAILED", "script", script, "result", err, "combined-output", string(stdoutStderr))
+		log.Error(err, "Script FAILED", "script", script, "combined-output", string(stdoutStderr))
 	} else {
-		log.Info("Script succeeded", "script", script)
+		log.V(1).Info("Script succeeded", "script", script)
 	}
 
 	return err

@@ -37,10 +37,10 @@ func (r *EPICAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	base := config.Spec.NodeBase
 	for _, nic := range base.IngressNICs {
-		if err := pfc.SetupNIC(nic, "decap", "ingress", 0, 9); err != nil {
+		if err := pfc.SetupNIC(l, nic, "decap", "ingress", 0, 9); err != nil {
 			l.Error(err, "Failed to setup NIC "+nic)
 		}
-		if err := pfc.SetupNIC(nic, "encap", "egress", 1, 25); err != nil {
+		if err := pfc.SetupNIC(l, nic, "encap", "egress", 1, 25); err != nil {
 			l.Error(err, "Failed to setup NIC "+nic)
 		}
 	}

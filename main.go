@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -15,5 +17,8 @@ func init() {
 }
 
 func main() {
-	cmd.Execute()
+	if err := cmd.Root.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }

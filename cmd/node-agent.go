@@ -33,7 +33,7 @@ var (
 // +kubebuilder:rbac:groups=epic.acnodal.io,resources=gwproxies/status,verbs=get;update
 
 func init() {
-	rootCmd.AddCommand(nodeAgentCmd)
+	Root.AddCommand(nodeAgentCmd)
 }
 
 func runNodeAgent(cmd *cobra.Command, args []string) error {
