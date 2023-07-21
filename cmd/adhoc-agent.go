@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	ipAddress string
-	nicName   string
+	ipAddress   string
+	nicName     string
+	accountName string
 
 	// adhocAgentCmd is the adhoc agent subcommand. An instance of the
 	// adhoc agent runs on each adhoc linux backend host and sets up the
@@ -44,6 +45,8 @@ func init() {
 	adhocAgentCmd.Flags().StringVarP(&ipAddress, "ip-address", "i", defIP.String(), "Tunnel IP address")
 	adhocAgentCmd.Flags().StringVarP(&nicName, "nic", "n", defNIC, "Tunnel network interface name")
 
+	adhocAgentCmd.PersistentFlags().StringVar(&accountName, "account-name", "root", "name of the user account")
+
 	rootCmd.AddCommand(adhocAgentCmd)
 }
 
@@ -55,6 +58,7 @@ func runAdhocAgent(cmd *cobra.Command, args []string) error {
 		Scheme:             scheme,
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
+		Namespace:          "epic-" + accountName,
 	})
 	if err != nil {
 		return err
