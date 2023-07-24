@@ -43,7 +43,7 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	CGO_ENABLED=0 go build -o bin/manager main.go
+	CGO_ENABLED=0 go build -ldflags "-X gitlab.com/acnodal/epic/resource-model/cmd.version=${SUFFIX}" -o bin/manager .
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run-manager: generate fmt vet manifests

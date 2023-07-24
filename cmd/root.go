@@ -14,10 +14,17 @@ var (
 		Use:               "manager",
 		Short:             "EPIC - Simplifying k8s Edge Access",
 		PersistentPreRunE: configureLogging,
+		Version:           version,
 	}
+
+	// version is set by the Makefile.
+	version string = "development"
 )
 
 func init() {
+	Root.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version: %s" .Version}}
+`)
+
 	// Global flags
 	Root.PersistentFlags().BoolVar(&debug, "debug", true, "Enable debug logs")
 	Root.PersistentFlags().StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address to which the metrics endpoint binds")
