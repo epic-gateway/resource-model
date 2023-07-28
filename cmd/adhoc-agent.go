@@ -52,7 +52,7 @@ func init() {
 
 func runAdhocAgent(cmd *cobra.Command, args []string) error {
 	setupLog := ctrl.Log.WithName("setup")
-	setupLog.Info("Agent running")
+	setupLog.Info("Agent running", "account", accountName, "ip", ipAddress, "nic", nicName)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
