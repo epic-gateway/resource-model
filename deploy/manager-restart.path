@@ -1,0 +1,8 @@
+[Unit]
+Description=Acnodal EPIC adhoc manager config file check
+
+[Path]
+PathModified=/opt/acnodal/etc/manager.yaml
+
+[Install]
+WantedBy=paths.target
