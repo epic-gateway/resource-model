@@ -10,31 +10,31 @@ resources:
   domain: acnodal.io
   group: epic
   kind: Account
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 - controller: true
   domain: acnodal.io
   group: epic
   kind: LBServiceGroup
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 - controller: true
   domain: acnodal.io
   group: epic
   kind: LoadBalancer
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 - controller: true
   domain: acnodal.io
   group: epic
   kind: ServicePrefix
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 - controller: true
   domain: acnodal.io
   group: epic
   kind: EPIC
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 - api:
     crdVersion: v1beta1
@@ -43,7 +43,7 @@ resources:
   domain: acnodal.io
   group: epic
   kind: GWProxy
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 - api:
     crdVersion: v1beta1
@@ -52,7 +52,7 @@ resources:
   domain: acnodal.io
   group: epic
   kind: GWRoute
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 - api:
     crdVersion: v1beta1
@@ -61,6 +61,6 @@ resources:
   domain: acnodal.io
   group: epic
   kind: GWEndpointSlice
-  path: gitlab.com/acnodal/epic/resource-model/api/v1
+  path: epic-gateway.org/resource-model/api/v1
   version: v1
 version: "3"

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 

@@ -7,10 +7,10 @@ import (
 	"net"
 	"syscall"
 
+	epicexec "epic-gateway.org/resource-model/internal/exec"
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
-	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
 	corev1 "k8s.io/api/core/v1"
 )
 

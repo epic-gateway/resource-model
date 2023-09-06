@@ -17,9 +17,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	"gitlab.com/acnodal/epic/resource-model/controllers"
-	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
+	"epic-gateway.org/resource-model/controllers"
+	"epic-gateway.org/resource-model/internal/allocator"
 	// +kubebuilder:scaffold:imports
 )
 

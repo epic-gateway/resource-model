@@ -6,10 +6,10 @@ import (
 	"github.com/spf13/cobra"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"gitlab.com/acnodal/epic/resource-model/controllers"
-	"gitlab.com/acnodal/epic/resource-model/internal/exec"
-	"gitlab.com/acnodal/epic/resource-model/internal/network"
-	"gitlab.com/acnodal/epic/resource-model/internal/pfc"
+	"epic-gateway.org/resource-model/controllers"
+	"epic-gateway.org/resource-model/internal/exec"
+	"epic-gateway.org/resource-model/internal/network"
+	"epic-gateway.org/resource-model/internal/pfc"
 	// +kubebuilder:scaffold:imports
 )
 

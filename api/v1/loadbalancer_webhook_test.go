@@ -1,9 +1,9 @@
 package v1_test
 
 import (
+	v1 "epic-gateway.org/resource-model/api/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	v1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 )
 
 var _ = Describe("LoadbalancerWebhook", func() {

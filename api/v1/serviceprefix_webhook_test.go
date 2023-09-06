@@ -1,7 +1,7 @@
 package v1_test
 
 import (
-	v1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	v1 "epic-gateway.org/resource-model/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 

@@ -13,9 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
-	"gitlab.com/acnodal/epic/resource-model/internal/network"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
+	epicexec "epic-gateway.org/resource-model/internal/exec"
+	"epic-gateway.org/resource-model/internal/network"
 )
 
 // LoadBalancerAgentReconciler reconciles a LoadBalancer object by
