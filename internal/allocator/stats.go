@@ -15,7 +15,7 @@
 package allocator
 
 import (
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

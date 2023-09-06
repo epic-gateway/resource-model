@@ -30,7 +30,7 @@ type Node struct {
 type EPICSpec struct {
 	// EDSImage is the name of the EPIC EDS control plane Docker image
 	// to run.
-	// +kubebuilder:default="registry.gitlab.com/acnodal/xds-operator:latest"
+	// +kubebuilder:default="quay.io/epic-gateway/eds-server:latest"
 	EDSImage string `json:"eds-image"`
 
 	// EnvoyImage is the default Envoy Docker image name. This value can
@@ -43,12 +43,12 @@ type EPICSpec struct {
 	// the marin3r deployment manifest.
 	XDSImage *string `json:"xds-image,omitempty"`
 
-	// ServiceCIDR is the pool from which internal service addresses
-	// are allocated. In microk8s it's hard-coded and passed on the
+	// ServiceCIDR is the pool from which internal service addresses are
+	// allocated. In microk8s it's hard-coded and passed on the
 	// kubeapiserver command line (see
 	// epicmgr-resources/default-args/kube-apiserver). We need a way to
 	// discover this value so we can configure routes in the Envoy pod.
-	// The snap package will set this value when it installs the epic
+	// The installer will set this value when it installs the epic
 	// singleton custom resource.
 	ServiceCIDR string `json:"service-cidr"`
 

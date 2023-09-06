@@ -20,8 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
+	"epic-gateway.org/resource-model/internal/allocator"
 )
 
 // LoadBalancerReconciler reconciles a LoadBalancer object
@@ -209,9 +209,6 @@ func (r *LoadBalancerReconciler) deploymentForLB(lb *epicv1.LoadBalancer, sp *ep
 				Spec: v1.PodSpec{
 					Hostname:  epicv1.EDSServerName,
 					Subdomain: "epic",
-					ImagePullSecrets: []v1.LocalObjectReference{
-						{Name: "gitlab"},
-					},
 					Containers: []v1.Container{{
 						Name:            epicv1.EDSServerName,
 						Image:           envoyImage,

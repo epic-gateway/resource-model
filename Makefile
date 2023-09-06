@@ -1,4 +1,4 @@
-REPO ?= registry.gitlab.com/acnodal/epic
+REPO ?= quay.io/epic-gateway
 PREFIX = resource-model
 SUFFIX = ${USER}-dev
 
@@ -43,7 +43,7 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	CGO_ENABLED=0 go build -ldflags "-X gitlab.com/acnodal/epic/resource-model/cmd.version=${SUFFIX}" -o bin/manager .
+	CGO_ENABLED=0 go build -ldflags "-X epic-gateway.org/resource-model/cmd.version=${SUFFIX}" -o bin/manager .
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run-manager: generate fmt vet manifests
@@ -77,7 +77,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build:
-	docker build . --build-arg=GITLAB_USER --build-arg=GITLAB_PASSWORD -t ${IMG}
+	docker build . -t ${IMG}
 
 # Push the docker image
 docker-push:

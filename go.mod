@@ -1,10 +1,11 @@
-module gitlab.com/acnodal/epic/resource-model
+module epic-gateway.org/resource-model
 
 go 1.19
 
-replace github.com/3scale-ops/marin3r => gitlab.com/acnodal/epic/marin3r v0.9.1-epic7
+replace github.com/3scale-ops/marin3r => epic-gateway.org/marin3r v0.9.1-epic7
 
 require (
+	epic-gateway.org/true-ingress v0.22.4
 	github.com/3scale-ops/marin3r v0.9.1
 	github.com/containernetworking/plugins v0.8.7
 	github.com/go-logr/logr v1.2.0
@@ -17,7 +18,6 @@ require (
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.0
-	gitlab.com/acnodal/epic/true-ingress v0.16.2
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v0.24.2

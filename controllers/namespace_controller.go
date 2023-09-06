@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
+	epicv1 "epic-gateway.org/resource-model/api/v1"
 	marin3r "github.com/3scale-ops/marin3r/apis/operator.marin3r/v1alpha1"
 	"github.com/go-logr/logr"
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -339,9 +339,6 @@ func maybeCreateEDSDeployment(ctx context.Context, cl client.Client, l logr.Logg
 				Spec: v1.PodSpec{
 					Hostname:  epicv1.EDSServerName,
 					Subdomain: "epic",
-					ImagePullSecrets: []v1.LocalObjectReference{
-						{Name: "gitlab"},
-					},
 					Containers: []v1.Container{{
 						Name:            epicv1.EDSServerName,
 						Image:           edsImage,

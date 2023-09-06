@@ -28,8 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	"gitlab.com/acnodal/epic/resource-model/internal/contour/dag"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
+	"epic-gateway.org/resource-model/internal/contour/dag"
 )
 
 const (

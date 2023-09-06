@@ -22,13 +22,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	"gitlab.com/acnodal/epic/resource-model/internal/allocator"
-	"gitlab.com/acnodal/epic/resource-model/internal/envoy"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
+	"epic-gateway.org/resource-model/internal/allocator"
+	"epic-gateway.org/resource-model/internal/envoy"
 )
 
 const (
-	gitlabSecret  = "gitlab"
 	cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 	// serviceCIDREnv is the name of the env var that tells the Envoy

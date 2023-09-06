@@ -5,8 +5,8 @@ metadata:
   name: epic
 spec:
   xds-image: quay.io/3scale/marin3r:v0.7.0
-  eds-image: registry.gitlab.com/acnodal/xds-operator:latest
-  envoy-image: registry.gitlab.com/acnodal/epic/envoy:latest
+  eds-image: quay.io/epic-gateway/eds-server:latest
+  envoy-image: quay.io/epic-gateway/envoy:latest
   base:
     gue-endpoint:
       epic-address: 192.168.1.40

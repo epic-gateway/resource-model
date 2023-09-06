@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	gatewayapi_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	"gitlab.com/acnodal/epic/resource-model/internal/contour/gatewayapi"
+	"epic-gateway.org/resource-model/internal/contour/gatewayapi"
 )
 
 // ComputeHosts returns the set of hostnames to match for a route. Both the result

@@ -1,17 +1,5 @@
 FROM golang:1.19-alpine as builder
 
-# Configure golang for our private modules at gitlab
-ENV GONOPROXY=gitlab.com/acnodal
-ENV GONOSUMDB=gitlab.com/acnodal
-ENV GOPRIVATE=gitlab.com/acnodal
-ARG GITLAB_USER
-ARG GITLAB_PASSWORD
-
-# install and configure git. we need it because some of our modules
-# (e.g., packet-forwarding-component) are private
-RUN apk add git
-RUN echo "machine gitlab.com login ${GITLAB_USER} password ${GITLAB_PASSWORD}" > ~/.netrc
-
 WORKDIR /opt/acnodal/src
 
 # Copy the Go Modules manifests

@@ -2,35 +2,6 @@ The EPIC operator manages Envoy pods based on our custom resources. The
 data model and operator code are scaffolded by
 https://operatorframework.io/.
 
-## Developer Setup
-
-This project depends on modules that are not publicly visible, so you
-need to configure git so that it can clone our private module repos
-even when it is being run by commands like "go get". There are two
-ways that this can happen: inside of docker (for example, when you're
-building images to run in k8s), and outside of docker (for example,
-when you're running go programs at the command line for debugging
-purposes).
-
-To set up "inside docker" access, first create a GitLab Personal
-Access Token that can read repos. You can do that at
-https://gitlab.com/profile/personal_access_tokens . Then define an
-environment variable in your account called GITLAB_PASSWORD that
-contains the token, and another called GITLAB_USER that contains
-"oauth2". This project's Makefile will pass these variables into
-Docker which will use them to clone our private module repos when it
-builds our go programs.
-
-To set up "outside docker" access, configure git to use the token you
-created in the previous paragraphs to clone Acnodal repos on
-gitlab. This can be done using a ~/.netrc file containing:
-
- machine gitlab.com login oauth2 password {put your token here}
-
-You can test this by running the command:
-
- $ go get gitlab.com/acnodal/epic/resource-model@v0.1.0-pre1
-
 ## Useful Commands
 
 To generate a new custom resource definition:

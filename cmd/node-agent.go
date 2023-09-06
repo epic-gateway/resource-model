@@ -8,10 +8,10 @@ import (
 	"github.com/spf13/cobra"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
-	"gitlab.com/acnodal/epic/resource-model/controllers"
-	"gitlab.com/acnodal/epic/resource-model/internal/exec"
-	"gitlab.com/acnodal/epic/true-ingress/pfc"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
+	"epic-gateway.org/resource-model/controllers"
+	"epic-gateway.org/resource-model/internal/exec"
+	"epic-gateway.org/true-ingress/pfc"
 	// +kubebuilder:scaffold:imports
 )
 

@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
 )
 
 // RemoteEndpointReconciler reconciles RemoteEndpoint objects.

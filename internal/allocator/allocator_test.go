@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	epicv1 "gitlab.com/acnodal/epic/resource-model/api/v1"
+	epicv1 "epic-gateway.org/resource-model/api/v1"
 )
 
 var (

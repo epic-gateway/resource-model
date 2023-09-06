@@ -16,10 +16,6 @@ manifest:
   - *set-tag
   - apt-get update
   - apt-get install -y gettext-base
-  # this lets the CI runner clone any repo that the pushing user can
-  # clone. We need to clone private repos, e.g., epic/true-ingress
-  # since this project depends on them.
-  - echo "machine gitlab.com login gitlab-ci-token password ${CI_JOB_TOKEN}" > ~/.netrc
 
   script:
   - make SUFFIX=${TAG_SPECIFIC} all
@@ -30,6 +26,7 @@ manifest:
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/manager.service "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/manager.service"'
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/manager-restart.service "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/manager-restart.service"'
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/manager-restart.path "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/manager-restart.path"'
+  # FIXME: "go list" this module to add it to the checksum db
 
 docker:
   image: docker:20.10.5
@@ -39,7 +36,7 @@ docker:
   before_script:
   - *set-tag
   - apk add make bash
-  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  - docker login -u epic-gateway+gitlab_ci -p $QUAY_EPIC_GATEWAY quay.io
 
   script:
-  - make SUFFIX=${TAG_SPECIFIC} GITLAB_USER=gitlab-ci-token GITLAB_PASSWORD=${CI_JOB_TOKEN} docker-build docker-push
+  - make SUFFIX=${TAG_SPECIFIC} docker-build docker-push

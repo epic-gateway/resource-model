@@ -8,7 +8,7 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"gitlab.com/acnodal/epic/resource-model/cmd"
+	"epic-gateway.org/resource-model/cmd"
 )
 
 func init() {

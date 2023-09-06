@@ -3,8 +3,8 @@ package pfc
 import (
 	"fmt"
 
+	epicexec "epic-gateway.org/resource-model/internal/exec"
 	"github.com/go-logr/logr"
-	epicexec "gitlab.com/acnodal/epic/resource-model/internal/exec"
 )
 
 // SetupNIC adds the PFC components to nic.
