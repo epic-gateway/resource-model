@@ -70,6 +70,10 @@ fmt:
 vet:
 	go vet ./...
 
+.PHONY: go-push
+go-push:
+	GOPROXY=proxy.golang.org go list -m epic-gateway.org/${PREFIX}@${SUFFIX}
+
 # Generate code
 .PHONY: generate
 generate: controller-gen
