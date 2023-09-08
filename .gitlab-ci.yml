@@ -18,15 +18,13 @@ manifest:
   - apt-get install -y gettext-base
 
   script:
-  - make SUFFIX=${TAG_SPECIFIC} all
-  - tar czf epic-install.tar.gz config deploy
+  - make SUFFIX=${TAG_SPECIFIC} all go-push
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file epic-install.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/epic-install.tar.gz"'
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/epic-resource-model.yaml "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/epic-resource-model.yaml"'
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/manager "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/manager"'
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/manager.service "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/manager.service"'
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/manager-restart.service "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/manager-restart.service"'
   - 'curl --silent --show-error --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file deploy/manager-restart.path "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/manifest-package/${TAG_SPECIFIC}/manager-restart.path"'
-  # FIXME: "go list" this module to add it to the checksum db
 
 docker:
   image: docker:20.10.5
@@ -39,4 +37,4 @@ docker:
   - docker login -u epic-gateway+gitlab_ci -p $QUAY_EPIC_GATEWAY quay.io
 
   script:
-  - make SUFFIX=${TAG_SPECIFIC} docker-build docker-push
+  - make SUFFIX=${TAG_SPECIFIC} image-build image-push

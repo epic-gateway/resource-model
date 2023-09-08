@@ -33,7 +33,11 @@ endif
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-all: manifests manager
+all: tar image-build
+
+# Build release tarball
+tar: manifests manager
+	tar czf epic-install.tar.gz config deploy
 
 # Run tests
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
@@ -70,17 +74,21 @@ fmt:
 vet:
 	go vet ./...
 
+.PHONY: go-push
+go-push:
+	GOPROXY=proxy.golang.org go list -m epic-gateway.org/${PREFIX}@${SUFFIX}
+
 # Generate code
 .PHONY: generate
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-# Build the docker image
-docker-build:
+# Build the container image
+image-build:
 	docker build . -t ${IMG}
 
-# Push the docker image
-docker-push:
+# Push the container image
+image-push:
 	docker push ${IMG}
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
