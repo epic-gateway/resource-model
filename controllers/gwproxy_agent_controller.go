@@ -168,10 +168,15 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			clientTunnelMap, hasClientMap := proxy.Spec.GUETunnelMaps[epInfo.Spec.NodeAddress]
 			if !hasClientMap {
 				pl.Error(fmt.Errorf("no client-side tunnel info for node %s", epInfo.Spec.NodeAddress), "setting up tunnels")
+				continue
 			}
 
 			tunnelInfo, hasTunnelInfo := clientTunnelMap.EPICEndpoints[proxyInfo.EPICNodeAddress]
 			if !hasTunnelInfo {
+				continue
+			}
+			if tunnelInfo.Port.Port == 0 {
+				pl.Info("port value is 0", "tunnelInfo", tunnelInfo)
 				continue
 			}
 
