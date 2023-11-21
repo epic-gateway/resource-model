@@ -107,6 +107,7 @@ type EPICStatus struct {
 	// write that back using Update() and not Patch(). If the write
 	// succeeds then they own that value. If not then they need to try
 	// again.
+	// +kubebuilder:default=1
 	CurrentTunnelID uint32 `json:"current-tunnel-id"`
 }
 
