@@ -182,6 +182,12 @@ func prebootCleanup(ctx context.Context, log logr.Logger) error {
 		return err
 	}
 
+	// Allocate a tunnel ID so we start at 1 (yes, and we will
+	// waste some but they're plentiful).
+	if _, err := epicv1.AllocateTunnelID(ctx, log, cl); err != nil {
+		log.Error(err, "incrementing tunnel ID")
+	}
+
 	// "Nudge" the proxy pods to trigger the python daemon to
 	// re-populate the ifindex and ifname annotations
 	proxies, err := listProxyPods(ctx, cl)
