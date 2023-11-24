@@ -182,6 +182,11 @@ func AllocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tun
 			return err
 		}
 
+		if epic.Status.CurrentTunnelID == 0 {
+			l.Info("adjusting tunnelID")
+			epic.Status.CurrentTunnelID = 1
+		}
+
 		tunnelID = epic.Status.CurrentTunnelID
 		epic.Status.CurrentTunnelID++
 
