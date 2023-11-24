@@ -4,7 +4,9 @@ import (
 	"context"
 	"net"
 	"os"
+	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
@@ -172,7 +174,14 @@ func addrFamily(lbIP net.IP) (lbIPFamily int) {
 // this call succeeds (i.e., error is nil) then the returned ID will
 // be unique.
 func AllocateTunnelID(ctx context.Context, l logr.Logger, cl client.Client) (tunnelID uint32, err error) {
-	return tunnelID, retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	var Retry = wait.Backoff{
+		Steps:    5,
+		Duration: 2 * time.Second,
+		Factor:   1.0,
+		Jitter:   0.1,
+	}
+
+	return tunnelID, retry.RetryOnConflict(Retry, func() error {
 		var epic EPIC
 
 		// Fetch the resource here; you need to refetch it on every try,

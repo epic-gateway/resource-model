@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	marin3roperator "github.com/3scale-ops/marin3r/apis/operator.marin3r/v1alpha1"
@@ -180,6 +181,20 @@ func prebootCleanup(ctx context.Context, log logr.Logger) error {
 	cl, err := adHocClient(scheme)
 	if err != nil {
 		return err
+	}
+
+	// Allocate a tunnel ID so we start at 1 (yes, we will waste
+	// some but they're plentiful).
+	var epic epicv1.EPIC
+	err = fmt.Errorf("Placeholder")
+	for err != nil {
+		err = cl.Get(ctx, client.ObjectKey{Namespace: epicv1.ConfigNamespace, Name: epicv1.ConfigName}, &epic)
+		if err != nil {
+			log.Info("can't find EPIC singleton", "message", err)
+		}
+	}
+	if _, err := epicv1.AllocateTunnelID(ctx, log, cl); err != nil {
+		log.Error(err, "incrementing tunnel ID")
 	}
 
 	// "Nudge" the proxy pods to trigger the python daemon to
