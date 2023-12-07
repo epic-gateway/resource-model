@@ -28,8 +28,8 @@ func SetupNIC(logger logr.Logger, nic string, function string, direction string,
 		log.Error(err, "ingress filter add error")
 	}
 
-	// ./cli_cfg set nic 0 0 9 "nic rx"
-	err = configurePFC(log, nic, qid, flags, direction)
+	// cli_cfg set eth0 0 8
+	err = configure(log, nic, qid, flags)
 	if err == nil {
 		log.V(1).Info("pfc configured", "qid", qid, "flags", flags)
 	} else {
@@ -53,8 +53,7 @@ func AddFilter(log logr.Logger, nic string, direction string, filter string) err
 	return epicexec.RunScript(log, script)
 }
 
-func configurePFC(log logr.Logger, nic string, qid int, flags int, direction string) error {
-	// configure the PFC
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_cfg set %[1]s %[2]d %[3]d \"%[1]s %[4]s\"", nic, qid, flags, direction)
+func configure(log logr.Logger, nic string, qid int, flags int) error {
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_cfg set %[1]s %[2]d %[3]d", nic, qid, flags)
 	return epicexec.RunScript(log, script)
 }
