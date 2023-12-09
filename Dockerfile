@@ -14,8 +14,8 @@ COPY ./ ./
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
 
-FROM ubuntu:20.04
+FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y curl ipset iptables iproute2 linux-tools-generic
+RUN apt-get update && apt-get install -y curl ipset iptables iproute2
 
 COPY --from=builder /opt/acnodal/src/manager /usr/local/bin/manager
