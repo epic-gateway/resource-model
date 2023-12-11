@@ -43,11 +43,6 @@ type LoadBalancerSpec struct {
 	// PublicPorts is the set of ports on which this LB will listen.
 	PublicPorts []corev1.ServicePort `json:"public-ports,omitempty"`
 
-	// TunnelKey authenticates clients with the EPIC. It must be a
-	// base64-encoded 128-bit value. If not present, this will be filled
-	// in by the defaulting webhook.
-	TunnelKey string `json:"tunnel-key,omitempty"`
-
 	// EnvoyTemplate is the template that will be used to configure
 	// Envoy for the load balancers that belong to this LBServiceGroup. It
 	// can be provided by the user, but if not it will be copied from

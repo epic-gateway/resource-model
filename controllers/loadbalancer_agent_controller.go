@@ -164,7 +164,7 @@ func (r *LoadBalancerAgentReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 			// Set up a service gateway from this proxy to this rep
 			l.Info("setting up rep", "rep", epInfo)
-			if err := configureService(l, epInfo.Spec, proxyInfo.Index, tunnelInfo.TunnelID, lb.Spec.TunnelKey); err != nil {
+			if err := configureService(l, epInfo.Spec, proxyInfo.Index, tunnelInfo.TunnelID); err != nil {
 				lt.Error(err, "setting up service gateway")
 			}
 		}

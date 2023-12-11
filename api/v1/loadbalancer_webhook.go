@@ -63,12 +63,6 @@ func (r *LoadBalancer) Default() {
 		r.Spec.EnvoyReplicaCount = pointer.Int32Ptr(sg.Spec.EnvoyReplicaCount)
 	}
 
-	// Generate the random tunnel key that we'll use to authenticate the
-	// EGO in the GUE tunnel
-	if r.Spec.TunnelKey == "" {
-		r.Spec.TunnelKey = generateTunnelKey()
-	}
-
 	// Add an external address if needed
 	if r.Spec.PublicAddress == "" {
 		address, err := allocator.AllocateFromPool(r.NamespacedName().String(), poolName, r.Spec.PublicPorts, "")

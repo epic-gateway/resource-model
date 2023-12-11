@@ -56,7 +56,7 @@ func (r *GWProxyAdhocReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 
 			// Set up a service gateway from this proxy to this rep.
-			if err := setService(l, proxy.Spec.TunnelKey, tunnelInfo.TunnelID); err != nil {
+			if err := setService(l, tunnelInfo.TunnelID); err != nil {
 				l.Error(err, "Setting up service gateway")
 			}
 
@@ -86,6 +86,6 @@ func setTunnel(log logr.Logger, tunnelID uint32, tunnelAddr string, myAddr strin
 }
 
 // setService sets the parameters needed by one PFC service.
-func setService(log logr.Logger, tunnelAuth string, tunnelID uint32) error {
-	return epicexec.RunScript(log, fmt.Sprintf("/opt/acnodal/bin/cli_service set-node %[1]d %[2]d %[3]s %[4]d", tunnelID>>16, tunnelID&0xff, tunnelAuth, tunnelID))
+func setService(log logr.Logger, tunnelID uint32) error {
+	return epicexec.RunScript(log, fmt.Sprintf("/opt/acnodal/bin/cli_service set-node %[1]d %[2]d %[3]d", tunnelID>>16, tunnelID&0xff, tunnelID))
 }

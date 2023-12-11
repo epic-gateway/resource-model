@@ -2,8 +2,6 @@ package v1
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"net"
 
@@ -31,14 +29,6 @@ var (
 // +kubebuilder:object:generate=false
 type PoolAllocator interface {
 	AllocateFromPool(string, string, []corev1.ServicePort, string) (net.IP, error)
-}
-
-// generateTunnelKey generates a 128-bit tunnel key and returns it as
-// a base64-encoded string.
-func generateTunnelKey() string {
-	raw := make([]byte, 16, 16)
-	_, _ = rand.Read(raw)
-	return base64.StdEncoding.EncodeToString(raw)
 }
 
 // SetupWebhookWithManager sets up this webhook to be managed by mgr.
@@ -83,12 +73,6 @@ func (r *GWProxy) Default() {
 	}
 	if r.Spec.EnvoyReplicaCount == nil || *r.Spec.EnvoyReplicaCount < 1 {
 		r.Spec.EnvoyReplicaCount = pointer.Int32Ptr(sg.Spec.EnvoyReplicaCount)
-	}
-
-	// Generate the random tunnel key that we'll use to authenticate the
-	// EGO in the GUE tunnel
-	if r.Spec.TunnelKey == "" {
-		r.Spec.TunnelKey = generateTunnelKey()
 	}
 
 	// Add an external address if needed
