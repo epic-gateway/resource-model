@@ -92,10 +92,6 @@ func (r *GWProxyAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Check if k8s wants to delete this object
 	if !proxy.ObjectMeta.DeletionTimestamp.IsZero() {
-		// if err := cleanupPFC(log, lb, account.Spec.GroupID); err != nil {
-		// 	log.Error(err, "Failed to cleanup PFC")
-		// }
-
 		if err := cleanupLinux(ctx, l, r, prefix.Name, prefix.Spec.PublicPool, proxy.Name, publicAddr, proxy.Spec.PublicPorts); err != nil {
 			l.Error(err, "Failed to cleanup Linux")
 		}
@@ -248,6 +244,6 @@ func configureTunnel(l logr.Logger, ep epicv1.GUETunnelEndpoint) error {
 }
 
 func configureService(l logr.Logger, ep epicv1.RemoteEndpointSpec, ifindex int, tunnelID uint32) error {
-	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d %[2]d %[3]d tcp %[4]s %[5]d %[6]d", tunnelID>>16, tunnelID&0xffff, tunnelID, ep.Address, ep.Port.Port, ifindex)
+	script := fmt.Sprintf("/opt/acnodal/bin/cli_service set-gw %[1]d tcp %[2]s %[3]d %[4]d", tunnelID, ep.Address, ep.Port.Port, ifindex)
 	return epicexec.RunScript(l, script)
 }

@@ -203,7 +203,7 @@ func (r *LoadBalancerAgentReconciler) Scheme() *runtime.Scheme {
 }
 
 func deleteService(l logr.Logger, tunnelID uint32) error {
-	return epicexec.RunScript(l, fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d %[2]d", tunnelID>>16, tunnelID&0xffff))
+	return epicexec.RunScript(l, fmt.Sprintf("/opt/acnodal/bin/cli_service del %[1]d", tunnelID))
 }
 
 // cleanupPFC undoes the PFC setup that we did for this lb.
