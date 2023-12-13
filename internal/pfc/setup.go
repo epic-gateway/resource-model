@@ -57,3 +57,14 @@ func configure(log logr.Logger, nic string, qid int, flags int) error {
 	script := fmt.Sprintf("/opt/acnodal/bin/cli_cfg set %[1]s %[2]d %[3]d", nic, qid, flags)
 	return epicexec.RunScript(log, script)
 }
+
+func Check(log logr.Logger) error {
+	return epicexec.RunScript(log, "cat /opt/acnodal/bin/VERSION")
+}
+
+func Initialize(log logr.Logger) error {
+	if err := epicexec.RunScript(log, fmt.Sprintf("/opt/acnodal/bin/cli_service del all")); err != nil {
+		return err
+	}
+	return epicexec.RunScript(log, fmt.Sprintf("/opt/acnodal/bin/cli_tunnel del all"))
+}

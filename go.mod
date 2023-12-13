@@ -5,7 +5,6 @@ go 1.19
 replace github.com/3scale-ops/marin3r => epic-gateway.org/marin3r v0.9.1-epic7
 
 require (
-	epic-gateway.org/true-ingress v0.22.4
 	github.com/3scale-ops/marin3r v0.9.1
 	github.com/containernetworking/plugins v0.8.7
 	github.com/go-logr/logr v1.2.0

@@ -7,7 +7,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"epic-gateway.org/resource-model/controllers"
-	"epic-gateway.org/resource-model/internal/exec"
 	"epic-gateway.org/resource-model/internal/network"
 	"epic-gateway.org/resource-model/internal/pfc"
 	// +kubebuilder:scaffold:imports
@@ -75,8 +74,11 @@ func runAdhocAgent(cmd *cobra.Command, args []string) error {
 
 	setupLog.V(1).Info("Cleaning up TrueIngress")
 
-	// Empty the PFC tables.
-	if err := exec.RunScript(setupLog, "/opt/acnodal/bin/pfc_cli_go initialize"); err != nil {
+	// See if the PFC is installed
+	pfc.Check(setupLog)
+
+	// Empty the PFC tables
+	if err := pfc.Initialize(setupLog); err != nil {
 		return err
 	}
 
