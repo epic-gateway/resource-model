@@ -682,27 +682,58 @@ func sortRouteRules(route epicv1.GWRoute) (epicv1.GWRoute, error) {
 		iRule := sorted.Spec.HTTP.Rules[i]
 		jRule := sorted.Spec.HTTP.Rules[j]
 
-		// Override the order if the first candidate is the catchall path
-		// match, i.e. prefix "/" with no other matches.
-		if isCatchall(iRule) {
-			return false
+		// The catchall path match is the lowest precedence.  Override the
+		// order (i.e., push "i" up and "j" down) if "j" is the catchall
+		// path match.
+		if isCatchall(jRule) {
+			return true
 		}
 
-		// Simpler criteria are easier to match so they need to be checked
-		// later than more complex criteria. You might have two criteria
-		// with the same path but one of them also has a header. The one
-		// with two different matches needs to be first because otherwise
-		// it will never even get checked because the simpler one will
-		// match in every case that the complex one would.
-		//
-		// This is a simple approach that probably won't handle every case
-		// but will handle many of them.
-		if criteriaCount(iRule.Matches[0]) < criteriaCount(jRule.Matches[0]) { // FIXME: handle multi-match rules
-			return false
+		iMatch := iRule.Matches[0]
+		jMatch := jRule.Matches[0]
+
+		// Exact path match is the highest precedence. If i is an exact
+		// path match and j isn't then i moves up.
+		if iMatch.Path != nil &&
+			*iMatch.Path.Type == gatewayv1a2.PathMatchExact &&
+      jMatch.Path == nil {
+				return true
+			}
+
+		// If they're both prefix matches then the longest goes first.
+		if iMatch.Path != nil &&
+			*iMatch.Path.Type == gatewayv1a2.PathMatchPathPrefix &&
+      jMatch.Path != nil &&
+			*jMatch.Path.Type == gatewayv1a2.PathMatchPathPrefix {
+				iLen := len(*iMatch.Path.Value)
+				jLen := len(*jMatch.Path.Value)
+				if iLen > jLen {
+					return true
+				}
+			}
+
+		// If i is a Method match and j isn't a Path or Method then i goes
+		// first.
+		if iMatch.Method != nil &&
+		jMatch.Path == nil &&
+		jMatch.Method == nil {
+			return true
+		}
+
+		// If both i and j are header matches then whichever has more
+		// matches goes first.
+		if len(iMatch.Headers) > 0 && len(jMatch.Headers) > 0 {
+			return len(iMatch.Headers) > len(jMatch.Headers)
+		}
+
+		// If both i and j are query matches then whichever has more
+		// matches goes first.
+		if len(iMatch.QueryParams) > 0 &&	len(jMatch.QueryParams) > 0 {
+			return len(iMatch.QueryParams) > len(jMatch.QueryParams)
 		}
 
 		// We haven't seen anything to cause us to change the order.
-		return true
+		return false
 	})
 
 	return *sorted, nil
