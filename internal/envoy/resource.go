@@ -134,6 +134,13 @@ var (
 			}
 			return
 		},
+
+		// This can be handy if the data contains *string, for example:
+		// `{{- if eq "string-value" ($strPtr | DerefStr) }}`.
+		"DerefStr": func(s *string) string { return *s },
+
+		// Envoy requires that path_separated_prefix *not* end in "/"
+		"StripTrailingSlash": func(s *string) string { return strings.TrimSuffix(*s, "/") },
 	}
 )
 
