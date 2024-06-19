@@ -8,7 +8,7 @@ import (
 type AccountSpec struct {
 	// ProxyLimit defines how many proxies can be created in this
 	// account.
-	// +kubebuilder:default=2
+	// +kubebuilder:default=20
 	ProxyLimit int `json:"proxyLimit,omitempty"`
 }
 
