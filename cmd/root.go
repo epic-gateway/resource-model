@@ -34,6 +34,7 @@ func init() {
 	Root.PersistentFlags().BoolVar(&debug, "debug", true, "Enable debug logs")
 	Root.PersistentFlags().StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address to which the metrics endpoint binds")
 	Root.PersistentFlags().String("config", "", "Override config file name")
+	Root.PersistentFlags().String("kubeconfig", "", "Kubernetes client config file name")
 }
 
 // configureCommand configures logging, and file/env input using

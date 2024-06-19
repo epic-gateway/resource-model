@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	epicv1 "epic-gateway.org/resource-model/api/v1"
@@ -39,7 +40,8 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 	setupLog := ctrl.Log.WithName("setup")
 	setupLog.Info("running agent")
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	cfg := ctrl.GetConfigOrDie()
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
@@ -94,11 +96,11 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Clean up data from before we rebooted
-	ctx := context.Background()
-	if err := prebootNodeCleanup(ctx, setupLog); err != nil {
-		return err
-	}
+	// // Clean up data from before we rebooted
+	// ctx := context.Background()
+	// if err := prebootNodeCleanup(ctx, setupLog, cfg); err != nil {
+	// 	return err
+	// }
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
@@ -114,12 +116,12 @@ func runNodeAgent(cmd *cobra.Command, args []string) error {
 // after a reboot so we zero them and "nudge" the Envoy pods so Python
 // re-writes them. See also prebootCleanup() in controller_manager.go
 // for the system-wide preboot cleanup.
-func prebootNodeCleanup(ctx context.Context, l logr.Logger) error {
+func prebootNodeCleanup(ctx context.Context, l logr.Logger, cfg *rest.Config) error {
 
 	// We use an ad-hoc client here because the mgr.GetClient() doesn't
 	// start until you call mgr.Start() but we want to do this cleanup
 	// before the controllers start
-	cl, err := adHocClient(scheme)
+	cl, err := adHocClient(scheme, cfg)
 	if err != nil {
 		return err
 	}
