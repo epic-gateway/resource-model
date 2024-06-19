@@ -16,7 +16,6 @@ package envoy
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"reflect"
@@ -471,7 +470,6 @@ func collapse(listeners map[gatewayv1a2.Listener][]epicv1.GWRoute) (map[gatewayv
 	for l1, r1 := range listeners {
 		// Seed the output map with the first listener.
 		if len(collapsed) == 0 {
-			fmt.Printf("collapsed seeding set with %s\n", l1.Name)
 			collapsed[l1] = r1
 		} else {
 			// For every listener except the first one, compare it to each
@@ -480,10 +478,8 @@ func collapse(listeners map[gatewayv1a2.Listener][]epicv1.GWRoute) (map[gatewayv
 			for l2 := range collapsed {
 				if l1 != l2 {
 					if compatibleListeners(l1, l2) {
-						fmt.Printf("collapsed collapsing %s into %s\n", l1.Name, l2.Name)
 						collapsed[l2] = append(collapsed[l2], listeners[l1]...)
 					} else {
-						fmt.Printf("collapsed adding %s to set\n", l1.Name)
 						collapsed[l1] = r1
 					}
 				}
@@ -501,22 +497,18 @@ func collapse(listeners map[gatewayv1a2.Listener][]epicv1.GWRoute) (map[gatewayv
 func compatibleListeners(l1 gatewayv1a2.Listener, l2 gatewayv1a2.Listener) bool {
 	// If the ports don't match then they're not compatible.
 	if l1.Port != l2.Port {
-		fmt.Printf("collapsed %s and %s are NOT compatible: port mismatch\n", l1.Name, l2.Name)
 		return false
 	}
 
 	// If the two protocols match then they're compatible
 	if l1.Protocol == l2.Protocol {
-		fmt.Printf("collapsed %s and %s are compatible\n", l1.Name, l2.Name)
 		return true
 	}
 
 	if (l1.Protocol == gatewayv1a2.HTTPSProtocolType || l1.Protocol == gatewayv1a2.TLSProtocolType) && (l2.Protocol == gatewayv1a2.HTTPSProtocolType || l2.Protocol == gatewayv1a2.TLSProtocolType) {
-		fmt.Printf("collapsed %s and %s are compatible\n", l1.Name, l2.Name)
 		return true
 	}
 
-	fmt.Printf("collapsed %s and %s are NOT compatible\n", l1.Name, l2.Name)
 	return false
 }
 
@@ -742,9 +734,6 @@ func combineRouteRules(unmerged epicv1.GWRoute) (epicv1.GWRoute, error) {
 			if shouldMerge(possibleMerge, inputRule) {
 				output.Spec.HTTP.Rules[i].BackendRefs = append(possibleMerge.BackendRefs, inputRule.BackendRefs...)
 
-				bytes, _ := json.MarshalIndent(output.Spec.HTTP.Rules, "", " ")
-				fmt.Println("***** Merged: " + string(bytes))
-
 				// Since we merged the inputRule into another output rule, we
 				// don't want to add it to the output.
 				addRule = false
@@ -755,9 +744,6 @@ func combineRouteRules(unmerged epicv1.GWRoute) (epicv1.GWRoute, error) {
 		if addRule {
 			// The input rule wasn't merged so add it as-is to the output.
 			output.Spec.HTTP.Rules = append(output.Spec.HTTP.Rules, inputRule)
-
-			bytes, _ := json.MarshalIndent(output.Spec.HTTP.Rules, "", " ")
-			fmt.Println("***** Added: " + string(bytes))
 		}
 
 	}
