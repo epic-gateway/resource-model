@@ -60,7 +60,8 @@ func runControllers(cmd *cobra.Command, args []string) error {
 	setupLog := ctrl.Log.WithName("setup")
 	setupLog.Info("running manager")
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	cfg := ctrl.GetConfigOrDie()
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
@@ -155,7 +156,7 @@ func runControllers(cmd *cobra.Command, args []string) error {
 
 	// Clean up data from before we rebooted
 	ctx := context.Background()
-	if err := prebootCleanup(ctx, setupLog); err != nil {
+	if err := prebootCleanup(ctx, setupLog, cfg); err != nil {
 		return err
 	}
 
@@ -172,12 +173,12 @@ func runControllers(cmd *cobra.Command, args []string) error {
 // we zero them and "nudge" the Envoy pods so Python re-writes
 // them. See also prebootNodeCleanup() in node-agent.go for the
 // node-specific preboot cleanup.
-func prebootCleanup(ctx context.Context, log logr.Logger) error {
+func prebootCleanup(ctx context.Context, log logr.Logger, cfg *rest.Config) error {
 
 	// We use an ad-hoc client here because the mgr.GetClient() doesn't
 	// start until you call mgr.Start() but we want to do this cleanup
 	// before the controllers start
-	cl, err := adHocClient(scheme)
+	cl, err := adHocClient(scheme, cfg)
 	if err != nil {
 		return err
 	}
@@ -248,11 +249,7 @@ func cleanIntfAnnotations(ctx context.Context, cl client.Client, podNS string, p
 // use an ad-hoc client in early startup because the mgr.GetClient()
 // doesn't start until you call mgr.Start() but we want to do some
 // cleanup before the controllers start.
-func adHocClient(scheme *runtime.Scheme) (client.Client, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
+func adHocClient(scheme *runtime.Scheme, config *rest.Config) (client.Client, error) {
 	cl, err := client.New(config, client.Options{
 		Scheme: scheme,
 	})
