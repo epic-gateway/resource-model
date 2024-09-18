@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
+	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -187,7 +188,7 @@ type listenerParams struct {
 
 // ServiceToCluster translates from our RemoteEndpoint objects to a
 // Marin3r Resource containing a text Envoy Cluster config.
-func ServiceToCluster(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndpoint) ([]marin3r.EnvoyResource, error) {
+func ServiceToCluster(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndpoint, log logr.Logger) ([]marin3r.EnvoyResource, error) {
 	var (
 		tmpl     *template.Template
 		err      error
@@ -211,6 +212,9 @@ func ServiceToCluster(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndp
 				PureLBServiceName: service.Spec.DisplayName,
 				Endpoints:         endpoints,
 			})
+			if err != nil {
+				log.Error(err, "Processing template")
+			}
 
 			clusters = append(clusters, marin3r.EnvoyResource{Name: clusterName, Value: doc.String()})
 		}
@@ -221,7 +225,7 @@ func ServiceToCluster(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndp
 
 // routesToClusters translates from our GWRoute objects to Marin3r
 // Resources containing text Envoy Cluster configs.
-func routesToClusters(proxy epicv1.GWProxy, routes []epicv1.GWRoute) ([]marin3r.EnvoyResource, error) {
+func routesToClusters(proxy epicv1.GWProxy, routes []epicv1.GWRoute, log logr.Logger) ([]marin3r.EnvoyResource, error) {
 	var (
 		tmpl     *template.Template
 		err      error
@@ -253,9 +257,15 @@ func routesToClusters(proxy epicv1.GWProxy, routes []epicv1.GWRoute) ([]marin3r.
 				ServiceName:       proxy.Name,
 				PureLBServiceName: proxy.Spec.DisplayName,
 			})
-			// FIXME: log errors
+			if err != nil {
+				log.Error(err, "Processing template")
+			}
 
-			clusters = append(clusters, marin3r.EnvoyResource{Name: clusterName, Value: doc.String()})
+			// If the output of the template is empty then we don't want to
+			// add it to the Envoy config.
+			if doc.Len() > 0 {
+				clusters = append(clusters, marin3r.EnvoyResource{Name: clusterName, Value: doc.String()})
+			}
 		}
 	}
 
@@ -338,9 +348,9 @@ func executeListenerTemplate(listenerTemplate string, proxy epicv1.GWProxy, list
 
 // GWProxyToEnvoyConfig translates one of our epicv1.GWproxy resources
 // into a Marin3r EnvoyConfig.
-func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute) (marin3r.EnvoyConfig, error) {
+func GWProxyToEnvoyConfig(proxy epicv1.GWProxy, routes []epicv1.GWRoute, log logr.Logger) (marin3r.EnvoyConfig, error) {
 	// Build a cluster for each Route back-end reference.
-	clusters, err := routesToClusters(proxy, routes)
+	clusters, err := routesToClusters(proxy, routes, log)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
 	}
@@ -430,8 +440,8 @@ func makeHTTPListener(listenerConfigFragment string, service epicv1.LoadBalancer
 
 // ServiceToEnvoyConfig translates one of our epicv1.LoadBalancers into
 // a Marin3r EnvoyConfig
-func ServiceToEnvoyConfig(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndpoint) (marin3r.EnvoyConfig, error) {
-	cluster, err := ServiceToCluster(service, endpoints)
+func ServiceToEnvoyConfig(service epicv1.LoadBalancer, endpoints []epicv1.RemoteEndpoint, log logr.Logger) (marin3r.EnvoyConfig, error) {
+	cluster, err := ServiceToCluster(service, endpoints, log)
 	if err != nil {
 		return marin3r.EnvoyConfig{}, err
 	}
@@ -703,27 +713,27 @@ func sortRouteRules(route epicv1.GWRoute) (epicv1.GWRoute, error) {
 		// path match and j isn't then i moves up.
 		if iMatch.Path != nil &&
 			*iMatch.Path.Type == gatewayv1a2.PathMatchExact &&
-      jMatch.Path == nil {
-				return true
-			}
+			jMatch.Path == nil {
+			return true
+		}
 
 		// If they're both prefix matches then the longest goes first.
 		if iMatch.Path != nil &&
 			*iMatch.Path.Type == gatewayv1a2.PathMatchPathPrefix &&
-      jMatch.Path != nil &&
+			jMatch.Path != nil &&
 			*jMatch.Path.Type == gatewayv1a2.PathMatchPathPrefix {
-				iLen := len(*iMatch.Path.Value)
-				jLen := len(*jMatch.Path.Value)
-				if iLen > jLen {
-					return true
-				}
+			iLen := len(*iMatch.Path.Value)
+			jLen := len(*jMatch.Path.Value)
+			if iLen > jLen {
+				return true
 			}
+		}
 
 		// If i is a Method match and j isn't a Path or Method then i goes
 		// first.
 		if iMatch.Method != nil &&
-		jMatch.Path == nil &&
-		jMatch.Method == nil {
+			jMatch.Path == nil &&
+			jMatch.Method == nil {
 			return true
 		}
 
@@ -735,7 +745,7 @@ func sortRouteRules(route epicv1.GWRoute) (epicv1.GWRoute, error) {
 
 		// If both i and j are query matches then whichever has more
 		// matches goes first.
-		if len(iMatch.QueryParams) > 0 &&	len(jMatch.QueryParams) > 0 {
+		if len(iMatch.QueryParams) > 0 && len(jMatch.QueryParams) > 0 {
 			return len(iMatch.QueryParams) > len(jMatch.QueryParams)
 		}
 

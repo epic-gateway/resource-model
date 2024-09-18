@@ -7,7 +7,7 @@ replace github.com/3scale-ops/marin3r => epic-gateway.org/marin3r v0.9.1-epic7
 require (
 	github.com/3scale-ops/marin3r v0.9.1
 	github.com/containernetworking/plugins v0.8.7
-	github.com/go-logr/logr v1.2.0
+	github.com/go-logr/logr v1.4.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1

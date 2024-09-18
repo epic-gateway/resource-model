@@ -169,7 +169,7 @@ func (r *GWProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	l.V(1).Info("Input routes", "count", len(inputRoutes), "routes", inputRoutes)
 
 	// Build a new EnvoyConfig
-	envoyConfig, err := envoy.GWProxyToEnvoyConfig(*proxy, inputRoutes)
+	envoyConfig, err := envoy.GWProxyToEnvoyConfig(*proxy, inputRoutes, l)
 	if err != nil {
 		return done, err
 	}

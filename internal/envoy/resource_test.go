@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	marin3r "github.com/3scale-ops/marin3r/apis/marin3r/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -139,7 +140,8 @@ var (
 )
 
 func TestServiceToCluster(t *testing.T) {
-	cluster, err := ServiceToCluster(testService, []epicv1.RemoteEndpoint{})
+	log := testr.NewWithOptions(t, testr.Options{})
+	cluster, err := ServiceToCluster(testService, []epicv1.RemoteEndpoint{}, log)
 	assert.Nil(t, err, "template processing failed")
 	fmt.Println(cluster)
 
@@ -151,7 +153,7 @@ func TestServiceToCluster(t *testing.T) {
 				Protocol: "udp",
 			},
 		},
-	}})
+	}}, log)
 	if err != nil {
 		fmt.Printf("********************** %#v\n\n", err.Error())
 	}
